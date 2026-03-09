@@ -1,0 +1,364 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+
+// Mock data
+const MOCK_STUDENTS = [
+  { id: 1, name: 'Alice', level: 'Beginner' },
+  { id: 2, name: 'Bob', level: 'Intermediate' },
+  { id: 3, name: 'Carol', level: 'Advanced' },
+];
+
+const MOCK_STUDENT_REPORT = {
+  studentName: 'Alice',
+  level: 'Beginner',
+  totalBooksRead: 5,
+  booksReadInPeriod: 2,
+  vocabGrowth: [45, 52, 58, 63, 71],
+  grammarTrend: [78, 80, 82, 85, 85],
+  topWords: [
+    { word: 'caterpillar', count: 8 },
+    { word: 'beautiful', count: 6 },
+    { word: 'hungry', count: 5 },
+    { word: 'butterfly', count: 5 },
+    { word: 'leaves', count: 4 },
+    { word: 'week', count: 4 },
+    { word: 'hungry', count: 3 },
+    { word: 'day', count: 3 },
+    { word: 'egg', count: 2 },
+    { word: 'cocoon', count: 2 },
+  ],
+  improvementAreas: ['Article usage (a/an/the)', 'Past tense formation', 'Word order in questions'],
+};
+
+const MOCK_CLASS_REPORT = {
+  totalStudents: 24,
+  averageScoreByLevel: {
+    Beginner: { grammarScore: 82, completionRate: 85 },
+    Intermediate: { grammarScore: 78, completionRate: 80 },
+    Advanced: { grammarScore: 87, completionRate: 92 },
+  },
+  vocabularyStats: {
+    totalWordsLearned: 2450,
+    averageWordsPerStudent: 102,
+    mostCommonWords: ['said', 'was', 'about', 'could', 'where', 'would', 'other', 'after', 'think', 'their'],
+  },
+};
+
+const DATE_RANGES = ['Last 7 Days', 'Last 30 Days', 'Last 90 Days', 'All Time'];
+
+// Simple SVG Line Chart Component
+function LineChart({ data, height = 250, title = '' }) {
+  if (!data || data.length === 0) return null;
+
+  const maxValue = Math.max(...data);
+  const minValue = Math.min(...data);
+  const range = maxValue - minValue || 1;
+
+  const width = 100;
+  const points = data
+    .map(
+      (val, idx) =>
+        `${(idx / (data.length - 1)) * width},${
+          height - ((val - minValue) / range) * (height - 20)
+        }`
+    )
+    .join(' ');
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} className="w-full border border-gray-200 rounded p-2 bg-white">
+      {/* Grid lines */}
+      {[0, 0.25, 0.5, 0.75, 1].map((pct, idx) => (
+        <line
+          key={idx}
+          x1="0"
+          y1={height - pct * (height - 20)}
+          x2={width}
+          y2={height - pct * (height - 20)}
+          stroke="#e0e0e0"
+          strokeWidth="0.5"
+        />
+      ))}
+      {/* Line */}
+      <polyline points={points} fill="none" stroke="#4A90D9" strokeWidth="2" />
+      {/* Points */}
+      {data.map((val, idx) => (
+        <circle
+          key={idx}
+          cx={(idx / (data.length - 1)) * width}
+          cy={height - ((val - minValue) / range) * (height - 20)}
+          r="1.5"
+          fill="#4A90D9"
+        />
+      ))}
+      {/* Y-axis labels */}
+      <text x="2" y="15" fontSize="8" fill="#666">
+        {maxValue}
+      </text>
+      <text x="2" y={height - 5} fontSize="8" fill="#666">
+        {minValue}
+      </text>
+    </svg>
+  );
+}
+
+export default function ReportsPage() {
+  const [dateRange, setDateRange] = useState('Last 30 Days');
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [studentReport, setStudentReport] = useState(MOCK_STUDENT_REPORT);
+  const [classReport, setClassReport] = useState(MOCK_CLASS_REPORT);
+  const [activeTab, setActiveTab] = useState('student');
+
+  const handleStudentSelect = (studentId) => {
+    const student = MOCK_STUDENTS.find((s) => s.id === studentId);
+    setSelectedStudent(student);
+    // In a real app, fetch the report for this student
+    setStudentReport(MOCK_STUDENT_REPORT);
+  };
+
+  const handleExportData = () => {
+    const data = activeTab === 'student' ? studentReport : classReport;
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `report-${dateRange.replace(/\s/g, '-').toLowerCase()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header with Controls */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <h1 className="text-3xl font-bold text-gray-800">Reports & Analytics</h1>
+        <div className="flex gap-2 flex-wrap">
+          {DATE_RANGES.map((range) => (
+            <button
+              key={range}
+              onClick={() => setDateRange(range)}
+              className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+                dateRange === range
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+              style={{ minHeight: '48px' }}
+            >
+              {range}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Tab Navigation */}
+      <div className="flex gap-2 border-b-2 border-gray-200">
+        <button
+          onClick={() => setActiveTab('student')}
+          className={`px-6 py-3 font-semibold transition-all border-b-4 ${
+            activeTab === 'student'
+              ? 'text-blue-500 border-blue-500'
+              : 'text-gray-600 border-transparent hover:text-gray-800'
+          }`}
+          style={{ minHeight: '48px' }}
+        >
+          Student Progress
+        </button>
+        <button
+          onClick={() => setActiveTab('class')}
+          className={`px-6 py-3 font-semibold transition-all border-b-4 ${
+            activeTab === 'class'
+              ? 'text-blue-500 border-blue-500'
+              : 'text-gray-600 border-transparent hover:text-gray-800'
+          }`}
+          style={{ minHeight: '48px' }}
+        >
+          Class Overview
+        </button>
+      </div>
+
+      {/* Student Progress Tab */}
+      {activeTab === 'student' && (
+        <div className="space-y-6">
+          {/* Student Selector */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <label className="block text-sm font-semibold text-gray-700 mb-3">
+              Select a Student
+            </label>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {MOCK_STUDENTS.map((student) => (
+                <button
+                  key={student.id}
+                  onClick={() => handleStudentSelect(student.id)}
+                  className={`px-4 py-3 rounded-lg font-semibold transition-all text-left ${
+                    selectedStudent?.id === student.id
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                  style={{ minHeight: '48px' }}
+                >
+                  <div className="font-bold">{student.name}</div>
+                  <div className="text-xs opacity-75">{student.level}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {selectedStudent && (
+            <>
+              {/* Student Info */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {[
+                  { label: 'Level', value: studentReport.level, icon: '📚' },
+                  { label: 'Books Read', value: studentReport.totalBooksRead, icon: '✅' },
+                  { label: 'Words Learned', value: '71', icon: '📝' },
+                ].map((stat, idx) => (
+                  <div key={idx} className="bg-white rounded-lg shadow-md p-4">
+                    <p className="text-gray-500 text-sm font-semibold mb-2">{stat.label}</p>
+                    <div className="flex items-center gap-3">
+                      <span className="text-3xl">{stat.icon}</span>
+                      <span className="text-2xl font-bold text-gray-800">{stat.value}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Charts */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Vocabulary Growth */}
+                <div className="bg-white rounded-lg shadow-md p-6">
+                  <h3 className="text-lg font-bold text-gray-800 mb-4">Vocabulary Growth</h3>
+                  <LineChart data={studentReport.vocabGrowth} height={250} />
+                  <p className="text-xs text-gray-500 mt-2 text-center">Last 5 sessions</p>
+                </div>
+
+                {/* Grammar Accuracy Trend */}
+                <div className="bg-white rounded-lg shadow-md p-6">
+                  <h3 className="text-lg font-bold text-gray-800 mb-4">Grammar Accuracy (%)</h3>
+                  <LineChart data={studentReport.grammarTrend} height={250} />
+                  <p className="text-xs text-gray-500 mt-2 text-center">Last 5 sessions</p>
+                </div>
+              </div>
+
+              {/* Top Words */}
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h3 className="text-lg font-bold text-gray-800 mb-4">Most Used Words (Top 10)</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                  {studentReport.topWords.map((item, idx) => (
+                    <div key={idx} className="bg-blue-50 rounded-lg p-4 text-center border border-blue-200">
+                      <p className="text-lg font-bold text-blue-700 mb-1">{item.word}</p>
+                      <p className="text-sm text-gray-600">Used {item.count} times</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Improvement Areas */}
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h3 className="text-lg font-bold text-gray-800 mb-4">Areas for Improvement</h3>
+                <div className="space-y-3">
+                  {studentReport.improvementAreas.map((area, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center gap-3 p-4 bg-yellow-50 rounded-lg border border-yellow-200"
+                    >
+                      <span className="text-xl">⚠️</span>
+                      <span className="text-gray-800 font-medium">{area}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Class Overview Tab */}
+      {activeTab === 'class' && (
+        <div className="space-y-6">
+          {/* Class Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { label: 'Total Students', value: classReport.totalStudents, icon: '👨‍🎓' },
+              {
+                label: 'Avg Vocab Learned',
+                value: classReport.vocabularyStats.averageWordsPerStudent,
+                icon: '📚',
+              },
+              {
+                label: 'Total Words Learned',
+                value: classReport.vocabularyStats.totalWordsLearned,
+                icon: '📝',
+              },
+              {
+                label: 'Avg Grammar Score',
+                value: '82%',
+                icon: '✅',
+              },
+            ].map((stat, idx) => (
+              <div key={idx} className="bg-white rounded-lg shadow-md p-4">
+                <p className="text-gray-500 text-sm font-semibold mb-2">{stat.label}</p>
+                <div className="flex items-center gap-3">
+                  <span className="text-3xl">{stat.icon}</span>
+                  <span className="text-2xl font-bold text-gray-800">{stat.value}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Average Scores by Level */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h3 className="text-lg font-bold text-gray-800 mb-4">Average Scores by Level</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {Object.entries(classReport.averageScoreByLevel).map(([level, scores]) => (
+                <div key={level} className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-6 border border-blue-200">
+                  <h4 className="text-lg font-bold text-gray-800 mb-4">{level}</h4>
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Grammar Score</p>
+                      <p className="text-3xl font-bold text-blue-600">{scores.grammarScore}%</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Completion Rate</p>
+                      <p className="text-3xl font-bold text-green-600">{scores.completionRate}%</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Most Common Words */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h3 className="text-lg font-bold text-gray-800 mb-4">
+              Most Common Words Across All Students
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {classReport.vocabularyStats.mostCommonWords.map((word, idx) => (
+                <span
+                  key={idx}
+                  className="px-4 py-2 bg-gradient-to-r from-blue-400 to-blue-500 text-white rounded-full font-semibold text-sm"
+                >
+                  {word}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Export Button */}
+      <div className="flex justify-center">
+        <button
+          onClick={handleExportData}
+          className="px-8 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all font-semibold flex items-center gap-2"
+          style={{ minHeight: '48px' }}
+        >
+          ⬇️ Export Data as JSON
+        </button>
+      </div>
+    </div>
+  );
+}

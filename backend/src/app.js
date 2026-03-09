@@ -5,6 +5,7 @@ import authRouter from './routes/auth.js';
 import booksRouter from './routes/books.js';
 import sessionsRouter from './routes/sessions.js';
 import vocabularyRouter from './routes/vocabulary.js';
+import adminRouter from './routes/admin.js';
 
 const app = express();
 
@@ -22,6 +23,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/books', booksRouter);
 app.use('/api/sessions', sessionsRouter);
 app.use('/api/vocabulary', vocabularyRouter);
+app.use('/api/admin', adminRouter);
 
 // Error handler
 app.use(errorHandler);
