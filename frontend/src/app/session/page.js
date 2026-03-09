@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import useSpeech from '@/hooks/useSpeech';
 import StageProgress from '@/components/StageProgress';
 import VoiceButton from '@/components/VoiceButton';
+import { STAGE_GUIDE, getCurrentGuideQuestion } from '@/lib/stageQuestions';
 
 const STAGES = ['Title', 'Introduction', 'Body', 'Conclusion'];
 const MAX_TURNS_PER_STAGE = 3;
@@ -472,9 +473,43 @@ export default function SessionPage() {
         <StageProgress currentStage={currentStage} stages={STAGES} />
       </div>
 
+      {/* Guide Question Panel (Worksheet Style) */}
+      {(() => {
+        const stageData = STAGE_GUIDE[STAGES[currentStage]];
+        const guide = getCurrentGuideQuestion(STAGES[currentStage], bodyReasonCount);
+        return stageData ? (
+          <div className="mx-3 mt-3 mb-1 rounded-xl overflow-hidden shadow-sm border border-gray-100">
+            {/* Stage Label Bar */}
+            <div className="px-4 py-2 flex items-center gap-2" style={{ background: stageData.color }}>
+              <span className="text-lg">{stageData.icon}</span>
+              <span className="text-white font-bold text-sm">{stageData.label}</span>
+              {STAGES[currentStage] === 'Body' && (
+                <span className="ml-auto text-white text-xs font-semibold bg-white bg-opacity-20 px-2 py-0.5 rounded-full">
+                  {bodyReasonCount + 1} / 3
+                </span>
+              )}
+            </div>
+            {/* Guide Question Bubble */}
+            <div className="bg-white px-4 py-3">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span className="text-lg">💬</span>
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-bold text-gray-800">{guide.question}</p>
+                  {guide.example && (
+                    <p className="text-xs text-gray-400 mt-1 italic">{guide.example}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null;
+      })()}
+
       {/* Error Banner */}
       {error && (
-        <div className="bg-amber-50 border-l-4 border-amber-400 p-3 m-2 rounded">
+        <div className="bg-amber-50 border-l-4 border-amber-400 p-3 mx-3 mt-1 rounded">
           <p className="text-sm text-amber-800">
             <span className="font-semibold">Note:</span> {error}
           </p>

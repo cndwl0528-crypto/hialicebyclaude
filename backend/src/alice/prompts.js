@@ -65,46 +65,58 @@ const LEVEL_RULES = {
 
 const STAGE_GUIDANCE = {
   title: {
-    focus: 'Explore first impressions, title interpretation, and predictions',
+    focus: 'What is this book about? Share what you think the book is about.',
+    guideQuestion: 'What is this book about?',
     instructions: [
-      'Ask about what the title means to the student',
-      'Explore why they think the author chose this title',
-      'Ask what they predict the book will be about',
-      'Encourage them to share first impressions'
+      'Ask the student: "What is this book about?"',
+      'Listen to their answer and ask follow-up: "Why do you think that?"',
+      'Help them express the main topic in a complete sentence',
+      'Encourage: "Can you tell me more about what happens?"'
     ],
-    maxQuestions: 3
+    maxQuestions: 3,
+    exampleAnswer: 'e.g. This book is about a caterpillar that becomes a butterfly.'
   },
   introduction: {
-    focus: 'Help understand characters, setting, and initial conflict',
+    focus: 'Who is your favorite character? Why? Tell me about the characters and setting.',
+    guideQuestion: 'Who is your favorite character? Why?',
     instructions: [
-      'Ask about the main character and their traits',
-      'Explore the book\'s setting and time period',
-      'Discuss the initial problem or conflict',
-      'Connect to student\'s own experiences if possible'
+      'Ask the student to choose their favorite character and explain why',
+      'Explore: "What makes this character special to you?"',
+      'Ask: "If you could meet this character, what would you say?"',
+      'Connect to student\'s own experience: "Is this character like someone you know?"'
     ],
-    maxQuestions: 3
+    maxQuestions: 3,
+    exampleAnswer: 'e.g. I would choose the caterpillar because it is brave.'
   },
   body: {
-    focus: 'Guide student to provide 3 reasons with supporting details',
+    focus: 'Tell me 3 things about the story — answer 3 specific questions.',
+    guideQuestion: 'Tell me 3 things about the story',
+    subQuestions: [
+      { number: 1, question: 'What is the most important part of the story? Why?', example: 'e.g. The most important part is when the caterpillar eats all the food.' },
+      { number: 2, question: 'What would you change about the story? Why?', example: 'e.g. I would add more animals because it would be more fun.' },
+      { number: 3, question: 'What did you learn from this story?', example: 'e.g. Moreover, I learned that change can be beautiful.' }
+    ],
     instructions: [
-      'Ask for specific examples or evidence from the text',
-      'Help them structure: "Your first reason is... because..."',
-      'Connect reasons to the book\'s main theme or conflict',
-      'Progressively build complexity across the 3 reasons',
-      'Ask "Can you give me a specific example from the book?"'
+      'IMPORTANT: Body stage has exactly 3 sub-questions. Ask them ONE AT A TIME.',
+      'Sub-Q1: "What is the most important part of the story? Why?"',
+      'Sub-Q2: "What would you change about the story? Why?"',
+      'Sub-Q3: "What did you learn from this story?"',
+      'After each answer, praise the student, then move to the next sub-question',
+      'Help them structure answers: "I think... because..."'
     ],
     maxQuestions: 3
   },
   conclusion: {
-    focus: 'Reflection, personal connection, and recommendation',
+    focus: 'How do you feel about this book? Share your final thoughts.',
+    guideQuestion: 'How do you feel about this book?',
     instructions: [
-      'Ask what the book taught them or made them think about',
-      'Explore personal connections to characters or themes',
-      'Discuss whether they would recommend it and why',
-      'Ask how this book connects to their life or other books',
-      'Celebrate their learning and reading achievement'
+      'Ask the student: "How do you feel about this book?"',
+      'Explore: "What was your favorite moment in the story?"',
+      'Ask: "Would you recommend this book to a friend? Why?"',
+      'Celebrate their achievement: "You did an amazing job talking about this book!"'
     ],
-    maxQuestions: 3
+    maxQuestions: 3,
+    exampleAnswer: 'e.g. Reading this book was really fun and I learned a lot.'
   }
 };
 
