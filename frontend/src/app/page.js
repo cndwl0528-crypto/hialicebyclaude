@@ -7,7 +7,7 @@ const MOCK_CHILDREN = [
   {
     id: 1,
     name: 'Alice',
-    age: 7,
+    age: 8,
     level: 'Beginner',
     avatar: '👧',
     color: '#FF6B9D',
@@ -42,15 +42,37 @@ export default function Home() {
       setError('Please fill in all fields');
       return;
     }
-    // Mock login - just proceed
+    // Save parent auth data to sessionStorage
+    sessionStorage.setItem('parentId', 'parent-' + Date.now());
+    sessionStorage.setItem('authToken', 'token-' + Date.now());
+    sessionStorage.setItem('parentEmail', parentEmail);
     setShowLogin(false);
     setError('');
   };
 
   const handleSelectChild = (child) => {
     setSelectedChild(child);
-    // Store selected child in sessionStorage for use in other pages
-    sessionStorage.setItem('selectedChild', JSON.stringify(child));
+    // Store selected child data in sessionStorage for use in other pages
+    sessionStorage.setItem('studentId', child.id);
+    sessionStorage.setItem('studentName', child.name);
+    sessionStorage.setItem('studentLevel', child.level);
+    sessionStorage.setItem('studentAge', child.age);
+    router.push('/books');
+  };
+
+  const handleDemoMode = () => {
+    // Skip login and use mock student data
+    sessionStorage.setItem('parentId', 'demo-parent');
+    sessionStorage.setItem('authToken', 'demo-token');
+    sessionStorage.setItem('parentEmail', 'demo@hialice.com');
+    
+    // Use first child as demo student
+    const demoChild = MOCK_CHILDREN[0];
+    sessionStorage.setItem('studentId', demoChild.id);
+    sessionStorage.setItem('studentName', demoChild.name);
+    sessionStorage.setItem('studentLevel', demoChild.level);
+    sessionStorage.setItem('studentAge', demoChild.age);
+    
     router.push('/books');
   };
 
@@ -58,24 +80,28 @@ export default function Home() {
     <div className="min-h-[calc(100vh-120px)] flex flex-col items-center justify-center py-12">
       {!showLogin && !selectedChild && (
         <div className="w-full max-w-2xl">
+          {/* Logo Area */}
           <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-primary mb-4">Welcome to HiAlice</h2>
+            <div className="text-8xl mb-4">📚</div>
+            <h1 className="text-5xl font-bold text-primary mb-2">HiAlice</h1>
+            <h2 className="text-2xl font-semibold text-gray-700 mb-4">English Reading Adventure</h2>
             <p className="text-gray-600 text-lg">
               AI-powered English reading for children aged 6-13
             </p>
           </div>
 
-          <div className="bg-white rounded-lg shadow-md p-8 mb-6">
-            <h3 className="text-2xl font-bold text-gray-800 mb-6">Select Your Child</h3>
+          {/* Card Layout */}
+          <div className="bg-white rounded-xl shadow-lg p-8 mb-6">
+            <h3 className="text-2xl font-bold text-gray-800 mb-6 text-center">Select Your Child</h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
               {MOCK_CHILDREN.map((child) => (
                 <div
                   key={child.id}
                   onClick={() => handleSelectChild(child)}
-                  className="p-6 border-2 border-gray-200 rounded-lg hover:shadow-lg cursor-pointer transition-smooth hover:border-blue-400"
+                  className="p-6 border-2 border-gray-200 rounded-lg hover:shadow-xl hover:border-blue-400 cursor-pointer transition-all duration-200 transform hover:scale-105"
                 >
-                  <div className="text-5xl mb-4 text-center">{child.avatar}</div>
+                  <div className="text-6xl mb-4 text-center">{child.avatar}</div>
                   <h4 className="text-xl font-bold text-center text-gray-800 mb-2">
                     {child.name}
                   </h4>
@@ -92,19 +118,28 @@ export default function Home() {
               ))}
             </div>
 
-            <button
-              onClick={() => setShowLogin(true)}
-              className="w-full py-3 px-6 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-smooth font-semibold"
-            >
-              Parent Login
-            </button>
+            <div className="space-y-3">
+              <button
+                onClick={() => setShowLogin(true)}
+                className="w-full py-3 px-6 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all font-semibold"
+              >
+                Parent Login
+              </button>
+              
+              <button
+                onClick={handleDemoMode}
+                className="w-full py-3 px-6 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all font-semibold"
+              >
+                Demo Mode (Try as Alice)
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {showLogin && (
         <div className="w-full max-w-md">
-          <div className="bg-white rounded-lg shadow-md p-8">
+          <div className="bg-white rounded-xl shadow-lg p-8">
             <h3 className="text-2xl font-bold text-gray-800 mb-6">Parent Login</h3>
 
             <form onSubmit={handleLogin} className="space-y-4">
@@ -138,15 +173,20 @@ export default function Home() {
 
               <button
                 type="submit"
-                className="w-full py-3 px-6 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-smooth font-semibold"
+                className="w-full py-3 px-6 bg-primary text-white rounded-lg hover:bg-blue-600 transition-all font-semibold"
               >
                 Login
               </button>
             </form>
 
             <button
-              onClick={() => setShowLogin(false)}
-              className="w-full mt-4 py-3 px-6 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-smooth font-semibold"
+              onClick={() => {
+                setShowLogin(false);
+                setError('');
+                setParentEmail('');
+                setParentPassword('');
+              }}
+              className="w-full mt-4 py-3 px-6 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all font-semibold"
             >
               Back
             </button>

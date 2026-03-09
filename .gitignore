@@ -38,12 +38,17 @@ yarn.lock
 .vscode/
 .idea/
 
-# Auto-generated docs (cleanup needed)
+# Auto-generated docs (not project deliverables)
+00_START_HERE.md
 CODE_SNIPPETS_REFERENCE.md
 FILES_INDEX.md
 FRONTEND_COMPLETION_REPORT.md
 FRONTEND_FILES_SUMMARY.txt
+FRONTEND_QUICK_REFERENCE.md
+FRONTEND_UPDATE_SUMMARY.md
+IMPLEMENTATION_CHECKLIST.md
 README_FRONTEND.md
+SESSIONDATA_FLOWCHART.txt
 frontend/CONFIG_SUMMARY.md
 frontend/FRONTEND_STRUCTURE.md
 frontend/INDEX.md
@@ -51,3 +56,6 @@ frontend/MANIFEST.md
 frontend/QUICK_REFERENCE.md
 frontend/VERIFICATION.md
 backend/src/alice/README.md
+backend/src/routes/BEFORE_AFTER_COMPARISON.md
+backend/src/routes/SESSIONS_UPDATE.md
+backend/UPDATE_SUMMARY.txt
