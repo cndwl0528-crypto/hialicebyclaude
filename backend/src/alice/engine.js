@@ -9,9 +9,9 @@ import { getSystemPrompt } from './prompts.js';
 
 // Initialize Anthropic client if API key is available
 let anthropic = null;
-if (config.anthropicApiKey) {
+if (config.anthropic?.apiKey) {
   anthropic = new Anthropic({
-    apiKey: config.anthropicApiKey
+    apiKey: config.anthropic.apiKey
   });
 }
 

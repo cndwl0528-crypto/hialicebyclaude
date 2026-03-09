@@ -163,7 +163,7 @@ router.post('/:id/message', optionalAuth, async (req, res) => {
     // Get conversation history
     const { data: dialogues } = await supabase
       .from('dialogues')
-      .select('speaker, content, turn')
+      .select('speaker, content, turn, stage')
       .eq('session_id', sessionId)
       .order('created_at', { ascending: true });
 
@@ -239,6 +239,29 @@ router.post('/:id/message', optionalAuth, async (req, res) => {
     const vocabResults = await Promise.all(vocabularyPromises);
     const vocabulary = vocabResults.map(r => r.data?.[0]).filter(Boolean);
 
+    // Determine if we should advance to the next stage
+    // Stage advancement logic:
+    // - Title: advance after turn 2-3
+    // - Introduction: advance after turn 2-3
+    // - Body: advance only after 3 reasons (turn 3)
+    // - Conclusion: advance after turn 2-3 (session complete)
+    let shouldAdvance = false;
+    let nextStage = null;
+    const stages = ['title', 'introduction', 'body', 'conclusion'];
+    const stageIndex = stages.indexOf(stage);
+
+    // For Body stage, we need exactly 3 turns before advancing
+    if (stage === 'body') {
+      shouldAdvance = currentTurn >= 3;
+    } else {
+      // For other stages, advance after 2+ turns
+      shouldAdvance = currentTurn >= 2;
+    }
+
+    if (shouldAdvance && stageIndex < stages.length - 1) {
+      nextStage = stages[stageIndex + 1];
+    }
+
     return res.status(200).json({
       reply: {
         speaker: 'alice',
@@ -247,6 +270,9 @@ router.post('/:id/message', optionalAuth, async (req, res) => {
       stage,
       turn: currentTurn,
       vocabulary,
+      shouldAdvance,
+      nextStage,
+      grammarScore: grammarScore,
     });
   } catch (err) {
     console.error('Message error:', err);

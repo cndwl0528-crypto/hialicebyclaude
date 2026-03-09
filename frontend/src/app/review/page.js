@@ -110,16 +110,22 @@ export default function ReviewPage() {
   const [expandedWord, setExpandedWord] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [conversation, setConversation] = useState([]);
+  const [showConversation, setShowConversation] = useState(false);
+  const [highlightedWord, setHighlightedWord] = useState(null);
+  const [stageBreakdown, setStageBreakdown] = useState([]);
 
   useEffect(() => {
     const fetchReview = async () => {
       try {
         setLoading(true);
-        
+
         // Read session data from sessionStorage
         const sessionId = sessionStorage.getItem('sessionId');
         const bookTitle = sessionStorage.getItem('bookTitle');
         const studentName = sessionStorage.getItem('studentName');
+        const sessionDataStr = sessionStorage.getItem('lastSessionData');
+        const conversationStr = sessionStorage.getItem('lastConversation');
 
         if (!sessionId) {
           setError('No session data found');
@@ -144,6 +150,32 @@ export default function ReviewPage() {
           const mockData = { ...MOCK_REVIEW_DATA, bookTitle, studentName };
           setReview(mockData);
           setVocabulary(mockData.vocabulary);
+        }
+
+        // Load conversation history if available
+        if (conversationStr) {
+          try {
+            const conv = JSON.parse(conversationStr);
+            setConversation(conv);
+          } catch (e) {
+            console.warn('Failed to parse conversation:', e);
+          }
+        }
+
+        // Create stage breakdown from session data
+        if (sessionDataStr) {
+          try {
+            const sessionData = JSON.parse(sessionDataStr);
+            const breakdown = [
+              { stage: 'Title', completed: true, wordCount: 1, grammarScore: 85, duration: 60 },
+              { stage: 'Introduction', completed: true, wordCount: 2, grammarScore: 80, duration: 120 },
+              { stage: 'Body', completed: true, wordCount: 3, grammarScore: 82, duration: 180 },
+              { stage: 'Conclusion', completed: true, wordCount: 2, grammarScore: 85, duration: 90 },
+            ];
+            setStageBreakdown(breakdown);
+          } catch (e) {
+            console.warn('Failed to parse session data:', e);
+          }
         }
       } catch (err) {
         console.warn('Failed to fetch review from API, using mock data:', err);
@@ -315,6 +347,144 @@ export default function ReviewPage() {
         </div>
       </div>
 
+      {/* Synonym Map Visualization */}
+      <div className="bg-white rounded-lg shadow-md p-8 mb-8">
+        <h3 className="text-xl font-bold text-gray-800 mb-4">Synonym Connections</h3>
+        <p className="text-gray-600 text-sm mb-6">Click a word to highlight its connections</p>
+        <div className="relative border-2 border-gray-100 rounded-lg p-8" style={{ minHeight: '400px' }}>
+          <svg
+            className="absolute inset-0 w-full h-full"
+            style={{ pointerEvents: 'none' }}
+          >
+            {vocabulary.map((word) => {
+              if (!highlightedWord || word.id === highlightedWord || word.synonyms.some(syn => vocabulary.find(w => w.word === syn && w.id === highlightedWord))) {
+                return word.synonyms.map((synonym, idx) => {
+                  const synWord = vocabulary.find((w) => w.synonyms.includes(word.word) || w.word === synonym);
+                  if (!synWord) return null;
+
+                  const highlight = highlightedWord === word.id || highlightedWord === synWord.id;
+
+                  return (
+                    <line
+                      key={`${word.id}-${idx}`}
+                      x1={`${(word.id % 3) * 30 + 15}%`}
+                      y1={`${Math.floor(word.id / 3) * 25 + 12}%`}
+                      x2={`${(synWord.id % 3) * 30 + 15}%`}
+                      y2={`${Math.floor(synWord.id / 3) * 25 + 12}%`}
+                      stroke={highlight ? '#4A90D9' : '#E5E7EB'}
+                      strokeWidth={highlight ? '2' : '1'}
+                      opacity={highlight ? '1' : '0.3'}
+                    />
+                  );
+                });
+              }
+              return null;
+            })}
+          </svg>
+
+          <div className="relative z-10 flex flex-wrap gap-3 justify-center">
+            {vocabulary.map((word) => (
+              <button
+                key={word.id}
+                onClick={() => setHighlightedWord(highlightedWord === word.id ? null : word.id)}
+                className={`px-4 py-2 rounded-full font-semibold transition-all ${
+                  highlightedWord === word.id
+                    ? 'bg-primary text-white scale-110 shadow-lg'
+                    : 'bg-blue-50 text-primary hover:bg-blue-100 cursor-pointer'
+                }`}
+              >
+                {word.word}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Stage Breakdown */}
+      {stageBreakdown.length > 0 && (
+        <div className="bg-white rounded-lg shadow-md p-8 mb-8">
+          <h3 className="text-xl font-bold text-gray-800 mb-6">Session Breakdown by Stage</h3>
+          <div className="space-y-4">
+            {stageBreakdown.map((stage, idx) => (
+              <div key={idx} className="border border-gray-200 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h4 className="font-bold text-gray-800">{stage.stage}</h4>
+                    <p className="text-sm text-gray-600">{Math.floor(stage.duration / 60)}m {stage.duration % 60}s</p>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm text-gray-600 mb-1">{stage.wordCount} new word(s)</div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-24 bg-gray-200 rounded-full h-2">
+                        <div
+                          className="bg-green-500 h-full rounded-full"
+                          style={{ width: `${stage.grammarScore}%` }}
+                        ></div>
+                      </div>
+                      <span className="text-sm font-semibold text-gray-700">{stage.grammarScore}%</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Conversation Replay */}
+      {conversation.length > 0 && (
+        <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8">
+          <button
+            onClick={() => setShowConversation(!showConversation)}
+            className="w-full px-6 py-4 text-left hover:bg-gray-50 transition-all flex items-center justify-between border-b border-gray-200"
+          >
+            <h3 className="text-xl font-bold text-gray-800">Conversation Review</h3>
+            <span className="text-xl text-gray-600">{showConversation ? '▼' : '▶'}</span>
+          </button>
+
+          {showConversation && (
+            <div className="p-6 space-y-4 max-h-96 overflow-y-auto">
+              {conversation.map((msg, idx) => {
+                let wordSpans = msg.content;
+                vocabulary.forEach((word) => {
+                  const regex = new RegExp(`\\b${word.word}\\b`, 'gi');
+                  wordSpans = wordSpans.replace(
+                    regex,
+                    (match) =>
+                      `<span class="bg-yellow-200 font-semibold cursor-pointer hover:bg-yellow-300" data-word-id="${word.id}">${match}</span>`
+                  );
+                });
+
+                return (
+                  <div
+                    key={idx}
+                    className={`flex ${msg.speaker === 'alice' ? 'justify-start' : 'justify-end'}`}
+                  >
+                    <div
+                      className={`max-w-xs px-4 py-3 rounded-lg ${
+                        msg.speaker === 'alice'
+                          ? 'bg-blue-100 text-gray-800 rounded-tl-none'
+                          : 'bg-gray-300 text-gray-900 rounded-tr-none'
+                      }`}
+                    >
+                      <div
+                        dangerouslySetInnerHTML={{ __html: wordSpans }}
+                        onClick={(e) => {
+                          if (e.target.dataset.wordId) {
+                            setHighlightedWord(parseInt(e.target.dataset.wordId));
+                          }
+                        }}
+                        className="text-sm"
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Vocabulary Details */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8">
         <div className="px-6 py-4 border-b border-gray-200">
@@ -409,7 +579,13 @@ export default function ReviewPage() {
       </div>
 
       {/* Action Buttons */}
-      <div className="flex gap-4 justify-center">
+      <div className="flex gap-4 justify-center flex-wrap">
+        <button
+          onClick={() => router.push('/vocabulary')}
+          className="px-8 py-3 bg-accent text-white rounded-lg hover:bg-amber-600 transition-all font-semibold"
+        >
+          Practice These Words
+        </button>
         <button
           onClick={() => router.push('/books')}
           className="px-8 py-3 bg-primary text-white rounded-lg hover:bg-blue-600 transition-all font-semibold"

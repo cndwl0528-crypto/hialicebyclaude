@@ -37,24 +37,31 @@ export default function SessionPage() {
   const searchParams = useSearchParams();
   const bookId = searchParams.get('bookId');
   const bookTitle = searchParams.get('bookTitle');
-  
+
+  // Session state
   const [session, setSession] = useState(null);
   const [sessionId, setSessionId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [currentStage, setCurrentStage] = useState(0);
   const [currentTurn, setCurrentTurn] = useState(0);
+  const [bodyReasonCount, setBodyReasonCount] = useState(0);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
   const [sessionComplete, setSessionComplete] = useState(false);
   const [showStageTransition, setShowStageTransition] = useState(false);
   const [nextStageName, setNextStageName] = useState('');
   const [apiAvailable, setApiAvailable] = useState(true);
-  
+  const [stageScores, setStageScores] = useState({});
+  const [sessionVocabulary, setSessionVocabulary] = useState([]);
+  const [sessionStartTime, setSessionStartTime] = useState(null);
+  const [error, setError] = useState(null);
+  const [showSkipButton, setShowSkipButton] = useState(false);
+
   const { isListening, transcript, speak, startListening, stopListening, supported } = useSpeech();
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const silenceTimerRef = useRef(null);
-  
+
   // Get student data from sessionStorage
   const [studentId, setStudentId] = useState(null);
   const [studentName, setStudentName] = useState(null);
@@ -92,8 +99,9 @@ export default function SessionPage() {
 
   const initializeSession = async () => {
     try {
+      setSessionStartTime(new Date());
       const apiUrl = getApiUrl();
-      
+
       // Try to call backend API
       try {
         const response = await fetch(`${apiUrl}/api/sessions/start`, {
@@ -108,7 +116,7 @@ export default function SessionPage() {
 
         if (response.ok) {
           const data = await response.json();
-          setSessionId(data.sessionId || data.id);
+          setSessionId(data.session?.id || data.sessionId || data.id);
           setApiAvailable(true);
         } else {
           setApiAvailable(false);
@@ -124,24 +132,27 @@ export default function SessionPage() {
         speaker: 'alice',
         content: `Hello! I'm so excited to talk about "${bookTitle}"! Let's start with the title. What do you think the title means?`,
         timestamp: new Date(),
+        stage: 'Title',
       };
       setMessages([initialMessage]);
-      speak(`Hello! I'm so excited to talk about ${bookTitle}! Let's start with the title. What do you think the title means?`);
+      speak(
+        `Hello! I'm so excited to talk about ${bookTitle}! Let's start with the title. What do you think the title means?`
+      );
+      setShowSkipButton(true);
     } catch (error) {
       console.error('Error initializing session:', error);
       setApiAvailable(false);
+      setError('Failed to initialize session. Using offline mode.');
     }
   };
 
   // Handle auto-send after silence detection
   useEffect(() => {
     if (isListening && transcript && transcript.trim()) {
-      // Clear existing timer
       if (silenceTimerRef.current) {
         clearTimeout(silenceTimerRef.current);
       }
 
-      // Set new timer: auto-send after 2 seconds of silence
       silenceTimerRef.current = setTimeout(() => {
         if (transcript.trim()) {
           handleSendMessage(transcript);
@@ -160,16 +171,18 @@ export default function SessionPage() {
   const handleSendMessage = async (text) => {
     if (!text.trim() || loading) return;
 
+    setError(null);
     setLoading(true);
-    
+
     // Add student message
     const studentMessage = {
       id: messages.length,
       speaker: 'student',
       content: text,
       timestamp: new Date(),
+      stage: STAGES[currentStage],
     };
-    
+
     setMessages((prev) => [...prev, studentMessage]);
     setInputText('');
 
@@ -188,63 +201,117 @@ export default function SessionPage() {
           });
 
           if (!response.ok) {
-            throw new Error('API response not ok');
+            throw new Error(`API response ${response.status}`);
           }
 
-          // If API is successful, use the response
           const data = await response.json();
-          await processAiResponse(data.content || data.message);
+          await processApiResponse(data);
           return;
         } catch (error) {
           console.warn('API call failed, falling back to mock:', error);
           setApiAvailable(false);
+          setError('Using offline mode');
         }
       }
 
       // Fallback to mock responses
       await new Promise((resolve) => setTimeout(resolve, 800));
-      const nextTurn = currentTurn + 1;
-      setCurrentTurn(nextTurn);
-
       const stageIndex = currentStage;
       const stageQuestions = MOCK_AI_RESPONSES[STAGES[stageIndex]];
+      const nextTurnIndex = currentTurn + 1;
       const nextQuestion =
-        nextTurn < stageQuestions.length
-          ? stageQuestions[nextTurn]
+        nextTurnIndex < stageQuestions.length
+          ? stageQuestions[nextTurnIndex]
           : 'That was wonderful! Let\'s move to the next topic.';
 
-      await processAiResponse(nextQuestion);
+      // For Body stage in mock, track reasons
+      let reasonCount = bodyReasonCount;
+      if (STAGES[stageIndex] === 'Body') {
+        reasonCount = nextTurnIndex;
+      }
+
+      await processMockResponse(nextQuestion, reasonCount);
     } catch (error) {
       console.error('Error sending message:', error);
+      setError('Failed to get response. Please try again.');
       setLoading(false);
     }
   };
 
-  const processAiResponse = async (content) => {
+  const processApiResponse = async (data) => {
+    const aliceMessage = {
+      id: messages.length + 1,
+      speaker: 'alice',
+      content: data.reply?.content || data.content || data.message,
+      timestamp: new Date(),
+      stage: STAGES[currentStage],
+    };
+
+    setMessages((prev) => [...prev, aliceMessage]);
+    speak(aliceMessage.content);
+
+    // Extract vocabulary from response if present
+    if (data.vocabulary && Array.isArray(data.vocabulary)) {
+      setSessionVocabulary((prev) => [...prev, ...data.vocabulary]);
+    }
+
+    // Update scores for this stage if grammar score available
+    if (data.grammarScore !== undefined) {
+      setStageScores((prev) => ({
+        ...prev,
+        [STAGES[currentStage]]: data.grammarScore,
+      }));
+    }
+
+    // Handle stage advancement if API signals it
+    if (data.shouldAdvance && data.nextStage) {
+      const nextStageIndex = STAGES.indexOf(data.nextStage);
+      if (nextStageIndex > currentStage) {
+        showStageTransitionAnimation(data.nextStage, nextStageIndex);
+      }
+    } else {
+      // Just update turn count if not advancing
+      if (STAGES[currentStage] === 'Body') {
+        setBodyReasonCount((prev) => prev + 1);
+      }
+      setCurrentTurn((prev) => prev + 1);
+    }
+
+    setLoading(false);
+  };
+
+  const processMockResponse = async (content, reasonCount = 0) => {
     const aliceMessage = {
       id: messages.length + 1,
       speaker: 'alice',
       content,
       timestamp: new Date(),
+      stage: STAGES[currentStage],
     };
 
     setMessages((prev) => [...prev, aliceMessage]);
     speak(content);
 
     const nextTurn = currentTurn + 1;
-    setCurrentTurn(nextTurn);
 
     // Check if we need to advance to next stage
-    if (nextTurn >= MAX_TURNS_PER_STAGE) {
+    let shouldAdvance = false;
+    if (STAGES[currentStage] === 'Body') {
+      shouldAdvance = reasonCount >= 3;
+      setBodyReasonCount(reasonCount);
+    } else {
+      shouldAdvance = nextTurn >= MAX_TURNS_PER_STAGE;
+    }
+
+    if (shouldAdvance) {
       const nextStageIndex = currentStage + 1;
-      
       if (nextStageIndex < STAGES.length) {
-        // Show stage transition
         showStageTransitionAnimation(STAGES[nextStageIndex], nextStageIndex);
       } else {
-        // Session complete
         completeSession();
       }
+    } else {
+      setCurrentTurn(nextTurn);
     }
 
     setLoading(false);
@@ -257,6 +324,7 @@ export default function SessionPage() {
     setTimeout(() => {
       setCurrentStage(stageIndex);
       setCurrentTurn(0);
+      setBodyReasonCount(0);
       setShowStageTransition(false);
 
       // Add transition message to chat
@@ -266,6 +334,7 @@ export default function SessionPage() {
         content: `Great! Now let's move to the ${stageName} section. I have some new questions for you.`,
         timestamp: new Date(),
         isTransition: true,
+        stage: stageName,
       };
       setMessages((prev) => [...prev, transitionMessage]);
       speak(`Great! Now let's move to the ${stageName} section. I have some new questions for you.`);
@@ -273,6 +342,11 @@ export default function SessionPage() {
   };
 
   const completeSession = async () => {
+    // Calculate session duration
+    const duration = sessionStartTime
+      ? Math.round((new Date() - sessionStartTime) / 1000)
+      : 0;
+
     // Try to complete session on backend
     if (apiAvailable && sessionId) {
       try {
@@ -282,6 +356,7 @@ export default function SessionPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             messages: messages.filter((m) => m.speaker === 'student').length,
+            duration,
           }),
         });
       } catch (error) {
@@ -289,7 +364,7 @@ export default function SessionPage() {
       }
     }
 
-    // Save session data to sessionStorage for review page
+    // Save complete session data to sessionStorage for review page
     if (typeof window !== 'undefined') {
       sessionStorage.setItem(
         'lastSessionData',
@@ -299,13 +374,26 @@ export default function SessionPage() {
           bookTitle,
           studentId,
           studentName,
-          messageCount: messages.length,
+          messages: messages.filter((m) => m.speaker !== undefined),
+          vocabulary: sessionVocabulary,
+          stageScores,
+          duration,
           completedAt: new Date().toISOString(),
+          studentMessageCount: messages.filter((m) => m.speaker === 'student').length,
+          totalTurns: messages.length,
         })
       );
     }
 
     setSessionComplete(true);
+  };
+
+  const handleSkipToNextStage = () => {
+    if (currentStage < STAGES.length - 1) {
+      showStageTransitionAnimation(STAGES[currentStage + 1], currentStage + 1);
+    } else {
+      completeSession();
+    }
   };
 
   const handleVoiceInput = () => {
@@ -327,18 +415,16 @@ export default function SessionPage() {
 
   if (sessionComplete) {
     return (
-      <div className="min-h-[calc(100vh-120px)] flex items-center justify-center py-12">
+      <div className="min-h-[calc(100vh-120px)] flex items-center justify-center py-12 bg-[#F5F7FA]">
         <div className="bg-white rounded-lg shadow-md p-8 max-w-md text-center">
           <div className="text-6xl mb-4">🎉</div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">
-            Great Job!
-          </h2>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Great Job!</h2>
           <p className="text-gray-600 mb-6">
-            You completed the reading session. Let's review what you learned!
+            You completed the reading session for <span className="font-semibold">"{bookTitle}"</span>. Let's review what you learned!
           </p>
           <button
             onClick={() => router.push('/review')}
-            className="w-full py-3 px-6 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold"
+            className="w-full py-3 px-6 bg-[#4A90D9] text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold"
           >
             View Word Review
           </button>
@@ -362,25 +448,49 @@ export default function SessionPage() {
 
       {/* Stage Progress */}
       <div className="bg-white shadow-sm p-4 border-b border-gray-200">
-        <div className="mb-3">
-          <h2 className="text-lg font-bold text-[#4A90D9]">
-            {STAGES[currentStage]}
-          </h2>
-          <p className="text-sm text-gray-600">
-            Question {currentTurn + 1} of {MAX_TURNS_PER_STAGE}
-          </p>
+        <div className="mb-3 flex justify-between items-start">
+          <div>
+            <h2 className="text-lg font-bold text-[#4A90D9]">
+              {STAGES[currentStage]}
+            </h2>
+            <p className="text-sm text-gray-600">
+              {STAGES[currentStage] === 'Body'
+                ? `Reason ${bodyReasonCount} of 3`
+                : `Question ${currentTurn + 1} of ${MAX_TURNS_PER_STAGE}`}
+            </p>
+          </div>
+          {process.env.NODE_ENV === 'development' && (
+            <button
+              onClick={handleSkipToNextStage}
+              className="px-3 py-1 text-xs font-semibold text-white bg-[#F39C12] rounded hover:bg-orange-600 transition-colors"
+              title="Skip to next stage (dev only)"
+            >
+              Skip →
+            </button>
+          )}
         </div>
         <StageProgress currentStage={currentStage} stages={STAGES} />
       </div>
+
+      {/* Error Banner */}
+      {error && (
+        <div className="bg-amber-50 border-l-4 border-amber-400 p-3 m-2 rounded">
+          <p className="text-sm text-amber-800">
+            <span className="font-semibold">Note:</span> {error}
+          </p>
+        </div>
+      )}
 
       {/* Chat Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((msg) => (
           <div
             key={msg.id}
-            className={`flex ${msg.speaker === 'alice' ? 'justify-start' : 'justify-end'} ${msg.isTransition ? 'justify-center' : ''}`}
+            className={`flex ${
+              msg.speaker === 'alice' ? 'justify-start' : msg.speaker === 'student' ? 'justify-end' : 'justify-center'
+            } animate-fade-in`}
           >
-            {msg.speaker === 'alice' && (
+            {msg.speaker === 'alice' && !msg.isTransition && (
               <div className="flex gap-3">
                 {/* Alice Avatar */}
                 <div className="w-8 h-8 rounded-full bg-[#4A90D9] flex items-center justify-center flex-shrink-0 mt-1">
@@ -391,7 +501,10 @@ export default function SessionPage() {
                     <p className="text-sm">{msg.content}</p>
                   </div>
                   <p className="text-xs text-gray-500 mt-1 ml-1">
-                    {msg.timestamp?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {msg.timestamp?.toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
                   </p>
                 </div>
               </div>
@@ -402,7 +515,10 @@ export default function SessionPage() {
                   <p className="text-sm">{msg.content}</p>
                 </div>
                 <p className="text-xs text-gray-500 mr-2">
-                  {msg.timestamp?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  {msg.timestamp?.toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
                 </p>
               </div>
             )}
@@ -413,25 +529,34 @@ export default function SessionPage() {
             )}
           </div>
         ))}
-        
+
         {/* Typing Indicator */}
         {loading && (
-          <div className="flex justify-start">
+          <div className="flex justify-start animate-fade-in">
             <div className="flex gap-3">
               <div className="w-8 h-8 rounded-full bg-[#4A90D9] flex items-center justify-center flex-shrink-0 mt-1">
                 <span className="text-white text-sm font-bold">A</span>
               </div>
               <div className="bg-blue-100 px-4 py-3 rounded-lg rounded-tl-none">
                 <div className="flex gap-1">
-                  <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
-                  <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                  <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                  <div
+                    className="w-2 h-2 bg-gray-600 rounded-full animate-bounce"
+                    style={{ animationDelay: '0s' }}
+                  ></div>
+                  <div
+                    className="w-2 h-2 bg-gray-600 rounded-full animate-bounce"
+                    style={{ animationDelay: '0.2s' }}
+                  ></div>
+                  <div
+                    className="w-2 h-2 bg-gray-600 rounded-full animate-bounce"
+                    style={{ animationDelay: '0.4s' }}
+                  ></div>
                 </div>
               </div>
             </div>
           </div>
         )}
-        
+
         <div ref={messagesEndRef} />
       </div>
 
@@ -439,7 +564,7 @@ export default function SessionPage() {
       <div className="bg-white border-t border-gray-200 p-4 space-y-4 flex-shrink-0">
         {/* Live Transcript Display */}
         {isListening && transcript && (
-          <div className="bg-blue-50 border-l-4 border-[#4A90D9] p-3 rounded">
+          <div className="bg-blue-50 border-l-4 border-[#4A90D9] p-3 rounded animate-fade-in">
             <p className="text-sm text-gray-700">
               <span className="font-semibold">You said:</span> {transcript}
             </p>
@@ -455,7 +580,7 @@ export default function SessionPage() {
             size={80}
           />
           <p className="text-sm font-medium text-gray-700">
-            {isListening ? 'Listening...' : 'Tap to speak'}
+            {isListening ? '🎤 Listening...' : '🎤 Tap to speak'}
           </p>
         </div>
 
@@ -468,13 +593,14 @@ export default function SessionPage() {
             onChange={(e) => setInputText(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleTextSend()}
             placeholder="Or type your answer here..."
-            className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4A90D9] text-sm"
+            className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4A90D9] text-sm disabled:bg-gray-100"
             disabled={loading}
           />
           <button
             onClick={handleTextSend}
             disabled={loading || !inputText.trim()}
             className="px-6 py-3 bg-[#4A90D9] text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 transition-colors font-semibold text-sm min-w-[48px] min-h-[48px]"
+            title={loading ? 'Waiting for response...' : 'Send message'}
           >
             Send
           </button>

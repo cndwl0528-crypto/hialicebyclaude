@@ -95,6 +95,168 @@ router.get('/:studentId', authMiddleware, async (req, res) => {
 });
 
 /**
+ * GET /:studentId/practice
+ * Get vocabulary for spaced repetition practice
+ * Returns: { words: [...], stats: { dueCount, reviewCount } }
+ */
+router.get('/:studentId/practice', authMiddleware, async (req, res) => {
+  try {
+    const { studentId } = req.params;
+
+    if (!studentId) {
+      return res.status(400).json({ error: 'studentId required' });
+    }
+
+    // Get vocabulary due for practice (mastery < 5 and reviewed recently)
+    const { data: vocabulary, error } = await supabase
+      .from('vocabulary')
+      .select('id, word, context_sentence, synonyms, pos, mastery_level, use_count, first_used')
+      .eq('student_id', studentId)
+      .lt('mastery_level', 5)
+      .order('mastery_level', { ascending: true })
+      .limit(10);
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    // Count due items (mastery 0-2) vs review items (mastery 3-4)
+    const dueCount = vocabulary?.filter(v => v.mastery_level <= 2).length || 0;
+    const reviewCount = vocabulary?.filter(v => v.mastery_level > 2).length || 0;
+
+    return res.status(200).json({
+      words: vocabulary || [],
+      stats: {
+        dueCount,
+        reviewCount,
+        totalPractice: (vocabulary || []).length,
+      },
+    });
+  } catch (err) {
+    console.error('Get practice vocabulary error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /:studentId/practice
+ * Submit practice results and update mastery
+ * Body: { wordId, correct: boolean }
+ * Returns: { vocabulary: {...}, nextWord: {...} }
+ */
+router.post('/:studentId/practice', authMiddleware, async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const { wordId, correct } = req.body;
+
+    if (!studentId || !wordId || correct === undefined) {
+      return res.status(400).json({ error: 'studentId, wordId, and correct required' });
+    }
+
+    // Get current word
+    const { data: vocabulary } = await supabase
+      .from('vocabulary')
+      .select('*')
+      .eq('id', wordId)
+      .eq('student_id', studentId)
+      .single();
+
+    if (!vocabulary) {
+      return res.status(404).json({ error: 'Word not found' });
+    }
+
+    // Update mastery based on correct/incorrect
+    let newMastery = vocabulary.mastery_level || 0;
+    if (correct) {
+      newMastery = Math.min(5, newMastery + 1); // Increase up to 5
+    } else {
+      newMastery = Math.max(0, newMastery - 1); // Decrease down to 0
+    }
+
+    // Update vocabulary with new mastery level
+    const { data: updated } = await supabase
+      .from('vocabulary')
+      .update({
+        mastery_level: newMastery,
+        use_count: (vocabulary.use_count || 0) + 1,
+      })
+      .eq('id', wordId)
+      .select()
+      .single();
+
+    // Get next word for practice
+    const { data: nextWords } = await supabase
+      .from('vocabulary')
+      .select('id, word, context_sentence, synonyms, pos, mastery_level')
+      .eq('student_id', studentId)
+      .lt('mastery_level', 5)
+      .neq('id', wordId)
+      .order('mastery_level', { ascending: true })
+      .limit(1);
+
+    return res.status(200).json({
+      vocabulary: updated,
+      nextWord: nextWords?.[0] || null,
+      masteryLevel: newMastery,
+    });
+  } catch (err) {
+    console.error('Practice vocabulary error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * GET /:studentId/stats
+ * Get vocabulary statistics
+ * Returns: { stats: { totalWords, masteredWords, reviewDue, byLevel } }
+ */
+router.get('/:studentId/stats', authMiddleware, async (req, res) => {
+  try {
+    const { studentId } = req.params;
+
+    if (!studentId) {
+      return res.status(400).json({ error: 'studentId required' });
+    }
+
+    // Get all vocabulary for student
+    const { data: vocabulary, error } = await supabase
+      .from('vocabulary')
+      .select('mastery_level')
+      .eq('student_id', studentId);
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    const totalWords = vocabulary?.length || 0;
+    const masteredWords = vocabulary?.filter(v => v.mastery_level >= 5).length || 0;
+    const reviewDue = vocabulary?.filter(v => v.mastery_level < 5).length || 0;
+
+    // Group by mastery level
+    const byLevel = {
+      0: vocabulary?.filter(v => v.mastery_level === 0).length || 0,
+      1: vocabulary?.filter(v => v.mastery_level === 1).length || 0,
+      2: vocabulary?.filter(v => v.mastery_level === 2).length || 0,
+      3: vocabulary?.filter(v => v.mastery_level === 3).length || 0,
+      4: vocabulary?.filter(v => v.mastery_level === 4).length || 0,
+      5: vocabulary?.filter(v => v.mastery_level === 5).length || 0,
+    };
+
+    return res.status(200).json({
+      stats: {
+        totalWords,
+        masteredWords,
+        reviewDue,
+        byLevel,
+      },
+    });
+  } catch (err) {
+    console.error('Get vocabulary stats error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
  * PUT /:id/mastery
  * Update mastery level for a vocabulary word
  * Body: { masteryLevel }
