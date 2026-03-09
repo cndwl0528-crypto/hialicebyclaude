@@ -1,14 +1,17 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
-import { useEffect } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import OfflineBanner from '@/components/OfflineBanner';
+import { logout } from '@/services/api';
 import './globals.css';
 
 export default function RootLayout({ children }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   // Register service worker for offline support and PWA
   useEffect(() => {
@@ -23,6 +26,25 @@ export default function RootLayout({ children }) {
         });
     }
   }, []);
+
+  // Check login state on route change
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const token = sessionStorage.getItem('token');
+      setIsLoggedIn(!!token);
+    }
+  }, [pathname]);
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (e) {
+      console.warn('Logout error:', e);
+    } finally {
+      setIsLoggedIn(false);
+      router.push('/');
+    }
+  };
 
   const navLinks = [
     { href: '/', label: 'Home', icon: '🏠' },
@@ -87,7 +109,18 @@ export default function RootLayout({ children }) {
                 ))}
               </div>
             </div>
-            <span className="text-xs text-[#9B8777] flex-shrink-0 font-semibold">v1.0</span>
+            <div className="flex items-center gap-3 flex-shrink-0">
+              <span className="text-xs text-[#9B8777] font-semibold">v1.0</span>
+              {isLoggedIn && (
+                <button
+                  onClick={handleLogout}
+                  className="text-xs px-3 py-1.5 rounded-xl bg-[#C8DBC8] text-[#3D6B3D] hover:bg-[#D4736B] hover:text-white font-bold transition-all"
+                  title="Log out"
+                >
+                  Log out
+                </button>
+              )}
+            </div>
           </nav>
 
           {/* Mobile Bottom Navigation */}

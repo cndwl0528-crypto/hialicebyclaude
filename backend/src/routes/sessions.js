@@ -1,31 +1,168 @@
+/**
+ * sessions.js
+ * HiAlice — Session Routes
+ *
+ * Handles all Q&A session lifecycle: start, message exchange, complete,
+ * pause/resume, per-stage score retrieval, and student session history.
+ *
+ * Route summary:
+ *   POST   /start                         Start a new session
+ *   POST   /:id/message                   Send a student turn, get Alice reply
+ *   POST   /:id/complete                  Complete a session (saves stage scores, awards badges)
+ *   GET    /:id/review                    Full session review (dialogues + vocabulary)
+ *   GET    /student/:studentId            Session history for a student
+ *   GET    /:id/stage-scores              Per-stage scores for a single session
+ *   PUT    /:id/pause                     Pause (save-and-exit) a session
+ *   PUT    /:id/resume                    Resume a paused session
+ */
+
 import express from 'express';
 import { supabase } from '../lib/supabase.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { getAliceResponse } from '../alice/engine.js';
 import { extractVocabulary } from '../alice/vocabularyExtractor.js';
 import { calculateGrammarScore } from '../alice/levelDetector.js';
+import { checkAndAwardAchievements } from '../lib/achievements.js';
 
 const router = express.Router();
 
+// ============================================================================
+// AUTH HELPER
+// ============================================================================
+
 /**
- * Optional authentication middleware
- * In development, allows requests without auth header for easier testing
- * In production, requires valid auth token
+ * Optional authentication middleware.
+ * In development: skips token verification for easier local testing.
+ * In production: enforces valid Bearer token.
  */
 function optionalAuth(req, res, next) {
   if (process.env.NODE_ENV === 'development') {
-    // Skip auth in development mode
     return next();
   }
-  // In production, use standard auth middleware
   return authMiddleware(req, res, next);
 }
 
+// ============================================================================
+// INTERNAL HELPERS
+// ============================================================================
+
 /**
- * POST /start
- * Start a new Q&A session
+ * Calculate per-stage scores from a session's dialogue rows.
+ * Returns an object keyed by stage name.
+ *
+ * @param {Array}  dialogues  — rows from the dialogues table
+ * @param {string} level      — student level ('beginner'|'intermediate'|'advanced')
+ * @returns {Object} stageMap e.g. { title: { grammar, fluency, vocabulary, responseCount, avgWords } }
+ */
+function computeStageBreakdown(dialogues, level) {
+  const stages = ['title', 'introduction', 'body', 'conclusion'];
+  const stageMap = {};
+
+  stages.forEach((stage) => {
+    const studentTurns = dialogues.filter(
+      (d) => d.stage === stage && d.speaker === 'student'
+    );
+
+    if (studentTurns.length === 0) {
+      stageMap[stage] = null; // stage was not reached
+      return;
+    }
+
+    const wordCounts = studentTurns.map((d) =>
+      d.content.trim().split(/\s+/).filter(Boolean).length
+    );
+    const avgWords = Math.round(
+      wordCounts.reduce((a, b) => a + b, 0) / wordCounts.length
+    );
+
+    // Grammar score: average across this stage's turns
+    const grammarScores = studentTurns.map((d) =>
+      calculateGrammarScore(d.content, level)
+    );
+    const grammarScore = Math.round(
+      grammarScores.reduce((a, b) => a + b, 0) / grammarScores.length
+    );
+
+    // Fluency approximation: normalise avgWords (target = 20 words per response)
+    const fluencyScore = Math.min(100, Math.round((avgWords / 20) * 100));
+
+    // Vocabulary score: fraction of responses with ≥ 4 unique non-trivial words
+    const richResponses = studentTurns.filter((d) => {
+      const words = new Set(
+        d.content
+          .toLowerCase()
+          .replace(/[^a-z\s]/g, '')
+          .split(/\s+/)
+          .filter((w) => w.length >= 4)
+      );
+      return words.size >= 4;
+    }).length;
+    const vocabularyScore = Math.round((richResponses / studentTurns.length) * 100);
+
+    stageMap[stage] = {
+      grammar: grammarScore,
+      fluency: fluencyScore,
+      vocabulary: vocabularyScore,
+      responseCount: studentTurns.length,
+      avgWords,
+    };
+  });
+
+  return stageMap;
+}
+
+/**
+ * Build a student stats snapshot used by the achievement checker.
+ * Reads directly from the DB to get the most up-to-date values.
+ *
+ * @param {string} studentId
+ * @returns {Promise<{ totalBooks, totalWords, streak, avgGrammar }>}
+ */
+async function buildAchievementStats(studentId) {
+  const [
+    { data: student },
+    { data: sessions },
+    { data: vocabRows },
+  ] = await Promise.all([
+    supabase
+      .from('students')
+      .select('current_streak, total_books_read')
+      .eq('id', studentId)
+      .single(),
+    supabase
+      .from('sessions')
+      .select('grammar_score')
+      .eq('student_id', studentId)
+      .eq('is_complete', true),
+    supabase
+      .from('vocabulary')
+      .select('id', { count: 'exact' })
+      .eq('student_id', studentId),
+  ]);
+
+  const totalBooks = student?.total_books_read ?? 0;
+  const totalWords = vocabRows?.length ?? 0;
+  const streak = student?.current_streak ?? 0;
+
+  const scored = sessions?.filter((s) => s.grammar_score != null) || [];
+  const avgGrammar =
+    scored.length > 0
+      ? Math.round(
+          scored.reduce((sum, s) => sum + s.grammar_score, 0) / scored.length
+        )
+      : 0;
+
+  return { totalBooks, totalWords, streak, avgGrammar };
+}
+
+// ============================================================================
+// POST /start
+// ============================================================================
+
+/**
+ * Start a new Q&A session.
  * Body: { studentId, bookId }
- * Returns: { session: {...}, message: { speaker: 'alice', content: '...' } }
+ * Returns: { session, message: { speaker: 'alice', content } }
  */
 router.post('/start', optionalAuth, async (req, res) => {
   try {
@@ -57,7 +194,7 @@ router.post('/start', optionalAuth, async (req, res) => {
       return res.status(404).json({ error: 'Book not found' });
     }
 
-    // Create new session record
+    // Create the new session record
     const { data: session, error: sessionError } = await supabase
       .from('sessions')
       .insert({
@@ -65,6 +202,7 @@ router.post('/start', optionalAuth, async (req, res) => {
         book_id: bookId,
         stage: 'title',
         started_at: new Date().toISOString(),
+        is_complete: false,
       })
       .select()
       .single();
@@ -73,7 +211,7 @@ router.post('/start', optionalAuth, async (req, res) => {
       return res.status(500).json({ error: sessionError.message });
     }
 
-    // Get first Alice question using the real AI engine
+    // Get HiAlice's opening question from the AI engine
     const aliceResponse = await getAliceResponse({
       bookTitle: book.title,
       studentName: student.name,
@@ -81,12 +219,12 @@ router.post('/start', optionalAuth, async (req, res) => {
       stage: 'title',
       turn: 1,
       studentMessage: null,
-      conversationHistory: []
+      conversationHistory: [],
     });
 
     const grammarScore = calculateGrammarScore('', student.level);
 
-    // Insert initial Alice message into dialogues table
+    // Store Alice's opening message in the dialogues table
     const { error: dialogueError } = await supabase
       .from('dialogues')
       .insert({
@@ -121,11 +259,14 @@ router.post('/start', optionalAuth, async (req, res) => {
   }
 });
 
+// ============================================================================
+// POST /:id/message
+// ============================================================================
+
 /**
- * POST /:id/message
- * Send student response, get Alice reply
+ * Send a student message and receive Alice's reply.
  * Body: { content, stage }
- * Returns: { reply: { speaker: 'alice', content: '...' }, stage, turn, vocabulary: [...] }
+ * Returns: { reply, stage, turn, vocabulary, shouldAdvance, nextStage, grammarScore }
  */
 router.post('/:id/message', optionalAuth, async (req, res) => {
   try {
@@ -136,11 +277,10 @@ router.post('/:id/message', optionalAuth, async (req, res) => {
       return res.status(400).json({ error: 'content and stage required' });
     }
 
-    // Normalize stage value to lowercase so frontend casing (Title/Body/etc.)
-    // and backend casing (title/body/etc.) remain consistent.
+    // Normalise stage to lowercase for consistent DB storage
     const stage = rawStage.toLowerCase();
 
-    // Get current session first — needed to resolve student_id and book_id
+    // Fetch current session
     const { data: session, error: sessionError } = await supabase
       .from('sessions')
       .select('id, student_id, book_id, stage')
@@ -151,7 +291,7 @@ router.post('/:id/message', optionalAuth, async (req, res) => {
       return res.status(404).json({ error: 'Session not found' });
     }
 
-    // Fetch student, book, and conversation history in parallel (eliminates N+1)
+    // Fetch student, book, and conversation history in parallel (N+1 avoidance)
     const [
       { data: student },
       { data: book },
@@ -174,15 +314,13 @@ router.post('/:id/message', optionalAuth, async (req, res) => {
         .order('created_at', { ascending: true }),
     ]);
 
-    // Calculate current turn number for this stage.
-    // Count only student messages so that each student response maps to a
-    // single turn, and Alice replies don't inflate the turn counter.
+    // Count only student messages in this stage to derive turn number
     const studentTurnsInStage = dialogues?.filter(
-      d => d.stage === stage && d.speaker === 'student'
+      (d) => d.stage === stage && d.speaker === 'student'
     ) || [];
     const currentTurn = studentTurnsInStage.length + 1;
 
-    // Insert student message
+    // Insert the student's message
     const { error: studentDialogueError } = await supabase
       .from('dialogues')
       .insert({
@@ -197,7 +335,7 @@ router.post('/:id/message', optionalAuth, async (req, res) => {
       console.error('Student dialogue error:', studentDialogueError);
     }
 
-    // Get Alice response using the real AI engine
+    // Get Alice's response from the AI engine
     const aliceResponse = await getAliceResponse({
       bookTitle: book.title,
       studentName: student.name,
@@ -205,13 +343,13 @@ router.post('/:id/message', optionalAuth, async (req, res) => {
       stage,
       turn: currentTurn,
       studentMessage: content,
-      conversationHistory: dialogues || []
+      conversationHistory: dialogues || [],
     });
 
-    // Calculate grammar score for the student's response
+    // Score the student's response
     const grammarScore = calculateGrammarScore(content, student.level);
 
-    // Insert Alice message
+    // Store Alice's reply
     const { error: aliceDialogueError } = await supabase
       .from('dialogues')
       .insert({
@@ -227,15 +365,16 @@ router.post('/:id/message', optionalAuth, async (req, res) => {
       console.error('Alice dialogue error:', aliceDialogueError);
     }
 
-    // Extract vocabulary from student's response using the real extractor
+    // Extract vocabulary from the student's response
     const extractedWords = extractVocabulary(content, student.level);
 
-    // Insert vocabulary entries for each word
-    const vocabularyPromises = extractedWords.map(vocabItem =>
+    // Persist vocabulary entries (upsert to avoid duplicates)
+    const vocabularyPromises = extractedWords.map((vocabItem) =>
       supabase
         .from('vocabulary')
         .insert({
           student_id: session.student_id,
+          session_id: sessionId,
           word: vocabItem.word,
           context_sentence: vocabItem.context,
           pos: vocabItem.pos,
@@ -248,30 +387,24 @@ router.post('/:id/message', optionalAuth, async (req, res) => {
     );
 
     const vocabResults = await Promise.all(vocabularyPromises);
-    const vocabulary = vocabResults.map(r => r.data?.[0]).filter(Boolean);
+    const vocabulary = vocabResults.map((r) => r.data?.[0]).filter(Boolean);
 
-    // Determine if we should advance to the next stage
-    // Stage advancement logic:
-    // - Title: advance after turn 2-3
-    // - Introduction: advance after turn 2-3
-    // - Body: advance only after 3 reasons (turn 3)
-    // - Conclusion: advance after turn 2-3 (session complete)
-    let shouldAdvance = false;
-    let nextStage = null;
+    // Determine whether the current stage should advance.
+    // Body requires 3 student turns; all other stages advance after 2+.
     const stages = ['title', 'introduction', 'body', 'conclusion'];
     const stageIndex = stages.indexOf(stage);
 
-    // For Body stage, we need exactly 3 turns before advancing
+    let shouldAdvance = false;
     if (stage === 'body') {
       shouldAdvance = currentTurn >= 3;
     } else {
-      // For other stages, advance after 2+ turns
       shouldAdvance = currentTurn >= 2;
     }
 
-    if (shouldAdvance && stageIndex < stages.length - 1) {
-      nextStage = stages[stageIndex + 1];
-    }
+    const nextStage =
+      shouldAdvance && stageIndex < stages.length - 1
+        ? stages[stageIndex + 1]
+        : null;
 
     return res.status(200).json({
       reply: {
@@ -283,7 +416,7 @@ router.post('/:id/message', optionalAuth, async (req, res) => {
       vocabulary,
       shouldAdvance,
       nextStage,
-      grammarScore: grammarScore,
+      grammarScore,
     });
   } catch (err) {
     console.error('Message error:', err);
@@ -291,19 +424,26 @@ router.post('/:id/message', optionalAuth, async (req, res) => {
   }
 });
 
+// ============================================================================
+// POST /:id/complete
+// ============================================================================
+
 /**
- * POST /:id/complete
- * Complete a session and generate summary
- * Returns: { session: {...}, summary: { levelScore, grammarScore, vocabularyCount } }
+ * Complete a session.
+ * Saves per-stage scores, updates student aggregated stats, sends a
+ * parent notification, and awards any newly unlocked achievements.
+ *
+ * Body: {} (no required body; all data derived from existing DB records)
+ * Returns: { session, summary, newAchievements }
  */
 router.post('/:id/complete', optionalAuth, async (req, res) => {
   try {
     const { id: sessionId } = req.params;
 
-    // Get session
+    // Fetch the session with student info
     const { data: session, error: sessionError } = await supabase
       .from('sessions')
-      .select('*')
+      .select('*, students(id, name, parent_id, level, current_streak, total_books_read, total_words_learned, last_session_date)')
       .eq('id', sessionId)
       .single();
 
@@ -311,75 +451,175 @@ router.post('/:id/complete', optionalAuth, async (req, res) => {
       return res.status(404).json({ error: 'Session not found' });
     }
 
-    // Get all student dialogues for grammar analysis
-    const { data: studentDialogues } = await supabase
-      .from('dialogues')
-      .select('content')
-      .eq('session_id', sessionId)
-      .eq('speaker', 'student');
-
-    // Calculate average grammar score from all student responses
-    let averageGrammarScore = 0;
-    if (studentDialogues && studentDialogues.length > 0) {
-      const grammarScores = studentDialogues.map(dialogue =>
-        calculateGrammarScore(dialogue.content, session.level || 'intermediate')
-      );
-      averageGrammarScore = Math.round(
-        grammarScores.reduce((a, b) => a + b, 0) / grammarScores.length
-      );
-    }
-
-    // Count vocabulary recorded during this session only
-    // Filter by session_id when available; otherwise fall back to first_used >= session start
-    const { data: vocab } = await supabase
-      .from('vocabulary')
-      .select('id')
-      .eq('student_id', session.student_id)
-      .gte('first_used', session.started_at);
-
-    // Count turns per stage to calculate level score
-    const { data: allDialogues } = await supabase
-      .from('dialogues')
-      .select('stage, turn, speaker')
-      .eq('session_id', sessionId);
-
-    // Analyze completion: check if all stages were completed with turns
-    const stages = ['title', 'introduction', 'body', 'conclusion'];
-    const completedStages = new Set();
-    if (allDialogues) {
-      allDialogues.forEach(d => {
-        if (d.speaker === 'student' && d.turn >= 1) {
-          completedStages.add(d.stage);
-        }
+    // Already completed — return early to stay idempotent
+    if (session.is_complete) {
+      return res.status(200).json({
+        session: { id: session.id, completedAt: session.completed_at },
+        summary: {
+          levelScore: session.level_score,
+          grammarScore: session.grammar_score,
+          vocabularyCount: 0,
+          alreadyComplete: true,
+        },
+        newAchievements: [],
       });
     }
 
-    const levelScore = Math.round((completedStages.size / stages.length) * 100);
+    const student = session.students;
+    const studentId = student.id;
+    const studentLevel = student.level;
 
-    // Update session with completion time and scores
-    const { error: updateError } = await supabase
+    // Load all student dialogues for this session
+    const { data: allDialogues } = await supabase
+      .from('dialogues')
+      .select('stage, turn, speaker, content, grammar_score')
+      .eq('session_id', sessionId)
+      .order('created_at', { ascending: true });
+
+    const studentDialogues = allDialogues?.filter((d) => d.speaker === 'student') || [];
+
+    // --- Overall grammar score ---
+    let averageGrammarScore = 0;
+    if (studentDialogues.length > 0) {
+      const scores = studentDialogues.map((d) =>
+        calculateGrammarScore(d.content, studentLevel)
+      );
+      averageGrammarScore = Math.round(
+        scores.reduce((a, b) => a + b, 0) / scores.length
+      );
+    }
+
+    // --- Completion level score ---
+    const stagesWithResponses = new Set(
+      studentDialogues.map((d) => d.stage)
+    );
+    const levelScore = Math.round((stagesWithResponses.size / 4) * 100);
+
+    // --- Per-stage score breakdown ---
+    const stageBreakdown = computeStageBreakdown(allDialogues || [], studentLevel);
+
+    // --- Vocabulary count for this session ---
+    const { data: sessionVocab } = await supabase
+      .from('vocabulary')
+      .select('id')
+      .eq('session_id', sessionId);
+
+    const vocabularyCount = sessionVocab?.length || 0;
+
+    // --- Persist per-stage scores to session_stage_scores ---
+    const stageInserts = Object.entries(stageBreakdown)
+      .filter(([, v]) => v !== null)
+      .map(([stage, scores]) =>
+        supabase.from('session_stage_scores').insert({
+          session_id: sessionId,
+          stage,
+          grammar_score: scores.grammar,
+          fluency_score: scores.fluency,
+          vocabulary_score: scores.vocabulary,
+          response_count: scores.responseCount,
+          avg_response_words: scores.avgWords,
+        })
+      );
+    await Promise.all(stageInserts);
+
+    // --- Update session row ---
+    const completedAt = new Date().toISOString();
+    await supabase
       .from('sessions')
       .update({
-        completed_at: new Date().toISOString(),
+        completed_at: completedAt,
         grammar_score: averageGrammarScore,
         level_score: levelScore,
+        is_complete: true,
+        stage: 'conclusion',
+        status: 'completed',
       })
       .eq('id', sessionId);
 
-    if (updateError) {
-      console.error('Session update error:', updateError);
+    // --- Update student aggregated stats ---
+    const today = new Date().toISOString().substring(0, 10); // YYYY-MM-DD
+    const lastDate = student.last_session_date;
+
+    // Determine streak: increment if last session was yesterday, reset if missed a day
+    let newStreak = student.current_streak ?? 0;
+    if (lastDate) {
+      const yesterday = new Date(Date.now() - 86400000)
+        .toISOString()
+        .substring(0, 10);
+      if (lastDate === today) {
+        // Already had a session today — streak unchanged
+      } else if (lastDate === yesterday) {
+        newStreak += 1; // consecutive day
+      } else {
+        newStreak = 1; // streak broken; start fresh
+      }
+    } else {
+      newStreak = 1; // first ever session
+    }
+
+    const newTotalBooks = (student.total_books_read ?? 0) + 1;
+    const newTotalWords = (student.total_words_learned ?? 0) + vocabularyCount;
+
+    await supabase
+      .from('students')
+      .update({
+        total_books_read: newTotalBooks,
+        total_words_learned: newTotalWords,
+        current_streak: newStreak,
+        last_session_date: today,
+      })
+      .eq('id', studentId);
+
+    // --- Send parent notification ---
+    if (student.parent_id) {
+      await supabase.from('parent_notifications').insert({
+        parent_id: student.parent_id,
+        student_id: studentId,
+        type: 'session_complete',
+        title: `${student.name} completed a session!`,
+        message: `Great news! ${student.name} just finished a reading session with a grammar score of ${averageGrammarScore}/100 and learned ${vocabularyCount} new words.`,
+      });
+    }
+
+    // --- Check and award achievements ---
+    const achievementStats = {
+      totalBooks: newTotalBooks,
+      totalWords: newTotalWords,
+      streak: newStreak,
+      avgGrammar: averageGrammarScore,
+    };
+    const { awarded: newAchievements } = await checkAndAwardAchievements(
+      supabase,
+      studentId,
+      achievementStats
+    );
+
+    // --- Notify parent about newly earned achievements ---
+    if (newAchievements.length > 0 && student.parent_id) {
+      const achievementNotifications = newAchievements.map((key) =>
+        supabase.from('parent_notifications').insert({
+          parent_id: student.parent_id,
+          student_id: studentId,
+          type: 'achievement',
+          title: `${student.name} earned a new badge!`,
+          message: `${student.name} just unlocked the "${key}" achievement. Keep up the great work!`,
+        })
+      );
+      await Promise.all(achievementNotifications);
     }
 
     return res.status(200).json({
       session: {
         id: session.id,
-        completedAt: new Date().toISOString(),
+        completedAt,
       },
       summary: {
-        levelScore: levelScore,
+        levelScore,
         grammarScore: averageGrammarScore,
-        vocabularyCount: vocab?.length || 0,
+        vocabularyCount,
+        stageBreakdown,
       },
+      newAchievements,
     });
   } catch (err) {
     console.error('Complete session error:', err);
@@ -387,16 +627,18 @@ router.post('/:id/complete', optionalAuth, async (req, res) => {
   }
 });
 
+// ============================================================================
+// GET /:id/review
+// ============================================================================
+
 /**
- * GET /:id/review
- * Get full session review data
- * Returns: { session, dialogues: [...], vocabulary: [...] }
+ * Get full session review data.
+ * Returns: { session, dialogues, vocabulary }
  */
 router.get('/:id/review', optionalAuth, async (req, res) => {
   try {
     const { id: sessionId } = req.params;
 
-    // Get session
     const { data: session, error: sessionError } = await supabase
       .from('sessions')
       .select('*')
@@ -407,18 +649,17 @@ router.get('/:id/review', optionalAuth, async (req, res) => {
       return res.status(404).json({ error: 'Session not found' });
     }
 
-    // Get all dialogues
-    const { data: dialogues } = await supabase
-      .from('dialogues')
-      .select('*')
-      .eq('session_id', sessionId)
-      .order('created_at', { ascending: true });
-
-    // Get vocabulary used in this session
-    const { data: vocabulary } = await supabase
-      .from('vocabulary')
-      .select('*')
-      .eq('student_id', session.student_id);
+    const [{ data: dialogues }, { data: vocabulary }] = await Promise.all([
+      supabase
+        .from('dialogues')
+        .select('*')
+        .eq('session_id', sessionId)
+        .order('created_at', { ascending: true }),
+      supabase
+        .from('vocabulary')
+        .select('*')
+        .eq('session_id', sessionId),
+    ]);
 
     return res.status(200).json({
       session,
@@ -427,6 +668,254 @@ router.get('/:id/review', optionalAuth, async (req, res) => {
     });
   } catch (err) {
     console.error('Review error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ============================================================================
+// GET /student/:studentId
+// ============================================================================
+
+/**
+ * Get all sessions for a student, with aggregate stats.
+ *
+ * Returns:
+ * {
+ *   sessions: [{ id, bookTitle, stage, isComplete, startedAt, completedAt, grammarScore, levelScore }],
+ *   stats: { totalSessions, completedSessions, avgGrammarScore, totalWords, streak }
+ * }
+ */
+router.get('/student/:studentId', optionalAuth, async (req, res) => {
+  try {
+    const { studentId } = req.params;
+
+    if (!studentId) {
+      return res.status(400).json({ error: 'studentId required' });
+    }
+
+    // Verify student exists
+    const { data: student, error: studentError } = await supabase
+      .from('students')
+      .select('id, name, level, current_streak, total_books_read, total_words_learned')
+      .eq('id', studentId)
+      .single();
+
+    if (studentError) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+
+    // Fetch all sessions with book title joined
+    const { data: sessions, error: sessionsError } = await supabase
+      .from('sessions')
+      .select('id, stage, is_complete, started_at, completed_at, grammar_score, level_score, books(title, level)')
+      .eq('student_id', studentId)
+      .order('started_at', { ascending: false });
+
+    if (sessionsError) {
+      return res.status(500).json({ error: sessionsError.message });
+    }
+
+    // Compute aggregate stats across all sessions
+    const completedRows = sessions?.filter((s) => s.is_complete) || [];
+    const scored = completedRows.filter((s) => s.grammar_score != null);
+    const avgGrammarScore =
+      scored.length > 0
+        ? Math.round(
+            scored.reduce((sum, s) => sum + s.grammar_score, 0) / scored.length
+          )
+        : 0;
+
+    return res.status(200).json({
+      sessions: (sessions || []).map((s) => ({
+        id: s.id,
+        bookTitle: s.books?.title || null,
+        bookLevel: s.books?.level || null,
+        stage: s.stage,
+        isComplete: s.is_complete,
+        startedAt: s.started_at,
+        completedAt: s.completed_at,
+        grammarScore: s.grammar_score,
+        levelScore: s.level_score,
+      })),
+      stats: {
+        totalSessions: sessions?.length || 0,
+        completedSessions: completedRows.length,
+        avgGrammarScore,
+        totalWords: student.total_words_learned ?? 0,
+        streak: student.current_streak ?? 0,
+      },
+    });
+  } catch (err) {
+    console.error('Student sessions error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ============================================================================
+// GET /:id/stage-scores
+// ============================================================================
+
+/**
+ * Get per-stage scores for a session.
+ * Returns:
+ * {
+ *   stages: [{ stage, grammarScore, fluencyScore, vocabularyScore, responseCount, avgResponseWords }]
+ * }
+ */
+router.get('/:id/stage-scores', optionalAuth, async (req, res) => {
+  try {
+    const { id: sessionId } = req.params;
+
+    // Verify session exists
+    const { data: session, error: sessionError } = await supabase
+      .from('sessions')
+      .select('id')
+      .eq('id', sessionId)
+      .single();
+
+    if (sessionError) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    // Fetch pre-computed stage scores saved during session completion
+    const { data: stageScores, error: scoresError } = await supabase
+      .from('session_stage_scores')
+      .select('stage, grammar_score, fluency_score, vocabulary_score, response_count, avg_response_words, created_at')
+      .eq('session_id', sessionId)
+      .order('created_at', { ascending: true });
+
+    if (scoresError) {
+      return res.status(500).json({ error: scoresError.message });
+    }
+
+    return res.status(200).json({
+      stages: (stageScores || []).map((s) => ({
+        stage: s.stage,
+        grammarScore: s.grammar_score,
+        fluencyScore: s.fluency_score,
+        vocabularyScore: s.vocabulary_score,
+        responseCount: s.response_count,
+        avgResponseWords: s.avg_response_words,
+      })),
+    });
+  } catch (err) {
+    console.error('Stage scores error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ============================================================================
+// PUT /:id/pause
+// ============================================================================
+
+/**
+ * Pause (save-and-exit) an active session.
+ * Increments resumed_count so we can track how often students pause.
+ *
+ * Returns: { session: { id, pausedAt } }
+ */
+router.put('/:id/pause', optionalAuth, async (req, res) => {
+  try {
+    const { id: sessionId } = req.params;
+
+    // Fetch current session to get current resumed_count
+    const { data: session, error: fetchError } = await supabase
+      .from('sessions')
+      .select('id, is_complete, paused_at, resumed_count')
+      .eq('id', sessionId)
+      .single();
+
+    if (fetchError) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    if (session.is_complete) {
+      return res.status(400).json({ error: 'Cannot pause a completed session' });
+    }
+
+    const pausedAt = new Date().toISOString();
+
+    const { data: updated, error: updateError } = await supabase
+      .from('sessions')
+      .update({
+        paused_at: pausedAt,
+        // Increment resumed_count to track how many times this session was paused.
+        // On resume this counter is NOT reset — it acts as a total pause count.
+        resumed_count: (session.resumed_count ?? 0) + 1,
+      })
+      .eq('id', sessionId)
+      .select('id, paused_at, resumed_count')
+      .single();
+
+    if (updateError) {
+      return res.status(500).json({ error: updateError.message });
+    }
+
+    return res.status(200).json({
+      session: {
+        id: updated.id,
+        pausedAt: updated.paused_at,
+        resumedCount: updated.resumed_count,
+      },
+    });
+  } catch (err) {
+    console.error('Pause session error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ============================================================================
+// PUT /:id/resume
+// ============================================================================
+
+/**
+ * Resume a paused session (clears paused_at).
+ *
+ * Returns: { session: { id, resumedAt } }
+ */
+router.put('/:id/resume', optionalAuth, async (req, res) => {
+  try {
+    const { id: sessionId } = req.params;
+
+    // Verify session exists and is actually paused
+    const { data: session, error: fetchError } = await supabase
+      .from('sessions')
+      .select('id, is_complete, paused_at')
+      .eq('id', sessionId)
+      .single();
+
+    if (fetchError) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    if (session.is_complete) {
+      return res.status(400).json({ error: 'Cannot resume a completed session' });
+    }
+
+    if (!session.paused_at) {
+      return res.status(400).json({ error: 'Session is not paused' });
+    }
+
+    const { data: updated, error: updateError } = await supabase
+      .from('sessions')
+      .update({ paused_at: null })
+      .eq('id', sessionId)
+      .select('id, stage, paused_at')
+      .single();
+
+    if (updateError) {
+      return res.status(500).json({ error: updateError.message });
+    }
+
+    return res.status(200).json({
+      session: {
+        id: updated.id,
+        stage: updated.stage,
+        resumedAt: new Date().toISOString(),
+      },
+    });
+  } catch (err) {
+    console.error('Resume session error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });

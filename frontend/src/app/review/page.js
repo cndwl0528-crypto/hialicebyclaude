@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { getSessionReview, getSessionStageScores } from '@/services/api';
+import LoadingCard from '@/components/LoadingCard';
 
 const MOCK_REVIEW_DATA = {
   sessionId: 'session-001',
@@ -24,6 +26,13 @@ const MOCK_REVIEW_DATA = {
   ],
 };
 
+const MOCK_STAGE_BREAKDOWN = [
+  { stage: 'Title', completed: true, wordCount: 1, grammarScore: 85, duration: 60 },
+  { stage: 'Introduction', completed: true, wordCount: 2, grammarScore: 80, duration: 120 },
+  { stage: 'Body', completed: true, wordCount: 3, grammarScore: 82, duration: 180 },
+  { stage: 'Conclusion', completed: true, wordCount: 2, grammarScore: 85, duration: 90 },
+];
+
 const POS_COLORS = {
   noun: { bg: 'bg-[#E8F0E8]', text: 'text-[#3D6B3D]', label: 'Noun' },
   verb: { bg: 'bg-[#E8F5E8]', text: 'text-[#5C8B5C]', label: 'Verb' },
@@ -38,76 +47,134 @@ export default function ReviewPage() {
   const [expandedWord, setExpandedWord] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [usingFallback, setUsingFallback] = useState(false);
   const [conversation, setConversation] = useState([]);
   const [showConversation, setShowConversation] = useState(false);
   const [highlightedWord, setHighlightedWord] = useState(null);
   const [stageBreakdown, setStageBreakdown] = useState([]);
+  const [achievementsEarned, setAchievementsEarned] = useState([]);
+  const [showAchievements, setShowAchievements] = useState(false);
 
   useEffect(() => {
     const fetchReview = async () => {
       try {
         setLoading(true);
+        setUsingFallback(false);
 
         const sessionId = sessionStorage.getItem('sessionId');
         const bookTitle = sessionStorage.getItem('bookTitle');
         const studentName = sessionStorage.getItem('studentName');
-        const sessionDataStr = sessionStorage.getItem('lastSessionData');
         const conversationStr = sessionStorage.getItem('lastConversation');
+        const sessionDataStr = sessionStorage.getItem('lastSessionData');
 
         if (!sessionId) {
-          setError('No session data found');
+          setError('No session found. Please complete a reading session first.');
           setLoading(false);
           return;
         }
 
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const response = await fetch(
-          `${apiUrl}/api/sessions/${sessionId}/review`,
-          { signal: AbortSignal.timeout(5000) }
-        );
-
-        if (response.ok) {
-          const data = await response.json();
-          setReview(data.review || { ...MOCK_REVIEW_DATA, bookTitle, studentName });
-          setVocabulary(data.review?.vocabulary || MOCK_REVIEW_DATA.vocabulary);
-          setError('');
-        } else {
-          const mockData = { ...MOCK_REVIEW_DATA, bookTitle, studentName };
-          setReview(mockData);
-          setVocabulary(mockData.vocabulary);
-        }
-
+        // Restore conversation from sessionStorage
         if (conversationStr) {
           try {
-            const conv = JSON.parse(conversationStr);
-            setConversation(conv);
+            setConversation(JSON.parse(conversationStr));
           } catch (e) {
             console.warn('Failed to parse conversation:', e);
           }
         }
 
-        if (sessionDataStr) {
+        // Fetch review data and stage scores in parallel
+        let reviewData = null;
+        let stageScoresData = null;
+
+        try {
+          [reviewData, stageScoresData] = await Promise.all([
+            getSessionReview(sessionId),
+            getSessionStageScores(sessionId),
+          ]);
+        } catch (apiErr) {
+          console.warn('API fetch failed, falling back to sessionStorage:', apiErr);
+          setUsingFallback(true);
+        }
+
+        // Process review data
+        if (reviewData && reviewData.review) {
+          const apiReview = reviewData.review;
+          setReview({
+            ...apiReview,
+            bookTitle: apiReview.bookTitle || bookTitle || MOCK_REVIEW_DATA.bookTitle,
+            studentName: apiReview.studentName || studentName || MOCK_REVIEW_DATA.studentName,
+          });
+
+          // Vocabulary from API takes priority
+          const vocabList = apiReview.vocabulary || [];
+          setVocabulary(vocabList.length > 0 ? vocabList : buildVocabFromSessionStorage(sessionDataStr));
+
+          // Check for achievements from API
+          if (apiReview.achievements && apiReview.achievements.length > 0) {
+            setAchievementsEarned(apiReview.achievements);
+            setShowAchievements(true);
+          }
+        } else {
+          // Fallback to sessionStorage data
+          setUsingFallback(true);
+          const sessionVocab = buildVocabFromSessionStorage(sessionDataStr);
+          const fallbackReview = {
+            ...MOCK_REVIEW_DATA,
+            bookTitle: bookTitle || MOCK_REVIEW_DATA.bookTitle,
+            studentName: studentName || MOCK_REVIEW_DATA.studentName,
+            vocabulary: sessionVocab.length > 0 ? sessionVocab : MOCK_REVIEW_DATA.vocabulary,
+          };
+          setReview(fallbackReview);
+          setVocabulary(fallbackReview.vocabulary);
+        }
+
+        // Process stage scores
+        if (stageScoresData && stageScoresData.stageScores && stageScoresData.stageScores.length > 0) {
+          const apiStages = stageScoresData.stageScores.map((s) => ({
+            stage: s.stage || s.stageName || 'Stage',
+            completed: s.completed !== false,
+            wordCount: s.wordCount || s.wordsLearned || 0,
+            grammarScore: s.grammarScore || s.score || 0,
+            duration: s.duration || s.durationSeconds || 0,
+          }));
+          setStageBreakdown(apiStages);
+        } else {
+          // Build stage breakdown from sessionStorage as fallback
           try {
-            const sessionData = JSON.parse(sessionDataStr);
-            const breakdown = [
-              { stage: 'Title', completed: true, wordCount: 1, grammarScore: 85, duration: 60 },
-              { stage: 'Introduction', completed: true, wordCount: 2, grammarScore: 80, duration: 120 },
-              { stage: 'Body', completed: true, wordCount: 3, grammarScore: 82, duration: 180 },
-              { stage: 'Conclusion', completed: true, wordCount: 2, grammarScore: 85, duration: 90 },
-            ];
-            setStageBreakdown(breakdown);
+            const sessionData = sessionDataStr ? JSON.parse(sessionDataStr) : null;
+            if (sessionData && sessionData.stageBreakdown) {
+              setStageBreakdown(sessionData.stageBreakdown);
+            } else {
+              setStageBreakdown(MOCK_STAGE_BREAKDOWN);
+            }
           } catch (e) {
-            console.warn('Failed to parse session data:', e);
+            setStageBreakdown(MOCK_STAGE_BREAKDOWN);
+          }
+        }
+
+        // Persist a backup of review data to sessionStorage
+        if (reviewData && reviewData.review) {
+          try {
+            sessionStorage.setItem('lastReviewData', JSON.stringify(reviewData.review));
+          } catch (e) {
+            console.warn('Failed to cache review data:', e);
           }
         }
       } catch (err) {
-        console.warn('Failed to fetch review from API, using mock data:', err);
-        const sessionId = sessionStorage.getItem('sessionId');
+        console.error('Unexpected error loading review:', err);
+        setError('Oops! Something went wrong loading your review. Using saved data instead.');
+        setUsingFallback(true);
+
         const bookTitle = sessionStorage.getItem('bookTitle');
         const studentName = sessionStorage.getItem('studentName');
-        const mockData = { ...MOCK_REVIEW_DATA, bookTitle, studentName };
+        const mockData = {
+          ...MOCK_REVIEW_DATA,
+          bookTitle: bookTitle || MOCK_REVIEW_DATA.bookTitle,
+          studentName: studentName || MOCK_REVIEW_DATA.studentName,
+        };
         setReview(mockData);
         setVocabulary(mockData.vocabulary);
+        setStageBreakdown(MOCK_STAGE_BREAKDOWN);
       } finally {
         setLoading(false);
       }
@@ -115,6 +182,16 @@ export default function ReviewPage() {
 
     fetchReview();
   }, []);
+
+  function buildVocabFromSessionStorage(sessionDataStr) {
+    if (!sessionDataStr) return [];
+    try {
+      const sessionData = JSON.parse(sessionDataStr);
+      return sessionData.vocabulary || sessionData.words || [];
+    } catch (e) {
+      return [];
+    }
+  }
 
   const renderStars = (level) => {
     return Array.from({ length: 5 }).map((_, i) => (
@@ -127,13 +204,13 @@ export default function ReviewPage() {
   const renderWordCloud = () => {
     if (!vocabulary.length) return null;
 
-    const useCounts = vocabulary.map((v) => v.useCount);
+    const useCounts = vocabulary.map((v) => v.useCount || 1);
     const minCount = Math.min(...useCounts);
     const maxCount = Math.max(...useCounts);
     const range = maxCount - minCount || 1;
 
     const calculateFontSize = (useCount) => {
-      const ratio = (useCount - minCount) / range;
+      const ratio = ((useCount || 1) - minCount) / range;
       return 16 + ratio * 32;
     };
 
@@ -144,15 +221,15 @@ export default function ReviewPage() {
       <div className="flex flex-wrap gap-4 justify-center items-center py-8 px-4">
         {shuffled.map((vocab, idx) => (
           <div
-            key={vocab.id}
+            key={vocab.id || idx}
             style={{
               fontSize: `${calculateFontSize(vocab.useCount)}px`,
               transform: `rotate(${Math.random() * 10 - 5}deg)`,
-              opacity: 0.7 + (vocab.useCount / maxCount) * 0.3,
+              opacity: 0.7 + ((vocab.useCount || 1) / maxCount) * 0.3,
               color: wordColors[idx % wordColors.length],
             }}
             className="inline-block font-extrabold hover:opacity-100 transition-all cursor-pointer"
-            title={`Used ${vocab.useCount} time(s)`}
+            title={`Used ${vocab.useCount || 1} time(s)`}
           >
             {vocab.word}
           </div>
@@ -162,8 +239,8 @@ export default function ReviewPage() {
   };
 
   const totalWords = vocabulary.length;
-  const newWords = vocabulary.filter((v) => v.useCount === 1).length;
-  const reviewWords = vocabulary.filter((v) => v.useCount > 1).length;
+  const newWords = vocabulary.filter((v) => (v.useCount || 1) === 1).length;
+  const reviewWords = vocabulary.filter((v) => (v.useCount || 1) > 1).length;
 
   const groupedByPOS = vocabulary.reduce((acc, vocab) => {
     const pos = vocab.pos || 'noun';
@@ -174,11 +251,10 @@ export default function ReviewPage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center py-16">
-        <div className="text-center">
-          <div className="text-4xl mb-3 float-animation inline-block">🌿</div>
-          <p className="text-[#6B5744] font-bold text-lg">Loading review...</p>
-        </div>
+      <div className="py-8 space-y-4">
+        <LoadingCard lines={2} />
+        <LoadingCard lines={4} />
+        <LoadingCard lines={3} />
       </div>
     );
   }
@@ -186,13 +262,63 @@ export default function ReviewPage() {
   if (!review) {
     return (
       <div className="flex justify-center items-center py-16">
-        <p className="text-[#D4736B] font-bold text-lg">{error || 'Failed to load review data'}</p>
+        <div className="ghibli-card p-8 text-center max-w-md">
+          <p className="text-[#D4736B] font-bold text-lg mb-4">
+            {error || 'Could not load your review.'}
+          </p>
+          <button
+            onClick={() => router.push('/books')}
+            className="px-6 py-3 bg-[#5C8B5C] text-white rounded-2xl font-bold hover:-translate-y-0.5 transition-all"
+          >
+            Go Read a Book
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="py-8">
+      {/* Fallback notice banner */}
+      {usingFallback && !error && (
+        <div className="mb-6 px-4 py-3 bg-[#FFF8E8] border-l-4 border-[#D4A843] rounded-xl">
+          <p className="text-sm font-bold text-[#A8822E]">
+            Showing your saved session data. Connect to the internet to sync your latest results.
+          </p>
+        </div>
+      )}
+
+      {/* Error notice (non-blocking) */}
+      {error && usingFallback && (
+        <div className="mb-6 px-4 py-3 bg-[#FFF8E8] border-l-4 border-[#D4A843] rounded-xl">
+          <p className="text-sm font-bold text-[#A8822E]">{error}</p>
+        </div>
+      )}
+
+      {/* Achievements Banner */}
+      {showAchievements && achievementsEarned.length > 0 && (
+        <div className="mb-6 ghibli-card p-6 bg-gradient-to-r from-[#D4A843] to-[#F5C842] text-white rounded-3xl">
+          <h3 className="text-xl font-extrabold mb-3">New achievements unlocked!</h3>
+          <div className="flex flex-wrap gap-3">
+            {achievementsEarned.map((achievement, idx) => (
+              <div
+                key={idx}
+                className="flex items-center gap-2 px-4 py-2 bg-white bg-opacity-25 rounded-full font-bold text-sm"
+              >
+                <span>{achievement.emoji || '🏆'}</span>
+                <span>{achievement.label || achievement.name || achievement}</span>
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={() => setShowAchievements(false)}
+            className="mt-3 text-xs font-bold opacity-70 hover:opacity-100 transition-opacity"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="mb-8">
         <h2 className="text-3xl font-extrabold text-[#3D6B3D] mb-2">Reading Session Complete!</h2>
@@ -218,12 +344,27 @@ export default function ReviewPage() {
                 <div className="flex-1 bg-[#EDE5D4] rounded-full h-3 overflow-hidden">
                   <div
                     className="bg-[#5C8B5C] h-full transition-all rounded-full"
-                    style={{ width: `${review.grammarScore}%` }}
+                    style={{ width: `${review.grammarScore || 0}%` }}
                   />
                 </div>
-                <span className="text-lg font-extrabold text-[#5C8B5C]">{review.grammarScore}%</span>
+                <span className="text-lg font-extrabold text-[#5C8B5C]">{review.grammarScore || 0}%</span>
               </div>
             </div>
+
+            {review.levelScore !== undefined && (
+              <div className="mt-4">
+                <p className="text-[#6B5744] text-sm font-bold mb-2">Level Score</p>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 bg-[#EDE5D4] rounded-full h-3 overflow-hidden">
+                    <div
+                      className="bg-[#D4A843] h-full transition-all rounded-full"
+                      style={{ width: `${review.levelScore || 0}%` }}
+                    />
+                  </div>
+                  <span className="text-lg font-extrabold text-[#D4A843]">{review.levelScore || 0}%</span>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-3 gap-4">
@@ -276,9 +417,9 @@ export default function ReviewPage() {
         <div className="relative border-2 border-[#E8DEC8] rounded-2xl p-8 bg-[#F5F0E8]" style={{ minHeight: '400px' }}>
           <svg className="absolute inset-0 w-full h-full" style={{ pointerEvents: 'none' }}>
             {vocabulary.map((word) => {
-              if (!highlightedWord || word.id === highlightedWord || word.synonyms.some((syn) => vocabulary.find((w) => w.word === syn && w.id === highlightedWord))) {
-                return word.synonyms.map((synonym, idx) => {
-                  const synWord = vocabulary.find((w) => w.synonyms.includes(word.word) || w.word === synonym);
+              if (!highlightedWord || word.id === highlightedWord || (word.synonyms || []).some((syn) => vocabulary.find((w) => w.word === syn && w.id === highlightedWord))) {
+                return (word.synonyms || []).map((synonym, idx) => {
+                  const synWord = vocabulary.find((w) => (w.synonyms || []).includes(word.word) || w.word === synonym);
                   if (!synWord) return null;
                   const highlight = highlightedWord === word.id || highlightedWord === synWord.id;
                   return (
@@ -317,7 +458,7 @@ export default function ReviewPage() {
         </div>
       </div>
 
-      {/* Stage Breakdown */}
+      {/* Stage Breakdown — Real data from API */}
       {stageBreakdown.length > 0 && (
         <div className="ghibli-card p-8 mb-6">
           <h3 className="text-xl font-extrabold text-[#3D2E1E] mb-6">Session Breakdown by Stage</h3>
@@ -327,19 +468,34 @@ export default function ReviewPage() {
                 <div className="flex items-center justify-between mb-3">
                   <div>
                     <h4 className="font-extrabold text-[#3D2E1E]">{stage.stage}</h4>
-                    <p className="text-sm text-[#6B5744] font-medium">{Math.floor(stage.duration / 60)}m {stage.duration % 60}s</p>
+                    {stage.duration > 0 && (
+                      <p className="text-sm text-[#6B5744] font-medium">
+                        {Math.floor(stage.duration / 60)}m {stage.duration % 60}s
+                      </p>
+                    )}
                   </div>
                   <div className="text-right">
-                    <div className="text-sm text-[#6B5744] font-semibold mb-1">{stage.wordCount} new word(s)</div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-24 bg-[#EDE5D4] rounded-full h-2">
-                        <div
-                          className="bg-[#5C8B5C] h-full rounded-full"
-                          style={{ width: `${stage.grammarScore}%` }}
-                        />
+                    {stage.wordCount > 0 && (
+                      <div className="text-sm text-[#6B5744] font-semibold mb-1">
+                        {stage.wordCount} new word(s)
                       </div>
-                      <span className="text-sm font-extrabold text-[#5C8B5C]">{stage.grammarScore}%</span>
-                    </div>
+                    )}
+                    {stage.grammarScore > 0 && (
+                      <div className="flex items-center gap-2">
+                        <div className="w-24 bg-[#EDE5D4] rounded-full h-2">
+                          <div
+                            className="bg-[#5C8B5C] h-full rounded-full"
+                            style={{ width: `${stage.grammarScore}%` }}
+                          />
+                        </div>
+                        <span className="text-sm font-extrabold text-[#5C8B5C]">{stage.grammarScore}%</span>
+                      </div>
+                    )}
+                    {!stage.completed && (
+                      <span className="text-xs px-2 py-1 bg-[#FCE8E6] text-[#B85A53] rounded-full font-bold">
+                        Incomplete
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -428,7 +584,7 @@ export default function ReviewPage() {
                       {colors.label}
                     </span>
                     <span className="text-[#6B5744] text-xs px-2 py-1 bg-[#EDE5D4] rounded-lg font-semibold">
-                      Used {vocab.useCount}x
+                      Used {vocab.useCount || 1}x
                     </span>
                     <span className="text-xl text-[#6B5744]">{expandedWord === vocab.id ? '▼' : '▶'}</span>
                   </div>
@@ -438,10 +594,10 @@ export default function ReviewPage() {
                   <div className="px-6 py-4 bg-[#F5F0E8] border-t border-[#EDE5D4] space-y-4">
                     <div>
                       <p className="text-sm font-bold text-[#6B5744] mb-2">Mastery Level</p>
-                      <div className="flex gap-1">{renderStars(vocab.masteryLevel)}</div>
+                      <div className="flex gap-1">{renderStars(vocab.masteryLevel || 1)}</div>
                     </div>
 
-                    {vocab.synonyms.length > 0 && (
+                    {(vocab.synonyms || []).length > 0 && (
                       <div>
                         <p className="text-sm font-bold text-[#6B5744] mb-2">Similar Words (Synonyms)</p>
                         <div className="flex gap-2 flex-wrap">
@@ -454,7 +610,7 @@ export default function ReviewPage() {
                       </div>
                     )}
 
-                    {vocab.antonyms.length > 0 && (
+                    {(vocab.antonyms || []).length > 0 && (
                       <div>
                         <p className="text-sm font-bold text-[#6B5744] mb-2">Opposite Words (Antonyms)</p>
                         <div className="flex gap-2 flex-wrap">

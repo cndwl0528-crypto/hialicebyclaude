@@ -1,3 +1,19 @@
+/**
+ * auth.js
+ * HiAlice — Authentication Routes
+ *
+ * Handles parent login, child session selection, logout,
+ * current user info, and parent notification inbox.
+ *
+ * Route summary:
+ *   POST /parent-login               Email + password login
+ *   POST /child-select               Select a child for a session (parent token required)
+ *   POST /logout                     Invalidate Supabase Auth session + clear server state
+ *   GET  /me                         Get current user info from JWT
+ *   GET  /notifications              Get parent notification inbox
+ *   PUT  /notifications/:id/read     Mark a single notification as read
+ */
+
 import express from 'express';
 import { supabase } from '../lib/supabase.js';
 import { generateToken, authMiddleware } from '../middleware/auth.js';
@@ -5,9 +21,12 @@ import { authRateLimiter } from '../middleware/sanitize.js';
 
 const router = express.Router();
 
+// ============================================================================
+// POST /parent-login
+// ============================================================================
+
 /**
- * POST /parent-login
- * Email + password login via Supabase Auth
+ * Email + password login via Supabase Auth.
  * Body: { email, password }
  * Returns: { token, parent: { id, email, display_name }, children: [...] }
  */
@@ -31,7 +50,7 @@ router.post('/parent-login', authRateLimiter, async (req, res) => {
 
     const { user } = data;
 
-    // Fetch parent details from database
+    // Fetch parent profile from our database
     const { data: parentData, error: parentError } = await supabase
       .from('parents')
       .select('id, email, display_name')
@@ -45,14 +64,14 @@ router.post('/parent-login', authRateLimiter, async (req, res) => {
     // Fetch children associated with this parent
     const { data: childrenData, error: childrenError } = await supabase
       .from('students')
-      .select('id, name, age, level')
+      .select('id, name, age, level, avatar_emoji, current_streak, total_books_read')
       .eq('parent_id', parentData.id);
 
     if (childrenError && childrenError.code !== 'PGRST116') {
       return res.status(500).json({ error: childrenError.message });
     }
 
-    // Generate JWT token with parent info
+    // Generate our own JWT token with parent claims
     const token = generateToken({
       parentId: parentData.id,
       email: parentData.email,
@@ -70,9 +89,15 @@ router.post('/parent-login', authRateLimiter, async (req, res) => {
   }
 });
 
+// ============================================================================
+// POST /child-select
+// ============================================================================
+
 /**
- * POST /child-select
- * Select a child for session — requires parent JWT
+ * Select a child for a session.
+ * Issues a short-lived student token that the frontend uses for session routes.
+ *
+ * Requires: Parent Bearer token
  * Body: { studentId }
  * Returns: { token, student: { id, name, age, level } }
  */
@@ -84,17 +109,17 @@ router.post('/child-select', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'studentId required' });
     }
 
-    // Verify caller is a parent token
+    // Only parent tokens may select a child
     if (!req.user || req.user.type !== 'parent') {
       return res.status(403).json({ error: 'Parent authentication required' });
     }
 
     const parentId = req.user.parentId;
 
-    // Fetch student and verify ownership — student must belong to this parent
+    // Fetch student and verify ownership
     const { data: student, error } = await supabase
       .from('students')
-      .select('id, name, age, level, parent_id')
+      .select('id, name, age, level, parent_id, avatar_emoji, current_streak, total_books_read')
       .eq('id', studentId)
       .single();
 
@@ -103,10 +128,12 @@ router.post('/child-select', authMiddleware, async (req, res) => {
     }
 
     if (student.parent_id !== parentId) {
-      return res.status(403).json({ error: 'Access denied: student does not belong to this parent' });
+      return res
+        .status(403)
+        .json({ error: 'Access denied: student does not belong to this parent' });
     }
 
-    // Generate JWT token with student info
+    // Issue a student-scoped JWT
     const token = generateToken({
       studentId: student.id,
       name: student.name,
@@ -120,10 +147,269 @@ router.post('/child-select', authMiddleware, async (req, res) => {
         name: student.name,
         age: student.age,
         level: student.level,
+        avatarEmoji: student.avatar_emoji,
+        streak: student.current_streak,
+        totalBooksRead: student.total_books_read,
       },
     });
   } catch (err) {
     console.error('Child select error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ============================================================================
+// POST /logout
+// ============================================================================
+
+/**
+ * Log out the current user.
+ * Calls Supabase Auth signOut to invalidate the remote session.
+ * Our own JWTs are stateless — the client should discard the token.
+ *
+ * Returns: { success: true }
+ */
+router.post('/logout', authMiddleware, async (req, res) => {
+  try {
+    // Sign out from Supabase Auth to invalidate any active Supabase sessions.
+    // This is a best-effort call; our JWTs are stateless so the client must
+    // also clear its stored token.
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      // Log but do not surface to client — the signOut is best-effort
+      console.warn('Supabase signOut error (non-fatal):', error.message);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Logged out successfully. Please clear your client token.',
+    });
+  } catch (err) {
+    console.error('Logout error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ============================================================================
+// GET /me
+// ============================================================================
+
+/**
+ * Get current user info decoded from the JWT.
+ * For parent tokens: returns parent profile + children list.
+ * For student tokens: returns student profile.
+ *
+ * Requires: Bearer token
+ * Returns: { user: { type, ...profile }, children? }
+ */
+router.get('/me', authMiddleware, async (req, res) => {
+  try {
+    const { type } = req.user;
+
+    if (type === 'parent') {
+      const parentId = req.user.parentId;
+
+      // Fetch fresh parent data from DB
+      const { data: parent, error: parentError } = await supabase
+        .from('parents')
+        .select('id, email, display_name, phone, created_at')
+        .eq('id', parentId)
+        .single();
+
+      if (parentError) {
+        return res.status(404).json({ error: 'Parent not found' });
+      }
+
+      // Fetch children with stats
+      const { data: children } = await supabase
+        .from('students')
+        .select(
+          'id, name, age, level, avatar_emoji, current_streak, total_books_read, total_words_learned, last_session_date'
+        )
+        .eq('parent_id', parentId);
+
+      return res.status(200).json({
+        user: {
+          type: 'parent',
+          ...parent,
+        },
+        children: children || [],
+      });
+    }
+
+    if (type === 'student') {
+      const studentId = req.user.studentId;
+
+      const { data: student, error: studentError } = await supabase
+        .from('students')
+        .select(
+          'id, name, age, level, avatar_emoji, bio, current_streak, total_books_read, total_words_learned, last_session_date, created_at'
+        )
+        .eq('id', studentId)
+        .single();
+
+      if (studentError) {
+        return res.status(404).json({ error: 'Student not found' });
+      }
+
+      return res.status(200).json({
+        user: {
+          type: 'student',
+          ...student,
+        },
+      });
+    }
+
+    // Unknown token type
+    return res.status(400).json({ error: 'Invalid token type' });
+  } catch (err) {
+    console.error('Get me error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ============================================================================
+// GET /notifications
+// ============================================================================
+
+/**
+ * Get parent notification inbox.
+ * Returns most recent 50 notifications, unread first, then newest first.
+ *
+ * Requires: Parent Bearer token
+ * Query: ?unreadOnly=true — return only unread notifications
+ * Returns: { notifications: [...], unreadCount }
+ */
+router.get('/notifications', authMiddleware, async (req, res) => {
+  try {
+    // Only parents have a notification inbox
+    if (!req.user || req.user.type !== 'parent') {
+      return res
+        .status(403)
+        .json({ error: 'Parent authentication required' });
+    }
+
+    const parentId = req.user.parentId;
+    const { unreadOnly } = req.query;
+
+    let query = supabase
+      .from('parent_notifications')
+      .select(
+        'id, student_id, type, title, message, is_read, created_at, students(name, avatar_emoji)'
+      )
+      .eq('parent_id', parentId)
+      .order('is_read', { ascending: true })   // unread first
+      .order('created_at', { ascending: false }) // newest within each group
+      .limit(50);
+
+    // Optionally filter to unread only
+    if (unreadOnly === 'true') {
+      query = query.eq('is_read', false);
+    }
+
+    const { data: notifications, error } = await query;
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    // Count unread notifications (may differ if unreadOnly filtered the list)
+    const { data: unreadRows } = await supabase
+      .from('parent_notifications')
+      .select('id', { count: 'exact' })
+      .eq('parent_id', parentId)
+      .eq('is_read', false);
+
+    return res.status(200).json({
+      notifications: (notifications || []).map((n) => ({
+        id: n.id,
+        studentId: n.student_id,
+        studentName: n.students?.name || null,
+        studentAvatar: n.students?.avatar_emoji || null,
+        type: n.type,
+        title: n.title,
+        message: n.message,
+        isRead: n.is_read,
+        createdAt: n.created_at,
+      })),
+      unreadCount: unreadRows?.length ?? 0,
+    });
+  } catch (err) {
+    console.error('Get notifications error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ============================================================================
+// PUT /notifications/:id/read
+// ============================================================================
+
+/**
+ * Mark a single notification as read.
+ * Also supports marking ALL as read when id === 'all'.
+ *
+ * Requires: Parent Bearer token
+ * Returns: { success: true }
+ */
+router.put('/notifications/:id/read', authMiddleware, async (req, res) => {
+  try {
+    if (!req.user || req.user.type !== 'parent') {
+      return res
+        .status(403)
+        .json({ error: 'Parent authentication required' });
+    }
+
+    const parentId = req.user.parentId;
+    const { id: notifId } = req.params;
+
+    // Special case: mark all notifications as read
+    if (notifId === 'all') {
+      const { error } = await supabase
+        .from('parent_notifications')
+        .update({ is_read: true })
+        .eq('parent_id', parentId)
+        .eq('is_read', false);
+
+      if (error) {
+        return res.status(500).json({ error: error.message });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: 'All notifications marked as read',
+      });
+    }
+
+    // Mark a single notification as read; verify ownership first
+    const { data: notif, error: fetchError } = await supabase
+      .from('parent_notifications')
+      .select('id, parent_id')
+      .eq('id', notifId)
+      .single();
+
+    if (fetchError || !notif) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+
+    if (notif.parent_id !== parentId) {
+      return res
+        .status(403)
+        .json({ error: 'Access denied: notification does not belong to you' });
+    }
+
+    const { error: updateError } = await supabase
+      .from('parent_notifications')
+      .update({ is_read: true })
+      .eq('id', notifId);
+
+    if (updateError) {
+      return res.status(500).json({ error: updateError.message });
+    }
+
+    return res.status(200).json({ success: true });
+  } catch (err) {
+    console.error('Mark read error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });

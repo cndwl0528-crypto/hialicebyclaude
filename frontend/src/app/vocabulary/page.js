@@ -1,8 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-
+import {
+  getStudentVocabulary,
+  getVocabDueToday,
+  recordPracticeResult,
+} from '@/services/api';
+import LoadingCard from '@/components/LoadingCard';
 
 const MOCK_VOCABULARY = [
   { id: 1, word: 'caterpillar', pos: 'noun', definition: 'A small creature with many legs that becomes a butterfly', contextSentence: 'The caterpillar ate leaves all day.', synonyms: ['larva', 'grub'], antonyms: [], masteryLevel: 2, useCount: 5 },
@@ -26,7 +31,15 @@ const POS_COLORS = {
   adverb: { bg: 'bg-[#FFF0D8]', text: 'text-[#A8822E]', label: 'Adverb' },
 };
 
-function getWordsBySpacedRepetition(vocabulary) {
+function getWordsBySpacedRepetition(vocabulary, dueIds = []) {
+  // If server returned due-today IDs, use those first
+  if (dueIds.length > 0) {
+    const dueWords = vocabulary.filter((w) => dueIds.includes(w.id));
+    const remaining = vocabulary.filter((w) => !dueIds.includes(w.id));
+    return [...dueWords, ...remaining];
+  }
+
+  // Client-side spaced repetition fallback
   return vocabulary.filter((word) => {
     if (word.masteryLevel <= 2) return true;
     if (word.masteryLevel === 3) return Math.random() > 0.5;
@@ -52,12 +65,14 @@ export default function VocabularyPage() {
   const router = useRouter();
   const [vocabulary, setVocabulary] = useState([]);
   const [filteredVocabulary, setFilteredVocabulary] = useState([]);
+  const [dueCount, setDueCount] = useState(0);
   const [mode, setMode] = useState(PRACTICE_MODES.FLIP_CARD);
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [streak, setStreak] = useState(0);
   const [sessionComplete, setSessionComplete] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [usingFallback, setUsingFallback] = useState(false);
   const [score, setScore] = useState({ correct: 0, total: 0 });
   const [isListening, setIsListening] = useState(false);
   const [userAnswer, setUserAnswer] = useState('');
@@ -68,25 +83,66 @@ export default function VocabularyPage() {
   const [selectedSynonym, setSelectedSynonym] = useState(null);
   const [speechNotSupported, setSpeechNotSupported] = useState(false);
 
+  // Track card flip time for response time measurement
+  const cardFlipTimeRef = useRef(null);
+
   useEffect(() => {
     const fetchVocabulary = async () => {
       try {
         setLoading(true);
+        setUsingFallback(false);
 
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        try {
-          const response = await fetch(`${apiUrl}/api/vocabulary`, { signal: AbortSignal.timeout(5000) });
+        const studentId = sessionStorage.getItem('studentId');
 
-          if (response.ok) {
-            const data = await response.json();
-            setVocabulary(data.vocabulary || MOCK_VOCABULARY);
-          } else {
-            setVocabulary(MOCK_VOCABULARY);
-          }
-        } catch (error) {
-          console.warn('API unavailable, using mock vocabulary:', error);
-          setVocabulary(MOCK_VOCABULARY);
+        if (!studentId) {
+          // No studentId — try sessionStorage vocabulary, then mock
+          setUsingFallback(true);
+          const sessionVocab = getVocabFromSessionStorage();
+          setVocabulary(sessionVocab.length > 0 ? sessionVocab : MOCK_VOCABULARY);
+          setLoading(false);
+          return;
         }
+
+        // Fetch vocabulary and due-today in parallel
+        let vocabData = null;
+        let dueData = null;
+        let dueIds = [];
+
+        try {
+          [vocabData, dueData] = await Promise.all([
+            getStudentVocabulary(studentId),
+            getVocabDueToday(studentId),
+          ]);
+
+          if (dueData && dueData.words) {
+            dueIds = dueData.words.map((w) => w.id);
+            setDueCount(dueData.count || dueData.words.length || 0);
+          }
+        } catch (apiErr) {
+          console.warn('API unavailable, falling back to sessionStorage vocab:', apiErr);
+          setUsingFallback(true);
+        }
+
+        if (vocabData && vocabData.words && vocabData.words.length > 0) {
+          setVocabulary(vocabData.words);
+        } else if (vocabData && vocabData.vocabulary && vocabData.vocabulary.words) {
+          setVocabulary(vocabData.vocabulary.words);
+        } else {
+          // Fallback chain: sessionStorage -> mock
+          setUsingFallback(true);
+          const sessionVocab = getVocabFromSessionStorage();
+          setVocabulary(sessionVocab.length > 0 ? sessionVocab : MOCK_VOCABULARY);
+        }
+
+        // Store due IDs for spaced repetition ordering
+        if (dueIds.length > 0) {
+          sessionStorage.setItem('dueVocabIds', JSON.stringify(dueIds));
+        }
+      } catch (err) {
+        console.error('Unexpected error loading vocabulary:', err);
+        setUsingFallback(true);
+        const sessionVocab = getVocabFromSessionStorage();
+        setVocabulary(sessionVocab.length > 0 ? sessionVocab : MOCK_VOCABULARY);
       } finally {
         setLoading(false);
       }
@@ -95,9 +151,38 @@ export default function VocabularyPage() {
     fetchVocabulary();
   }, []);
 
+  function getVocabFromSessionStorage() {
+    try {
+      const sessionDataStr = sessionStorage.getItem('lastSessionData');
+      const reviewDataStr = sessionStorage.getItem('lastReviewData');
+
+      if (reviewDataStr) {
+        const reviewData = JSON.parse(reviewDataStr);
+        if (reviewData.vocabulary && reviewData.vocabulary.length > 0) {
+          return reviewData.vocabulary;
+        }
+      }
+
+      if (sessionDataStr) {
+        const sessionData = JSON.parse(sessionDataStr);
+        return sessionData.vocabulary || sessionData.words || [];
+      }
+    } catch (e) {
+      console.warn('Failed to read vocab from sessionStorage:', e);
+    }
+    return [];
+  }
+
   useEffect(() => {
     if (vocabulary.length > 0) {
-      const filtered = getWordsBySpacedRepetition(vocabulary);
+      let dueIds = [];
+      try {
+        const stored = sessionStorage.getItem('dueVocabIds');
+        if (stored) dueIds = JSON.parse(stored);
+      } catch (e) {
+        // ignore
+      }
+      const filtered = getWordsBySpacedRepetition(vocabulary, dueIds);
       setFilteredVocabulary(filtered.length > 0 ? filtered : vocabulary);
       setScore({ correct: 0, total: filtered.length > 0 ? filtered.length : vocabulary.length });
     }
@@ -112,13 +197,123 @@ export default function VocabularyPage() {
     }
   }, [mode, currentWordIndex, vocabulary, filteredVocabulary]);
 
+  // Track when card is flipped (for response time measurement)
+  const handleFlipCard = () => {
+    setIsFlipped(!isFlipped);
+    if (!isFlipped) {
+      cardFlipTimeRef.current = Date.now();
+    }
+  };
+
+  const handleMoveToNext = () => {
+    if (currentWordIndex < filteredVocabulary.length - 1) {
+      setCurrentWordIndex(currentWordIndex + 1);
+      setIsFlipped(false);
+      setUserAnswer('');
+      setFillBlankAnswer('');
+      setSelectedSynonym(null);
+      setShowFeedback(false);
+      cardFlipTimeRef.current = null;
+    } else {
+      setSessionComplete(true);
+    }
+  };
+
+  const handleCorrectAnswer = async () => {
+    setScore((prev) => ({ correct: prev.correct + 1, total: prev.total }));
+    setStreak(streak + 1);
+    setFeedbackType('correct');
+    setShowFeedback(true);
+
+    // Record result to backend for spaced repetition
+    await sendPracticeResult(true);
+
+    setTimeout(() => { handleMoveToNext(); setShowFeedback(false); }, 1500);
+  };
+
+  const handleIncorrectAnswer = async () => {
+    setStreak(0);
+    setFeedbackType('incorrect');
+    setShowFeedback(true);
+
+    // Record result to backend for spaced repetition
+    await sendPracticeResult(false);
+
+    setTimeout(() => { handleMoveToNext(); setShowFeedback(false); }, 1500);
+  };
+
+  async function sendPracticeResult(isCorrect) {
+    const studentId = sessionStorage.getItem('studentId');
+    if (!studentId) return;
+
+    const currentWord = filteredVocabulary[currentWordIndex];
+    if (!currentWord) return;
+
+    const responseTimeMs = cardFlipTimeRef.current
+      ? Date.now() - cardFlipTimeRef.current
+      : null;
+
+    // Fire-and-forget — don't block the UI
+    recordPracticeResult(studentId, currentWord.id, isCorrect, responseTimeMs).catch((err) => {
+      console.warn('Failed to record practice result:', err);
+    });
+  }
+
+  const startSpeechRecognition = () => {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      setSpeechNotSupported(false);
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'en-US';
+      recognition.start();
+      setIsListening(true);
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript.toLowerCase();
+        setUserAnswer(transcript);
+        setIsListening(false);
+        if (transcript.includes(currentWord.word.toLowerCase())) {
+          handleCorrectAnswer();
+        } else {
+          handleIncorrectAnswer();
+        }
+      };
+
+      recognition.onerror = () => setIsListening(false);
+    } else {
+      setSpeechNotSupported(true);
+    }
+  };
+
+  const handleFillBlankSubmit = () => {
+    if (fillBlankAnswer.toLowerCase().trim() === currentWord.word.toLowerCase()) {
+      handleCorrectAnswer();
+    } else {
+      handleIncorrectAnswer();
+    }
+  };
+
+  const handleSynonymSelect = (selectedWord) => {
+    setSelectedSynonym(selectedWord);
+    if (selectedWord === currentWord.word) {
+      handleCorrectAnswer();
+    } else {
+      handleIncorrectAnswer();
+    }
+  };
+
+  const MODE_LABELS = {
+    [PRACTICE_MODES.FLIP_CARD]: 'Flip Card',
+    [PRACTICE_MODES.SYNONYM_MATCH]: 'Synonym Match',
+    [PRACTICE_MODES.FILL_BLANK]: 'Fill Blank',
+    [PRACTICE_MODES.SPEAK_WORD]: 'Speak Word',
+  };
+
   if (loading) {
     return (
-      <div className="flex justify-center items-center py-16">
-        <div className="text-center">
-          <div className="text-4xl mb-3 float-animation inline-block">🌿</div>
-          <p className="text-[#6B5744] font-bold text-lg">Loading vocabulary...</p>
-        </div>
+      <div className="py-8 max-w-2xl mx-auto px-4 space-y-4">
+        <LoadingCard lines={2} />
+        <LoadingCard lines={5} />
       </div>
     );
   }
@@ -187,6 +382,7 @@ export default function VocabularyPage() {
                 setUserAnswer('');
                 setFillBlankAnswer('');
                 setSelectedSynonym(null);
+                cardFlipTimeRef.current = null;
               }}
               className="w-full py-3 px-6 bg-[#EDE5D4] text-[#6B5744] rounded-2xl hover:bg-[#D6C9A8] transition-colors font-bold hover:-translate-y-0.5"
             >
@@ -202,92 +398,30 @@ export default function VocabularyPage() {
   const posColor = POS_COLORS[currentWord.pos] || POS_COLORS.noun;
   const progressPercent = ((currentWordIndex + 1) / filteredVocabulary.length) * 100;
 
-  const handleFlipCard = () => setIsFlipped(!isFlipped);
-
-  const handleMoveToNext = () => {
-    if (currentWordIndex < filteredVocabulary.length - 1) {
-      setCurrentWordIndex(currentWordIndex + 1);
-      setIsFlipped(false);
-      setUserAnswer('');
-      setFillBlankAnswer('');
-      setSelectedSynonym(null);
-      setShowFeedback(false);
-    } else {
-      setSessionComplete(true);
-    }
-  };
-
-  const handleCorrectAnswer = () => {
-    setScore((prev) => ({ correct: prev.correct + 1, total: prev.total }));
-    setStreak(streak + 1);
-    setFeedbackType('correct');
-    setShowFeedback(true);
-    setTimeout(() => { handleMoveToNext(); setShowFeedback(false); }, 1500);
-  };
-
-  const handleIncorrectAnswer = () => {
-    setStreak(0);
-    setFeedbackType('incorrect');
-    setShowFeedback(true);
-    setTimeout(() => { handleMoveToNext(); setShowFeedback(false); }, 1500);
-  };
-
-  const startSpeechRecognition = () => {
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      setSpeechNotSupported(false);
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      const recognition = new SpeechRecognition();
-      recognition.lang = 'en-US';
-      recognition.start();
-      setIsListening(true);
-
-      recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript.toLowerCase();
-        setUserAnswer(transcript);
-        setIsListening(false);
-        if (transcript.includes(currentWord.word.toLowerCase())) {
-          handleCorrectAnswer();
-        } else {
-          handleIncorrectAnswer();
-        }
-      };
-
-      recognition.onerror = () => setIsListening(false);
-    } else {
-      setSpeechNotSupported(true);
-    }
-  };
-
-  const handleFillBlankSubmit = () => {
-    if (fillBlankAnswer.toLowerCase().trim() === currentWord.word.toLowerCase()) {
-      handleCorrectAnswer();
-    } else {
-      handleIncorrectAnswer();
-    }
-  };
-
-  const handleSynonymSelect = (selectedWord) => {
-    setSelectedSynonym(selectedWord);
-    if (selectedWord === currentWord.word) {
-      handleCorrectAnswer();
-    } else {
-      handleIncorrectAnswer();
-    }
-  };
-
-  const MODE_LABELS = {
-    [PRACTICE_MODES.FLIP_CARD]: 'Flip Card',
-    [PRACTICE_MODES.SYNONYM_MATCH]: 'Synonym Match',
-    [PRACTICE_MODES.FILL_BLANK]: 'Fill Blank',
-    [PRACTICE_MODES.SPEAK_WORD]: 'Speak Word',
-  };
-
   return (
     <div className="py-8 max-w-2xl mx-auto px-4">
+      {/* Fallback notice */}
+      {usingFallback && (
+        <div className="mb-4 px-4 py-3 bg-[#FFF8E8] border-l-4 border-[#D4A843] rounded-xl">
+          <p className="text-sm font-bold text-[#A8822E]">
+            Showing saved vocabulary. Connect to the internet to load your full word list.
+          </p>
+        </div>
+      )}
+
       {/* Header */}
-      <div className="mb-8">
-        <h2 className="text-3xl font-extrabold text-[#3D2E1E] mb-2">Vocabulary Practice</h2>
-        <p className="text-[#6B5744] font-semibold">Practice {filteredVocabulary.length} word(s) with spaced repetition</p>
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <h2 className="text-3xl font-extrabold text-[#3D2E1E] mb-2">Vocabulary Practice</h2>
+          <p className="text-[#6B5744] font-semibold">
+            Practice {filteredVocabulary.length} word(s) with spaced repetition
+          </p>
+        </div>
+        {dueCount > 0 && (
+          <div className="flex-shrink-0 ml-4 px-3 py-2 bg-[#D4A843] text-white rounded-xl text-sm font-bold shadow-[0_2px_8px_rgba(212,168,67,0.3)]">
+            {dueCount} due today
+          </div>
+        )}
       </div>
 
       {/* Mode Selector */}
@@ -303,6 +437,7 @@ export default function VocabularyPage() {
                 setSelectedSynonym(null);
                 setFillBlankAnswer('');
                 setUserAnswer('');
+                cardFlipTimeRef.current = null;
               }}
               className={`px-3 py-2 rounded-xl text-sm font-bold transition-all hover:-translate-y-0.5 ${
                 mode === value
@@ -343,7 +478,7 @@ export default function VocabularyPage() {
               feedbackType === 'correct' ? 'bg-[#7AC87A]' : 'bg-[#D4736B]'
             }`}
           >
-            {feedbackType === 'correct' ? 'Correct!' : 'Try Again!'}
+            {feedbackType === 'correct' ? 'Got it! Great work!' : 'Keep practicing — you can do it!'}
           </div>
         )}
 
@@ -373,7 +508,7 @@ export default function VocabularyPage() {
                     <div>
                       <p className="text-sm font-bold mb-4 opacity-80">Tap to reveal</p>
                       <p className="text-5xl font-extrabold mb-4">{currentWord.word}</p>
-                      <span className={`inline-block px-4 py-2 rounded-full text-sm font-bold bg-white bg-opacity-20 text-white`}>
+                      <span className="inline-block px-4 py-2 rounded-full text-sm font-bold bg-white bg-opacity-20 text-white">
                         {posColor.label}
                       </span>
                     </div>
@@ -381,7 +516,7 @@ export default function VocabularyPage() {
                     <div>
                       <p className="text-lg font-bold mb-4">{currentWord.definition}</p>
                       <p className="text-sm italic opacity-90 mb-6">&quot;{currentWord.contextSentence}&quot;</p>
-                      {currentWord.synonyms.length > 0 && (
+                      {(currentWord.synonyms || []).length > 0 && (
                         <div>
                           <p className="text-xs font-bold mb-2 opacity-80">Similar words:</p>
                           <p className="text-sm font-semibold">{currentWord.synonyms.join(', ')}</p>
@@ -392,19 +527,20 @@ export default function VocabularyPage() {
                 </div>
               </div>
 
+              {/* Got it / Need practice buttons — shown after flip */}
               {isFlipped && (
                 <div className="flex gap-4">
                   <button
                     onClick={handleIncorrectAnswer}
-                    className="flex-1 py-3 rounded-2xl font-extrabold text-white bg-[#D4736B] hover:bg-[#B85A53] transition-all min-h-[48px] hover:-translate-y-0.5"
+                    className="flex-1 py-4 rounded-2xl font-extrabold text-white bg-[#D4736B] hover:bg-[#B85A53] transition-all min-h-[56px] hover:-translate-y-0.5 text-base"
                   >
-                    Still Learning
+                    Need more practice
                   </button>
                   <button
                     onClick={handleCorrectAnswer}
-                    className="flex-1 py-3 rounded-2xl font-extrabold text-white bg-[#7AC87A] hover:bg-[#5C8B5C] transition-all min-h-[48px] hover:-translate-y-0.5"
+                    className="flex-1 py-4 rounded-2xl font-extrabold text-white bg-[#7AC87A] hover:bg-[#5C8B5C] transition-all min-h-[56px] hover:-translate-y-0.5 text-base"
                   >
-                    I Know It
+                    Got it!
                   </button>
                 </div>
               )}
@@ -447,7 +583,7 @@ export default function VocabularyPage() {
               <div className="mb-6">
                 <p className="text-sm font-bold text-[#6B5744] mb-4">Complete the sentence:</p>
                 <p className="text-lg text-[#3D2E1E] p-4 bg-[#F5F0E8] rounded-2xl border border-[#D6C9A8] font-semibold">
-                  {currentWord.contextSentence.replace(currentWord.word, '_______')}
+                  {currentWord.contextSentence.replace(new RegExp(currentWord.word, 'i'), '_______')}
                 </p>
               </div>
 
@@ -456,7 +592,7 @@ export default function VocabularyPage() {
                   type="text"
                   value={fillBlankAnswer}
                   onChange={(e) => setFillBlankAnswer(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleFillBlankSubmit()}
+                  onKeyDown={(e) => e.key === 'Enter' && handleFillBlankSubmit()}
                   placeholder="Type the missing word..."
                   className="w-full px-4 py-3 border-2 border-[#D6C9A8] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#5C8B5C] focus:border-transparent text-lg min-h-[48px] bg-[#FFFCF3] text-[#3D2E1E] font-semibold"
                   disabled={selectedSynonym !== null}

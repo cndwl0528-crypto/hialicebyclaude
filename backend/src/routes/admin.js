@@ -2,6 +2,7 @@ import express from 'express';
 import { supabase } from '../lib/supabase.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { getAliceResponse } from '../alice/engine.js';
+import { getStudentAchievements } from '../lib/achievements.js';
 
 const router = express.Router();
 
@@ -1015,6 +1016,253 @@ router.put('/prompts', optionalAdminAuth, async (req, res) => {
     return res.status(500).json({ error: 'Failed to update prompts' });
   }
 });
+
+// ============================================================================
+// STUDENT ANALYTICS ENDPOINT
+// ============================================================================
+
+/**
+ * GET /students/:id/analytics
+ * Deep analytics view for a single student.
+ *
+ * Returns:
+ * {
+ *   student: { name, level, streak, totalBooks, totalWords },
+ *   sessions: [...last 10 sessions with stage scores],
+ *   vocabulary: { total, mastered, learning, recentWords: [] },
+ *   achievements: [...earned badges],
+ *   weeklyProgress: [{ week, booksRead, wordsLearned, avgGrammar }],
+ *   stageBreakdown: { title: avgScore, introduction: avgScore, body: avgScore, conclusion: avgScore }
+ * }
+ */
+router.get('/students/:id/analytics', optionalAdminAuth, async (req, res) => {
+  try {
+    const { id: studentId } = req.params;
+
+    if (!studentId) {
+      return res.status(400).json({ error: 'Student ID required' });
+    }
+
+    // ── 1. Fetch student profile ───────────────────────────────────────────
+    const { data: student, error: studentError } = await supabase
+      .from('students')
+      .select('id, name, age, level, avatar_emoji, current_streak, total_books_read, total_words_learned, last_session_date, created_at')
+      .eq('id', studentId)
+      .single();
+
+    if (studentError) {
+      if (studentError.code === 'PGRST116') {
+        return res.status(404).json({ error: 'Student not found' });
+      }
+      return res.status(500).json({ error: studentError.message });
+    }
+
+    // ── 2. Last 10 sessions with per-stage scores ──────────────────────────
+    const { data: recentSessions } = await supabase
+      .from('sessions')
+      .select('id, started_at, completed_at, grammar_score, level_score, is_complete, books(title, level)')
+      .eq('student_id', studentId)
+      .order('started_at', { ascending: false })
+      .limit(10);
+
+    // Fetch stage scores for each recent session in parallel
+    const sessionsWithStages = await Promise.all(
+      (recentSessions || []).map(async (session) => {
+        const { data: stageScores } = await supabase
+          .from('session_stage_scores')
+          .select('stage, grammar_score, fluency_score, vocabulary_score, response_count, avg_response_words')
+          .eq('session_id', session.id);
+
+        return {
+          id: session.id,
+          bookTitle: session.books?.title || null,
+          bookLevel: session.books?.level || null,
+          startedAt: session.started_at,
+          completedAt: session.completed_at,
+          grammarScore: session.grammar_score,
+          levelScore: session.level_score,
+          isComplete: session.is_complete,
+          stageScores: stageScores || [],
+        };
+      })
+    );
+
+    // ── 3. Vocabulary summary ──────────────────────────────────────────────
+    const { data: allVocab } = await supabase
+      .from('vocabulary')
+      .select('id, word, pos, mastery_level, use_count, first_used')
+      .eq('student_id', studentId)
+      .order('first_used', { ascending: false });
+
+    const vocabData = allVocab || [];
+    const totalVocab = vocabData.length;
+    const masteredVocab = vocabData.filter((v) => v.mastery_level >= 4).length;
+    const learningVocab = totalVocab - masteredVocab;
+    // 10 most recently learned words
+    const recentWords = vocabData.slice(0, 10).map((v) => ({
+      word: v.word,
+      pos: v.pos,
+      masteryLevel: v.mastery_level,
+      useCount: v.use_count,
+      firstUsed: v.first_used,
+    }));
+
+    // ── 4. Achievements ────────────────────────────────────────────────────
+    const achievements = await getStudentAchievements(supabase, studentId);
+
+    // ── 5. Weekly progress (last 8 weeks) ─────────────────────────────────
+    // We need all sessions (not just the last 10) to calculate weekly stats
+    const eightWeeksAgo = new Date(Date.now() - 8 * 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    const { data: allSessions } = await supabase
+      .from('sessions')
+      .select('id, started_at, grammar_score, is_complete')
+      .eq('student_id', studentId)
+      .gte('started_at', eightWeeksAgo)
+      .eq('is_complete', true);
+
+    // Group sessions by ISO week
+    const weekSessionMap = {};
+    (allSessions || []).forEach((session) => {
+      const weekKey = getISOWeekKey(new Date(session.started_at));
+      if (!weekSessionMap[weekKey]) {
+        weekSessionMap[weekKey] = { booksRead: 0, grammarScores: [] };
+      }
+      weekSessionMap[weekKey].booksRead++;
+      if (session.grammar_score != null) {
+        weekSessionMap[weekKey].grammarScores.push(session.grammar_score);
+      }
+    });
+
+    // Group vocabulary additions by the same ISO weeks
+    const weekVocabMap = {};
+    vocabData
+      .filter((v) => new Date(v.first_used) >= new Date(eightWeeksAgo))
+      .forEach((v) => {
+        const weekKey = getISOWeekKey(new Date(v.first_used));
+        weekVocabMap[weekKey] = (weekVocabMap[weekKey] || 0) + 1;
+      });
+
+    // Merge into a unified weekly progress array, sorted chronologically
+    const allWeekKeys = new Set([
+      ...Object.keys(weekSessionMap),
+      ...Object.keys(weekVocabMap),
+    ]);
+
+    const weeklyProgress = Array.from(allWeekKeys)
+      .sort()
+      .map((week) => {
+        const sessData = weekSessionMap[week] || { booksRead: 0, grammarScores: [] };
+        const avgGrammar =
+          sessData.grammarScores.length > 0
+            ? Math.round(
+                sessData.grammarScores.reduce((a, b) => a + b, 0) /
+                  sessData.grammarScores.length
+              )
+            : 0;
+        return {
+          week,
+          booksRead: sessData.booksRead,
+          wordsLearned: weekVocabMap[week] || 0,
+          avgGrammar,
+        };
+      });
+
+    // ── 6. Stage breakdown — average scores across all sessions ───────────
+    const stages = ['title', 'introduction', 'body', 'conclusion'];
+
+    // Fetch all stage scores for this student's sessions
+    const { data: allSessionIds } = await supabase
+      .from('sessions')
+      .select('id')
+      .eq('student_id', studentId)
+      .eq('is_complete', true);
+
+    const sessionIdList = (allSessionIds || []).map((s) => s.id);
+
+    let stageBreakdown = {
+      title: 0,
+      introduction: 0,
+      body: 0,
+      conclusion: 0,
+    };
+
+    if (sessionIdList.length > 0) {
+      const { data: allStageScores } = await supabase
+        .from('session_stage_scores')
+        .select('stage, grammar_score')
+        .in('session_id', sessionIdList);
+
+      // Average grammar_score per stage
+      const stageTotals = {};
+      const stageCounts = {};
+
+      (allStageScores || []).forEach((row) => {
+        if (row.grammar_score == null) return;
+        stageTotals[row.stage] = (stageTotals[row.stage] || 0) + row.grammar_score;
+        stageCounts[row.stage] = (stageCounts[row.stage] || 0) + 1;
+      });
+
+      stages.forEach((stage) => {
+        stageBreakdown[stage] =
+          stageCounts[stage] > 0
+            ? Math.round(stageTotals[stage] / stageCounts[stage])
+            : 0;
+      });
+    }
+
+    // ── 7. Assemble response ───────────────────────────────────────────────
+    return res.status(200).json({
+      success: true,
+      data: {
+        student: {
+          id: student.id,
+          name: student.name,
+          age: student.age,
+          level: student.level,
+          avatarEmoji: student.avatar_emoji,
+          streak: student.current_streak ?? 0,
+          totalBooks: student.total_books_read ?? 0,
+          totalWords: student.total_words_learned ?? 0,
+          lastSessionDate: student.last_session_date,
+          createdAt: student.created_at,
+        },
+        sessions: sessionsWithStages,
+        vocabulary: {
+          total: totalVocab,
+          mastered: masteredVocab,
+          learning: learningVocab,
+          recentWords,
+        },
+        achievements,
+        weeklyProgress,
+        stageBreakdown,
+      },
+    });
+  } catch (err) {
+    console.error('Student analytics error:', err);
+    return res.status(500).json({ error: 'Failed to fetch student analytics' });
+  }
+});
+
+// ============================================================================
+// UTILITY
+// ============================================================================
+
+/**
+ * Returns a sortable ISO week key: 'YYYY-WW' (ISO 8601).
+ *
+ * @param {Date} date
+ * @returns {string}
+ */
+function getISOWeekKey(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
+  return `${d.getUTCFullYear()}-${String(weekNo).padStart(2, '0')}`;
+}
 
 /**
  * POST /prompts/test

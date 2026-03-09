@@ -6,7 +6,7 @@
 import { API_BASE, API_TIMEOUT } from '@/lib/constants';
 
 /**
- * Base fetch wrapper with timeout and error handling
+ * Base fetch wrapper with timeout, auth token injection, and error handling
  */
 async function apiFetch(endpoint, options = {}) {
   const url = `${API_BASE}/api${endpoint}`;
@@ -15,12 +15,17 @@ async function apiFetch(endpoint, options = {}) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
+  // Inject auth token from sessionStorage when available
+  const token =
+    typeof window !== 'undefined' ? sessionStorage.getItem('token') : null;
+
   try {
     const response = await fetch(url, {
       ...options,
       signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...options.headers,
       },
     });
@@ -38,6 +43,11 @@ async function apiFetch(endpoint, options = {}) {
     return await response.json();
   } catch (error) {
     clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      const timeoutError = new Error('Request timed out. Please try again.');
+      timeoutError.isTimeout = true;
+      throw timeoutError;
+    }
     console.error(`API request failed: ${endpoint}`, error);
     throw error;
   }
@@ -434,6 +444,240 @@ export async function getStudentProgress(studentId) {
   }
 }
 
+// ==================== Sessions ====================
+
+/**
+ * Get all sessions for a student
+ * GET /sessions/student/:studentId
+ */
+export async function getStudentSessions(studentId) {
+  try {
+    const response = await apiFetch(`/sessions/student/${studentId}`);
+    return response;
+  } catch (error) {
+    console.error('Get student sessions failed:', error);
+    if (process.env.NODE_ENV === 'development') {
+      return {
+        success: true,
+        sessions: [],
+      };
+    }
+    throw error;
+  }
+}
+
+/**
+ * Get stage scores for a session
+ * GET /sessions/:sessionId/stage-scores
+ */
+export async function getSessionStageScores(sessionId) {
+  try {
+    const response = await apiFetch(`/sessions/${sessionId}/stage-scores`);
+    return response;
+  } catch (error) {
+    console.error('Get session stage scores failed:', error);
+    if (process.env.NODE_ENV === 'development') {
+      return {
+        success: true,
+        stageScores: [],
+      };
+    }
+    throw error;
+  }
+}
+
+/**
+ * Pause session (Save & Exit)
+ * PUT /sessions/:sessionId/pause
+ */
+export async function pauseSession(sessionId) {
+  try {
+    const response = await apiFetch(`/sessions/${sessionId}/pause`, {
+      method: 'PUT',
+    });
+    return response;
+  } catch (error) {
+    console.error('Pause session failed:', error);
+    if (process.env.NODE_ENV === 'development') {
+      return { success: true, sessionId };
+    }
+    throw error;
+  }
+}
+
+// ==================== Vocabulary ====================
+
+/**
+ * Get vocabulary for a student
+ * GET /vocabulary/:studentId
+ */
+export async function getStudentVocabulary(studentId) {
+  try {
+    const response = await apiFetch(`/vocabulary/${studentId}`);
+    return response;
+  } catch (error) {
+    console.error('Get student vocabulary failed:', error);
+    if (process.env.NODE_ENV === 'development') {
+      return {
+        success: true,
+        words: [],
+        totalWords: 0,
+        newWords: 0,
+        reviewWords: 0,
+      };
+    }
+    throw error;
+  }
+}
+
+/**
+ * Get words due for review today (spaced repetition queue)
+ * GET /vocabulary/:studentId/due-today
+ */
+export async function getVocabDueToday(studentId) {
+  try {
+    const response = await apiFetch(`/vocabulary/${studentId}/due-today`);
+    return response;
+  } catch (error) {
+    console.error('Get vocab due today failed:', error);
+    if (process.env.NODE_ENV === 'development') {
+      return { success: true, words: [], count: 0 };
+    }
+    throw error;
+  }
+}
+
+/**
+ * Get vocabulary statistics for a student
+ * GET /vocabulary/:studentId/stats
+ */
+export async function getVocabStats(studentId) {
+  try {
+    const response = await apiFetch(`/vocabulary/${studentId}/stats`);
+    return response;
+  } catch (error) {
+    console.error('Get vocab stats failed:', error);
+    if (process.env.NODE_ENV === 'development') {
+      return {
+        success: true,
+        stats: {
+          totalWords: 0,
+          masteredWords: 0,
+          learningWords: 0,
+          dueToday: 0,
+        },
+      };
+    }
+    throw error;
+  }
+}
+
+/**
+ * Record a spaced repetition practice result
+ * POST /vocabulary/:studentId/practice-result
+ */
+export async function recordPracticeResult(
+  studentId,
+  vocabularyId,
+  isCorrect,
+  responseTimeMs
+) {
+  try {
+    const response = await apiFetch(
+      `/vocabulary/${studentId}/practice-result`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ vocabularyId, isCorrect, responseTimeMs }),
+      }
+    );
+    return response;
+  } catch (error) {
+    console.error('Record practice result failed:', error);
+    // Silent failure — don't block UI for analytics calls
+    return { success: false, error: error.message };
+  }
+}
+
+// ==================== Auth ====================
+
+/**
+ * Get the currently logged-in user
+ * GET /auth/me
+ */
+export async function getCurrentUser() {
+  try {
+    const response = await apiFetch('/auth/me');
+    return response;
+  } catch (error) {
+    console.error('Get current user failed:', error);
+    throw error;
+  }
+}
+
+/**
+ * Log out the current user
+ * POST /auth/logout
+ */
+export async function logout() {
+  try {
+    const response = await apiFetch('/auth/logout', { method: 'POST' });
+    if (typeof window !== 'undefined') {
+      sessionStorage.clear();
+    }
+    return response;
+  } catch (error) {
+    // Even if server call fails, clear local session
+    if (typeof window !== 'undefined') {
+      sessionStorage.clear();
+    }
+    console.warn('Logout API call failed (session cleared locally):', error);
+    return { success: true };
+  }
+}
+
+/**
+ * Get notifications for the current user
+ * GET /auth/notifications
+ */
+export async function getNotifications() {
+  try {
+    const response = await apiFetch('/auth/notifications');
+    return response;
+  } catch (error) {
+    console.error('Get notifications failed:', error);
+    if (process.env.NODE_ENV === 'development') {
+      return { success: true, notifications: [] };
+    }
+    throw error;
+  }
+}
+
+// ==================== Admin ====================
+
+/**
+ * Get analytics for a specific student (admin)
+ * GET /admin/students/:studentId/analytics
+ */
+export async function getStudentAnalytics(studentId) {
+  try {
+    const response = await apiFetch(`/admin/students/${studentId}/analytics`);
+    return response;
+  } catch (error) {
+    console.error('Get student analytics failed:', error);
+    if (process.env.NODE_ENV === 'development') {
+      return {
+        success: true,
+        analytics: {
+          achievements: [],
+          weeklyActivity: [],
+          topWords: [],
+        },
+      };
+    }
+    throw error;
+  }
+}
+
 export default {
   parentLogin,
   childSelect,
@@ -445,4 +689,15 @@ export default {
   getSessionReview,
   getVocabulary,
   getStudentProgress,
+  getStudentSessions,
+  getSessionStageScores,
+  pauseSession,
+  getStudentVocabulary,
+  getVocabDueToday,
+  getVocabStats,
+  recordPracticeResult,
+  getCurrentUser,
+  logout,
+  getNotifications,
+  getStudentAnalytics,
 };
