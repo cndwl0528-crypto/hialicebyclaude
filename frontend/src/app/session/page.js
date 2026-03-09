@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import useSpeech from '@/hooks/useSpeech';
 import VoiceButton from '@/components/VoiceButton';
 import { STAGE_GUIDE, getCurrentGuideQuestion } from '@/lib/stageQuestions';
@@ -56,9 +56,11 @@ function getWorksheetRowIndex(stageIndex, bodyReasonCount) {
 
 export default function SessionPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const bookId = searchParams.get('bookId');
-  const bookTitle = searchParams.get('bookTitle');
+
+  // Read URL params directly from window.location.search to avoid
+  // useSearchParams() + Suspense complexity that prevented useEffect from firing.
+  const [bookId, setBookId] = useState(null);
+  const [bookTitle, setBookTitle] = useState('');
 
   const [session, setSession] = useState(null);
   const [sessionId, setSessionId] = useState(null);
@@ -171,13 +173,28 @@ export default function SessionPage() {
 
   const activeRowIndex = getWorksheetRowIndex(currentStage, bodyReasonCount);
 
+  // Read URL search params from window.location.search on mount.
+  // Using window.location.search directly avoids useSearchParams() + Suspense
+  // boundary issues that prevented effects from firing in Next.js 14 App Router.
   useEffect(() => {
-    if (bookId && studentId) {
-      initializeSession();
-    }
-  }, [bookId, studentId]);
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('bookId');
+    const title = params.get('bookTitle') || 'the book';
+    console.log('[HiAlice] mount: bookId =', id, 'bookTitle =', title);
+    setBookId(id);
+    setBookTitle(title);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Kick off the session once bookId is known (set by the mount effect above).
+  useEffect(() => {
+    if (!bookId) return;
+    console.log('[HiAlice] bookId ready, calling initializeSession:', bookId);
+    initializeSession();
+  }, [bookId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const initializeSession = async () => {
+    console.log('[HiAlice] initializeSession called, bookId:', bookId, 'bookTitle:', bookTitle);
     try {
       setSessionStartTime(new Date());
       const apiUrl = getApiUrl();
@@ -217,6 +234,14 @@ export default function SessionPage() {
       console.error('Error initializing session:', error);
       setApiAvailable(false);
       setError("Oops! Something went a little wrong. I'll use my notes instead!");
+      const fallbackMessage = {
+        id: 0,
+        speaker: 'alice',
+        content: `Hello! I'm so excited to talk about "${bookTitle}"! Let's start with the title. What do you think the title means?`,
+        timestamp: new Date(),
+        stage: 'Title',
+      };
+      setMessages([fallbackMessage]);
     }
   };
 
@@ -1030,22 +1055,23 @@ export default function SessionPage() {
           )}
         </div>
       </div>
+
+      {/* Confetti celebration — fires when session completes */}
+      <ConfettiCelebration
+        active={showConfetti}
+        duration={4000}
+        onComplete={() => setShowConfetti(false)}
+      />
+
+      {/* Achievement modal — shows unlocked badges sequentially */}
+      <AchievementUnlock
+        achievements={pendingAchievements}
+        onClose={() => {
+          setShowAchievements(false);
+          setPendingAchievements([]);
+        }}
+      />
     </div>
-
-    {/* Confetti celebration — fires when session completes */}
-    <ConfettiCelebration
-      active={showConfetti}
-      duration={4000}
-      onComplete={() => setShowConfetti(false)}
-    />
-
-    {/* Achievement modal — shows unlocked badges sequentially */}
-    <AchievementUnlock
-      achievements={pendingAchievements}
-      onClose={() => {
-        setShowAchievements(false);
-        setPendingAchievements([]);
-      }}
-    />
   );
 }
+
