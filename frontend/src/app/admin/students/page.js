@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 
 // Mock data
 const MOCK_STUDENTS = [
@@ -335,9 +335,8 @@ export default function StudentsPage() {
             </thead>
             <tbody>
               {filteredStudents.map((student) => (
-                <>
+                <React.Fragment key={student.id}>
                   <tr
-                    key={student.id}
                     className="border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
                     onClick={() =>
                       setExpandedStudent(
@@ -443,7 +442,7 @@ export default function StudentsPage() {
                       </td>
                     </tr>
                   )}
-                </>
+                </React.Fragment>
               ))}
             </tbody>
           </table>

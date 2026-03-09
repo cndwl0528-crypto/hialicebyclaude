@@ -439,8 +439,8 @@ export default function VocabularyPage() {
           {mode === PRACTICE_MODES.FLIP_CARD && (
             <div>
               <div
-                onClick={handleFlipCard}
-                className="min-h-64 bg-gradient-to-br from-primary to-blue-600 rounded-lg cursor-pointer shadow-lg transform transition-transform hover:scale-105 flex items-center justify-center mb-6"
+                onClick={!isFlipped ? handleFlipCard : undefined}
+                className={`min-h-64 bg-gradient-to-br from-primary to-blue-600 rounded-lg shadow-lg flex items-center justify-center mb-6 ${!isFlipped ? 'cursor-pointer transform transition-transform hover:scale-105' : ''}`}
               >
                 <div className="text-center text-white p-8">
                   {!isFlipped ? (
@@ -465,6 +465,24 @@ export default function VocabularyPage() {
                   )}
                 </div>
               </div>
+
+              {/* Know / Still Learning buttons — shown after card is flipped */}
+              {isFlipped && (
+                <div className="flex gap-4">
+                  <button
+                    onClick={handleIncorrectAnswer}
+                    className="flex-1 py-3 rounded-lg font-semibold text-white bg-red-400 hover:bg-red-500 transition-colors min-h-touch-min"
+                  >
+                    Still Learning
+                  </button>
+                  <button
+                    onClick={handleCorrectAnswer}
+                    className="flex-1 py-3 rounded-lg font-semibold text-white bg-green-500 hover:bg-green-600 transition-colors min-h-touch-min"
+                  >
+                    I Know It ✓
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

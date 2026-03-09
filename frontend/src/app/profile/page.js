@@ -349,7 +349,9 @@ export default function ProfilePage() {
                 ></div>
               </div>
               <p className="text-gray-600 text-sm mt-2">
-                {levelProgress}% to next level · {booksNeeded} more books to go
+                {booksNeeded === 0
+                  ? '🎉 Ready to level up!'
+                  : `${levelProgress}% to next level · ${booksNeeded} more books to go`}
               </p>
             </div>
             <div className="text-right">

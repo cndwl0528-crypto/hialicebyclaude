@@ -3,13 +3,13 @@
  * Fetch wrapper with error handling and mock fallback data for development
  */
 
-import { API_BASE, API_TIMEOUT, API_VERSION } from '@/lib/constants';
+import { API_BASE, API_TIMEOUT } from '@/lib/constants';
 
 /**
  * Base fetch wrapper with timeout and error handling
  */
 async function apiFetch(endpoint, options = {}) {
-  const url = `${API_BASE}/api/${API_VERSION}${endpoint}`;
+  const url = `${API_BASE}/api${endpoint}`;
   const timeout = options.timeout || API_TIMEOUT;
 
   const controller = new AbortController();
