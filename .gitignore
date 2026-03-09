@@ -37,3 +37,17 @@ yarn.lock
 # IDE
 .vscode/
 .idea/
+
+# Auto-generated docs (cleanup needed)
+CODE_SNIPPETS_REFERENCE.md
+FILES_INDEX.md
+FRONTEND_COMPLETION_REPORT.md
+FRONTEND_FILES_SUMMARY.txt
+README_FRONTEND.md
+frontend/CONFIG_SUMMARY.md
+frontend/FRONTEND_STRUCTURE.md
+frontend/INDEX.md
+frontend/MANIFEST.md
+frontend/QUICK_REFERENCE.md
+frontend/VERIFICATION.md
+backend/src/alice/README.md
