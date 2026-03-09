@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { parentLogin } from '@/services/api';
 
 const MOCK_CHILDREN = [
   {
@@ -35,18 +36,47 @@ export default function Home() {
   const [parentPassword, setParentPassword] = useState('');
   const [selectedChild, setSelectedChild] = useState(null);
   const [error, setError] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  // Children list — populated from API on successful login; falls back to MOCK_CHILDREN
+  const [children, setChildren] = useState(MOCK_CHILDREN);
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     if (!parentEmail || !parentPassword) {
       setError('Please fill in all fields');
       return;
     }
-    sessionStorage.setItem('parentId', 'parent-' + Date.now());
-    sessionStorage.setItem('authToken', 'token-' + Date.now());
-    sessionStorage.setItem('parentEmail', parentEmail);
-    setShowLogin(false);
+
+    setIsLoggingIn(true);
     setError('');
+
+    try {
+      // Call the real authentication API
+      const result = await parentLogin(parentEmail, parentPassword);
+
+      if (!result || !result.token) {
+        throw new Error('Invalid response from server');
+      }
+
+      // Persist the real token and parent data from the API
+      sessionStorage.setItem('authToken', result.token);
+      sessionStorage.setItem('parentId', result.parent?.id || '');
+      sessionStorage.setItem('parentEmail', result.parent?.email || parentEmail);
+
+      // TODO: Replace MOCK_CHILDREN with real API call once
+      // GET /api/students?parentId=... endpoint is implemented.
+      // Example:
+      //   const studentsResult = await apiFetch(`/students?parentId=${result.parent.id}`);
+      //   if (studentsResult?.students) setChildren(studentsResult.students);
+      // For now, MOCK_CHILDREN are retained as the fallback.
+
+      setShowLogin(false);
+    } catch (err) {
+      console.error('Login error:', err);
+      setError('Oops! Something went wrong. Please try again!');
+    } finally {
+      setIsLoggingIn(false);
+    }
   };
 
   const handleSelectChild = (child) => {
@@ -97,7 +127,7 @@ export default function Home() {
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-              {MOCK_CHILDREN.map((child) => {
+              {children.map((child) => {
                 const levelStyle = LEVEL_STYLES[child.level] || { bg: '#E8DEC8', text: '#6B5744' };
                 return (
                   <div
@@ -197,9 +227,10 @@ export default function Home() {
 
               <button
                 type="submit"
-                className="w-full py-3 px-6 bg-[#5C8B5C] text-white rounded-2xl hover:bg-[#3D6B3D] transition-all font-bold hover:-translate-y-0.5 shadow-[0_4px_12px_rgba(92,139,92,0.3)]"
+                disabled={isLoggingIn}
+                className="w-full py-3 px-6 bg-[#5C8B5C] text-white rounded-2xl hover:bg-[#3D6B3D] transition-all font-bold hover:-translate-y-0.5 shadow-[0_4px_12px_rgba(92,139,92,0.3)] disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Login
+                {isLoggingIn ? 'Logging in...' : 'Login'}
               </button>
             </form>
 

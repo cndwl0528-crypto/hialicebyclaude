@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import BookCard from '@/components/BookCard';
 
@@ -116,7 +116,6 @@ export default function BooksPage() {
   const router = useRouter();
   const [books, setBooks] = useState([]);
   const [selectedLevel, setSelectedLevel] = useState('All');
-  const [filteredBooks, setFilteredBooks] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [studentLevel, setStudentLevel] = useState('All');
@@ -157,24 +156,18 @@ export default function BooksPage() {
     fetchBooks();
   }, []);
 
-  useEffect(() => {
+  const filteredBooks = useMemo(() => {
     let filtered = books;
-
-    if (selectedLevel !== 'All') {
-      filtered = filtered.filter((book) => book.level === selectedLevel);
-    }
-
+    if (selectedLevel !== 'All') filtered = filtered.filter((b) => b.level === selectedLevel);
     if (searchTerm.trim()) {
-      const lowerSearchTerm = searchTerm.toLowerCase();
-      filtered = filtered.filter(
-        (book) =>
-          book.title.toLowerCase().includes(lowerSearchTerm) ||
-          book.author.toLowerCase().includes(lowerSearchTerm) ||
-          book.genre.toLowerCase().includes(lowerSearchTerm)
+      const lower = searchTerm.toLowerCase();
+      filtered = filtered.filter((b) =>
+        b.title.toLowerCase().includes(lower) ||
+        b.author?.toLowerCase().includes(lower) ||
+        b.genre?.toLowerCase().includes(lower)
       );
     }
-
-    setFilteredBooks(filtered);
+    return filtered;
   }, [selectedLevel, searchTerm, books]);
 
   const handleSelectBook = (bookId, bookTitle) => {

@@ -5,8 +5,10 @@ export default function VoiceButton({
   onStart = () => {},
   onStop = () => {},
   size = 80,
+  disabled = false,
 }) {
   const handleClick = () => {
+    if (disabled) return;
     if (isListening) {
       onStop?.();
     } else {
@@ -17,11 +19,14 @@ export default function VoiceButton({
   return (
     <button
       onClick={handleClick}
-      className={`relative flex items-center justify-center rounded-full transition-smooth ${
+      disabled={disabled}
+      aria-label={isListening ? 'Stop listening' : 'Start listening'}
+      aria-pressed={isListening}
+      className={`relative flex items-center justify-center rounded-full transition-smooth focus-visible:ring-4 focus-visible:ring-offset-2 focus-visible:ring-[#3D6B3D] ${
         isListening
           ? 'bg-red-500 hover:bg-red-600 pulse'
           : 'bg-blue-500 hover:bg-blue-600'
-      } text-white shadow-lg hover:shadow-xl active:scale-95`}
+      } text-white shadow-lg hover:shadow-xl active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed`}
       style={{
         width: `${size}px`,
         height: `${size}px`,
@@ -31,6 +36,7 @@ export default function VoiceButton({
       title={isListening ? 'Stop listening' : 'Start listening'}
     >
       <svg
+        aria-hidden="true"
         width={Math.floor(size * 0.5)}
         height={Math.floor(size * 0.5)}
         viewBox="0 0 24 24"
@@ -48,6 +54,7 @@ export default function VoiceButton({
 
       {isListening && (
         <div
+          aria-hidden="true"
           className="absolute inset-0 rounded-full border-4 border-red-400 animate-ping"
           style={{
             width: `${size}px`,

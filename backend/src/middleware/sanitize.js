@@ -15,7 +15,7 @@ export function sanitizeString(str) {
 }
 
 /**
- * Deep sanitize an object's string values
+ * Deep sanitize an object's string values — handles nested objects recursively
  */
 export function sanitizeObject(obj) {
   if (!obj || typeof obj !== 'object') return obj;
@@ -25,9 +25,13 @@ export function sanitizeObject(obj) {
     if (typeof value === 'string') {
       sanitized[key] = sanitizeString(value);
     } else if (Array.isArray(value)) {
-      sanitized[key] = value.map(item =>
-        typeof item === 'string' ? sanitizeString(item) : item
-      );
+      sanitized[key] = value.map(item => {
+        if (typeof item === 'string') return sanitizeString(item);
+        if (item && typeof item === 'object') return sanitizeObject(item); // recurse into array objects
+        return item;
+      });
+    } else if (value && typeof value === 'object') {
+      sanitized[key] = sanitizeObject(value); // recurse into nested objects
     } else {
       sanitized[key] = value;
     }
@@ -56,48 +60,62 @@ export function sanitizeQuery(req, res, next) {
 }
 
 /**
- * Rate limiter - simple in-memory implementation
- * For production, use redis-based rate limiting
+ * Generic in-memory rate limiter factory.
+ * For production, replace backing store with Redis.
+ *
+ * @param {number} windowMs  - Time window in milliseconds
+ * @param {number} maxRequests - Max allowed requests per window per IP
+ * @returns Express middleware function
  */
-const requestCounts = new Map();
-const WINDOW_MS = 60 * 1000; // 1 minute
-const MAX_REQUESTS = 100; // max per window
+function createRateLimiter(windowMs, maxRequests) {
+  const requestCounts = new Map();
 
-export function rateLimiter(req, res, next) {
-  const key = req.ip || req.connection.remoteAddress || 'unknown';
-  const now = Date.now();
+  // Cleanup expired entries every 5 minutes
+  setInterval(() => {
+    const now = Date.now();
+    for (const [key, entry] of requestCounts) {
+      if (now > entry.resetAt) {
+        requestCounts.delete(key);
+      }
+    }
+  }, 5 * 60 * 1000);
 
-  if (!requestCounts.has(key)) {
-    requestCounts.set(key, { count: 1, resetAt: now + WINDOW_MS });
-    return next();
-  }
+  return function rateLimiterMiddleware(req, res, next) {
+    const key = req.ip || req.connection?.remoteAddress || 'unknown';
+    const now = Date.now();
 
-  const entry = requestCounts.get(key);
+    if (!requestCounts.has(key)) {
+      requestCounts.set(key, { count: 1, resetAt: now + windowMs });
+      return next();
+    }
 
-  if (now > entry.resetAt) {
-    // Window expired, reset
-    entry.count = 1;
-    entry.resetAt = now + WINDOW_MS;
-    return next();
-  }
+    const entry = requestCounts.get(key);
 
-  entry.count++;
+    if (now > entry.resetAt) {
+      entry.count = 1;
+      entry.resetAt = now + windowMs;
+      return next();
+    }
 
-  if (entry.count > MAX_REQUESTS) {
-    return res.status(429).json({
-      error: 'Too many requests. Please wait a moment and try again.',
-    });
-  }
+    entry.count++;
 
-  next();
+    if (entry.count > maxRequests) {
+      return res.status(429).json({
+        error: 'Too many requests. Please wait a moment and try again.',
+      });
+    }
+
+    next();
+  };
 }
 
-// Cleanup old entries every 5 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, entry] of requestCounts) {
-    if (now > entry.resetAt) {
-      requestCounts.delete(key);
-    }
-  }
-}, 5 * 60 * 1000);
+/**
+ * Global rate limiter — 100 requests per minute per IP
+ */
+export const rateLimiter = createRateLimiter(60 * 1000, 100);
+
+/**
+ * Stricter rate limiter for login endpoints — 10 requests per minute per IP.
+ * Apply to /auth/parent-login to mitigate brute-force attacks.
+ */
+export const authRateLimiter = createRateLimiter(60 * 1000, 10);

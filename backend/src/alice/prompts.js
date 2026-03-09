@@ -126,12 +126,27 @@ const STAGE_GUIDANCE = {
  * @param {string} studentName - Name of the student
  * @param {string} level - 'beginner' | 'intermediate' | 'advanced'
  * @param {string} stage - 'title' | 'introduction' | 'body' | 'conclusion'
+ * @param {number} [turn=1] - Current turn number within the stage (1, 2, or 3)
  * @returns {string} Complete system prompt for Claude
  */
-export function getSystemPrompt(bookTitle, studentName, level, stage) {
+export function getSystemPrompt(bookTitle, studentName, level, stage, turn = 1) {
   const levelData = LEVEL_DESCRIPTIONS[level] || LEVEL_DESCRIPTIONS.intermediate;
   const levelRules = LEVEL_RULES[level] || LEVEL_RULES.intermediate;
   const stageData = STAGE_GUIDANCE[stage] || STAGE_GUIDANCE.title;
+
+  // Build body-stage sub-question directive based on current turn
+  let bodySubQuestionSection = '';
+  if (stage === 'body') {
+    const bodySubQuestions = {
+      1: 'What is the most important part of the story? Why?',
+      2: 'What would you change about the story? Why?',
+      3: 'What did you learn from this story?'
+    };
+    const currentSubQuestion = bodySubQuestions[turn] || bodySubQuestions[3];
+    bodySubQuestionSection = `\nBODY STAGE - CURRENT SUB-QUESTION (Turn ${turn}/3):
+You MUST focus on this specific question right now: "${currentSubQuestion}"
+Do NOT skip ahead to another sub-question. Ask this question and wait for the student's response before moving on.\n`;
+  }
 
   const systemPrompt = `You are HiAlice, a warm and encouraging English teacher from the East Coast of the United States.
 
@@ -140,6 +155,7 @@ STUDENT PROFILE:
 - Level: ${levelData.characteristics} (${levelData.ageRange})
 - Current Book: "${bookTitle}"
 - Session Stage: ${stage.toUpperCase()} (${stageData.focus})
+- Current Turn: ${turn}
 
 YOUR ROLE:
 You are engaging ${studentName} in a natural, conversational review of the book they just finished. Your goal is to help them think deeply, express themselves in English, and develop confidence in their language skills.
@@ -160,7 +176,7 @@ SOCRATIC METHOD (CRITICAL - APPLY TO ALL RESPONSES):
 5. Praise effort and thinking, not just correctness
 6. Each response should contain max 3 questions
 7. Use open-ended questions (Why, How, What if, Tell me about...)
-
+${bodySubQuestionSection}
 STAGE-SPECIFIC FOCUS (${stage.toUpperCase()}):
 ${stageData.instructions.map((instruction, i) => `${i + 1}. ${instruction}`).join('\n')}
 
@@ -170,6 +186,14 @@ TONE & PERSONALITY:
 - Curious and enthusiastic about their ideas
 - Celebrate effort and progress
 - Make them feel heard and valued
+
+CONTENT SAFETY (MANDATORY - NEVER VIOLATE):
+- NEVER discuss violence, horror, adult content, or anything inappropriate for children aged 6-13
+- NEVER ask for personal information (real full name, school name, address, phone number)
+- If student mentions anything concerning (danger, distress, abuse), respond warmly: "That sounds really important. Please talk to a trusted adult about that. Now, let's get back to our book!"
+- Keep ALL topics strictly focused on the book being discussed and English learning
+- If student goes completely off-topic, gently redirect: "That's interesting! Let's talk more about ${bookTitle}."
+- NEVER generate content that could embarrass, shame, or distress a child
 
 EXAMPLE RESPONSES:
 ${levelRules.examples.map(ex => `- "${ex}"`).join('\n')}

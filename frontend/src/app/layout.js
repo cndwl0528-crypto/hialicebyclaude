@@ -82,7 +82,7 @@ export default function RootLayout({ children }) {
                         : 'text-[#3D2E1E] hover:bg-[#C8DBC8]'
                     }`}
                   >
-                    {link.icon} {link.label}
+                    <span aria-hidden="true">{link.icon}</span> {link.label}
                   </Link>
                 ))}
               </div>
@@ -102,7 +102,7 @@ export default function RootLayout({ children }) {
                     : 'text-[#3D2E1E] hover:bg-[#C8DBC8]'
                 }`}
               >
-                <div className="text-lg mb-0.5">{link.icon}</div>
+                <div className="text-lg mb-0.5" aria-hidden="true">{link.icon}</div>
                 {link.label}
               </Link>
             ))}

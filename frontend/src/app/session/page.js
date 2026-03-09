@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import useSpeech from '@/hooks/useSpeech';
 import VoiceButton from '@/components/VoiceButton';
@@ -159,32 +159,11 @@ export default function SessionPage() {
     } catch (error) {
       console.error('Error initializing session:', error);
       setApiAvailable(false);
-      setError('Failed to initialize session. Using offline mode.');
+      setError("Oops! Something went a little wrong. I'll use my notes instead!");
     }
   };
 
-  useEffect(() => {
-    if (isListening && transcript && transcript.trim()) {
-      if (silenceTimerRef.current) {
-        clearTimeout(silenceTimerRef.current);
-      }
-
-      silenceTimerRef.current = setTimeout(() => {
-        if (transcript.trim()) {
-          handleSendMessage(transcript);
-          stopListening();
-        }
-      }, 2000);
-    }
-
-    return () => {
-      if (silenceTimerRef.current) {
-        clearTimeout(silenceTimerRef.current);
-      }
-    };
-  }, [transcript, isListening]);
-
-  const handleSendMessage = async (text) => {
+  const handleSendMessage = useCallback(async (text) => {
     if (!text.trim() || loading) return;
 
     setError(null);
@@ -230,7 +209,7 @@ export default function SessionPage() {
         } catch (error) {
           console.warn('API call failed, falling back to mock:', error);
           setApiAvailable(false);
-          setError('Using offline mode');
+          setError("I'm using my memory today! Let's keep going!");
         }
       }
 
@@ -254,7 +233,7 @@ export default function SessionPage() {
       setError('Failed to get response. Please try again.');
       setLoading(false);
     }
-  };
+  }, [loading, messages, currentStage, bodyReasonCount, apiAvailable, sessionId, currentTurn]);
 
   const processApiResponse = async (data) => {
     const aliceMessage = {
@@ -423,6 +402,27 @@ export default function SessionPage() {
     }
   };
 
+  useEffect(() => {
+    if (isListening && transcript && transcript.trim()) {
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+      }
+
+      silenceTimerRef.current = setTimeout(() => {
+        if (transcript.trim()) {
+          handleSendMessage(transcript);
+          stopListening();
+        }
+      }, 2000);
+    }
+
+    return () => {
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+      }
+    };
+  }, [transcript, isListening, handleSendMessage]);
+
   if (sessionComplete) {
     return (
       <div className="min-h-[calc(100vh-120px)] flex items-center justify-center py-12 bg-[#F5F0E8]">
@@ -463,7 +463,7 @@ export default function SessionPage() {
       <div className="lg:w-80 w-full lg:h-full bg-[#FFFCF3] border-r border-[#D6C9A8] shadow-[2px_0_12px_rgba(61,46,30,0.06)] flex-shrink-0 overflow-y-auto">
         {/* Worksheet Header */}
         <div className="bg-[#5C8B5C] text-white px-4 py-3 flex items-center gap-2 sticky top-0 z-10">
-          <span className="text-xl">📝</span>
+          <span className="text-xl" aria-hidden="true">📝</span>
           <div>
             <h2 className="font-extrabold text-sm">Reading Worksheet</h2>
             <p className="text-xs text-green-100 truncate">{bookTitle || 'Book Title'}</p>
@@ -502,6 +502,7 @@ export default function SessionPage() {
                 {/* Row Header */}
                 <div className="flex items-center gap-2 px-3 py-2">
                   <span
+                    aria-hidden="true"
                     className="inline-flex items-center justify-center w-6 h-6 rounded-full text-white text-xs font-extrabold flex-shrink-0"
                     style={{ backgroundColor: isCompleted ? '#7AC87A' : row.color }}
                   >
@@ -578,7 +579,10 @@ export default function SessionPage() {
       <div className="flex-1 flex flex-col min-w-0">
         {/* Error Banner */}
         {error && (
-          <div className="bg-[#FFF8E8] border-l-4 border-[#D4A843] p-3 mx-3 mt-2 rounded-xl">
+          <div
+            role="alert"
+            className="bg-[#FFF8E8] border-l-4 border-[#D4A843] p-3 mx-3 mt-2 rounded-xl"
+          >
             <p className="text-sm text-[#6B5744] font-semibold">
               <span className="font-bold">Note:</span> {error}
             </p>
@@ -639,7 +643,11 @@ export default function SessionPage() {
 
           {/* Typing Indicator */}
           {loading && (
-            <div className="flex justify-start animate-fade-in">
+            <div
+              role="status"
+              aria-label="Alice is thinking"
+              className="flex justify-start animate-fade-in"
+            >
               <div className="flex gap-3">
                 <div className="w-8 h-8 rounded-full bg-[#5C8B5C] flex items-center justify-center flex-shrink-0 mt-1">
                   <span className="text-white text-sm font-extrabold">A</span>
@@ -665,6 +673,7 @@ export default function SessionPage() {
             {WORKSHEET_ROWS[activeRowIndex] && (
               <>
                 <span
+                  aria-hidden="true"
                   className="inline-flex items-center justify-center w-6 h-6 rounded-full text-white text-xs font-extrabold"
                   style={{ backgroundColor: WORKSHEET_ROWS[activeRowIndex].color }}
                 >
@@ -696,6 +705,7 @@ export default function SessionPage() {
               onStart={handleVoiceInput}
               onStop={handleVoiceInput}
               size={80}
+              disabled={loading}
             />
             <p className="text-sm font-bold text-[#5C8B5C]">
               {isListening ? 'Listening...' : 'Tap to speak'}
@@ -732,7 +742,7 @@ export default function SessionPage() {
 
           {!apiAvailable && (
             <p className="text-xs text-[#9B8777] text-center font-medium">
-              Running in offline mode — using mock responses
+              I&apos;m using my memory today! Let&apos;s keep going! 🌿
             </p>
           )}
         </div>

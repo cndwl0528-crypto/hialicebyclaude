@@ -10,6 +10,10 @@ export default function useSpeech() {
 
   const recognitionRef = useRef(null);
   const synthRef = useRef(null);
+  // Cached voice list — populated once via onvoiceschanged, avoids getVoices() on every speak()
+  const cachedVoicesRef = useRef([]);
+  // Track currently playing Audio object to prevent duplicate playback
+  const currentAudioRef = useRef(null);
 
   // Initialize Speech Recognition
   useEffect(() => {
@@ -53,6 +57,8 @@ export default function useSpeech() {
 
     recognition.onerror = (event) => {
       console.error('Speech recognition error', event.error);
+      // Restore isListening to false on error — prevents UI getting stuck in listening state
+      setIsListening(false);
     };
 
     recognition.onend = () => {
@@ -65,12 +71,31 @@ export default function useSpeech() {
     const synth = window.speechSynthesis;
     synthRef.current = synth;
 
+    // Cache voices once via onvoiceschanged event — avoids calling getVoices() on every speak()
+    const handleVoicesChanged = () => {
+      cachedVoicesRef.current = synth.getVoices();
+    };
+
+    // Populate immediately if voices are already available (some browsers load them synchronously)
+    const initialVoices = synth.getVoices();
+    if (initialVoices.length > 0) {
+      cachedVoicesRef.current = initialVoices;
+    }
+
+    synth.addEventListener('voiceschanged', handleVoicesChanged);
+
     return () => {
+      synth.removeEventListener('voiceschanged', handleVoicesChanged);
       if (recognitionRef.current) {
         recognitionRef.current.abort();
       }
       if (synthRef.current) {
         synthRef.current.cancel();
+      }
+      // Stop and clean up any playing audio on unmount
+      if (currentAudioRef.current) {
+        currentAudioRef.current.pause();
+        currentAudioRef.current = null;
       }
     };
   }, []);
@@ -88,7 +113,7 @@ export default function useSpeech() {
     }
   }, [isListening]);
 
-  // Web Speech API TTS (browser built-in)
+  // Web Speech API TTS (browser built-in) — uses cached voice list
   const speakBrowser = useCallback((text) => {
     if (!synthRef.current) return;
 
@@ -100,8 +125,8 @@ export default function useSpeech() {
     utterance.pitch = 1.05; // Slightly higher for friendly tone
     utterance.volume = 1;
 
-    // Try to select a female English voice
-    const voices = synthRef.current.getVoices();
+    // Use cached voices instead of calling getVoices() every time
+    const voices = cachedVoicesRef.current;
     const preferred = voices.find(v =>
       v.lang.startsWith('en') && v.name.toLowerCase().includes('samantha')
     ) || voices.find(v =>
@@ -120,6 +145,12 @@ export default function useSpeech() {
   const speakElevenLabs = useCallback(async (text) => {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+    // Stop any currently playing audio before starting new playback
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current = null;
+    }
+
     setIsSpeaking(true);
     try {
       const res = await fetch(`${apiUrl}/api/tts/speak`, {
@@ -133,11 +164,29 @@ export default function useSpeech() {
       const audioBlob = await res.blob();
       const audioUrl = URL.createObjectURL(audioBlob);
       const audio = new Audio(audioUrl);
-      audio.onended = () => { setIsSpeaking(false); URL.revokeObjectURL(audioUrl); };
-      audio.onerror = () => { setIsSpeaking(false); URL.revokeObjectURL(audioUrl); };
+
+      // Track the current audio so we can stop it if a new speak() is triggered
+      currentAudioRef.current = audio;
+
+      audio.onended = () => {
+        setIsSpeaking(false);
+        URL.revokeObjectURL(audioUrl);
+        if (currentAudioRef.current === audio) {
+          currentAudioRef.current = null;
+        }
+      };
+      audio.onerror = () => {
+        setIsSpeaking(false);
+        URL.revokeObjectURL(audioUrl);
+        if (currentAudioRef.current === audio) {
+          currentAudioRef.current = null;
+        }
+      };
+
       audio.play();
     } catch (err) {
       console.warn('ElevenLabs TTS failed, falling back to browser TTS:', err.message);
+      currentAudioRef.current = null;
       speakBrowser(text);
     }
   }, [speakBrowser]);
@@ -155,6 +204,10 @@ export default function useSpeech() {
 
   const stopSpeaking = useCallback(() => {
     if (synthRef.current) synthRef.current.cancel();
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current = null;
+    }
     setIsSpeaking(false);
   }, []);
 

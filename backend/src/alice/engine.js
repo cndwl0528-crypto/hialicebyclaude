@@ -54,17 +54,33 @@ export async function getAliceResponse({
       return getMockResponse({ bookTitle, studentName, level, stage, turn, studentMessage });
     }
 
-    // Build system prompt
-    const systemPrompt = getSystemPrompt(bookTitle, studentName, level, stage);
+    // Build system prompt — pass current turn for body sub-question targeting
+    const systemPrompt = getSystemPrompt(bookTitle, studentName, level, stage, turn);
 
     // Format conversation history for Claude
     const messages = formatConversationHistory(conversationHistory);
 
-    // Add the latest student message
-    messages.push({
-      role: 'user',
-      content: studentMessage
-    });
+    // Only add the student message when it is non-null and non-empty.
+    // A null/empty studentMessage means this is an opening message request
+    // (e.g., the very first Alice greeting at session start), so we let
+    // Claude generate the opening question without a preceding user turn.
+    const hasStudentMessage = studentMessage !== null && studentMessage !== undefined && studentMessage.trim() !== '';
+    if (hasStudentMessage) {
+      messages.push({
+        role: 'user',
+        content: studentMessage
+      });
+    }
+
+    // If there are no messages at all (opening call with no history and no
+    // student message), inject a minimal prompt so the Claude API receives
+    // a valid non-empty messages array.
+    if (messages.length === 0) {
+      messages.push({
+        role: 'user',
+        content: `Please start the session for "${bookTitle}" and ask your opening question for the ${stage} stage.`
+      });
+    }
 
     // Call Claude API
     const response = await anthropic.messages.create({

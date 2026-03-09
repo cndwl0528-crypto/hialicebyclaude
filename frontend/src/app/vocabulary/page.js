@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
+
 const MOCK_VOCABULARY = [
   { id: 1, word: 'caterpillar', pos: 'noun', definition: 'A small creature with many legs that becomes a butterfly', contextSentence: 'The caterpillar ate leaves all day.', synonyms: ['larva', 'grub'], antonyms: [], masteryLevel: 2, useCount: 5 },
   { id: 2, word: 'metamorphosis', pos: 'noun', definition: 'A complete change or transformation', contextSentence: 'The caterpillar went through metamorphosis.', synonyms: ['transformation', 'change'], antonyms: [], masteryLevel: 1, useCount: 2 },
@@ -65,6 +66,7 @@ export default function VocabularyPage() {
   const [fillBlankAnswer, setFillBlankAnswer] = useState('');
   const [synonymOptions, setSynonymOptions] = useState([]);
   const [selectedSynonym, setSelectedSynonym] = useState(null);
+  const [speechNotSupported, setSpeechNotSupported] = useState(false);
 
   useEffect(() => {
     const fetchVocabulary = async () => {
@@ -232,6 +234,7 @@ export default function VocabularyPage() {
 
   const startSpeechRecognition = () => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      setSpeechNotSupported(false);
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       const recognition = new SpeechRecognition();
       recognition.lang = 'en-US';
@@ -251,7 +254,7 @@ export default function VocabularyPage() {
 
       recognition.onerror = () => setIsListening(false);
     } else {
-      alert('Speech recognition not supported on this device');
+      setSpeechNotSupported(true);
     }
   };
 
@@ -349,10 +352,19 @@ export default function VocabularyPage() {
           {mode === PRACTICE_MODES.FLIP_CARD && (
             <div>
               <div
+                role="button"
+                tabIndex={!isFlipped ? 0 : -1}
+                aria-label={!isFlipped ? `Flip card to reveal definition of ${currentWord.word}` : `Definition of ${currentWord.word}: ${currentWord.definition}`}
                 onClick={!isFlipped ? handleFlipCard : undefined}
+                onKeyDown={(e) => {
+                  if (!isFlipped && (e.key === 'Enter' || e.key === ' ')) {
+                    e.preventDefault();
+                    handleFlipCard();
+                  }
+                }}
                 className={`min-h-64 rounded-2xl shadow-lg flex items-center justify-center mb-6 ${
                   !isFlipped
-                    ? 'bg-gradient-to-br from-[#5C8B5C] to-[#3D6B3D] cursor-pointer hover:-translate-y-1 transition-transform'
+                    ? 'bg-gradient-to-br from-[#5C8B5C] to-[#3D6B3D] cursor-pointer hover:-translate-y-1 transition-transform focus-visible:ring-4 focus-visible:ring-offset-2 focus-visible:ring-[#3D6B3D]'
                     : 'bg-gradient-to-br from-[#87CEDB] to-[#5BA8B8]'
                 }`}
               >
@@ -482,6 +494,14 @@ export default function VocabularyPage() {
                 >
                   {isListening ? 'Listening...' : 'Tap to Speak'}
                 </button>
+
+                {speechNotSupported && (
+                  <div role="alert" className="bg-[#FFF8E8] border-l-4 border-[#D4A843] p-4 rounded-xl">
+                    <p className="text-sm font-bold text-[#6B5744]">
+                      Speech recognition is not supported on this device. Please try a different practice mode.
+                    </p>
+                  </div>
+                )}
 
                 {userAnswer && (
                   <div className="bg-[#E8F5E8] border-l-4 border-[#5C8B5C] p-4 rounded-xl">

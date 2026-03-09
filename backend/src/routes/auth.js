@@ -1,6 +1,7 @@
 import express from 'express';
 import { supabase } from '../lib/supabase.js';
-import { generateToken } from '../middleware/auth.js';
+import { generateToken, authMiddleware } from '../middleware/auth.js';
+import { authRateLimiter } from '../middleware/sanitize.js';
 
 const router = express.Router();
 
@@ -10,7 +11,7 @@ const router = express.Router();
  * Body: { email, password }
  * Returns: { token, parent: { id, email, display_name }, children: [...] }
  */
-router.post('/parent-login', async (req, res) => {
+router.post('/parent-login', authRateLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -71,11 +72,11 @@ router.post('/parent-login', async (req, res) => {
 
 /**
  * POST /child-select
- * Select a child for session (no auth needed, returns session token)
+ * Select a child for session — requires parent JWT
  * Body: { studentId }
  * Returns: { token, student: { id, name, age, level } }
  */
-router.post('/child-select', async (req, res) => {
+router.post('/child-select', authMiddleware, async (req, res) => {
   try {
     const { studentId } = req.body;
 
@@ -83,15 +84,26 @@ router.post('/child-select', async (req, res) => {
       return res.status(400).json({ error: 'studentId required' });
     }
 
-    // Fetch student details
+    // Verify caller is a parent token
+    if (!req.user || req.user.type !== 'parent') {
+      return res.status(403).json({ error: 'Parent authentication required' });
+    }
+
+    const parentId = req.user.parentId;
+
+    // Fetch student and verify ownership — student must belong to this parent
     const { data: student, error } = await supabase
       .from('students')
-      .select('id, name, age, level')
+      .select('id, name, age, level, parent_id')
       .eq('id', studentId)
       .single();
 
-    if (error) {
+    if (error || !student) {
       return res.status(404).json({ error: 'Student not found' });
+    }
+
+    if (student.parent_id !== parentId) {
+      return res.status(403).json({ error: 'Access denied: student does not belong to this parent' });
     }
 
     // Generate JWT token with student info
@@ -103,7 +115,12 @@ router.post('/child-select', async (req, res) => {
 
     return res.status(200).json({
       token,
-      student,
+      student: {
+        id: student.id,
+        name: student.name,
+        age: student.age,
+        level: student.level,
+      },
     });
   } catch (err) {
     console.error('Child select error:', err);

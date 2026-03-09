@@ -7,7 +7,7 @@
  */
 
 export const STAGE_GUIDE = {
-  Title: {
+  title: {
     label: 'Title',
     guideQuestion: 'What is this book about?',
     description: 'Share what you think the book is about',
@@ -15,7 +15,7 @@ export const STAGE_GUIDE = {
     icon: '📖',
     color: '#4A90D9',
   },
-  Introduction: {
+  introduction: {
     label: 'Introduction',
     guideQuestion: 'Who is your favorite character? Why?',
     description: 'Tell me about the characters and setting',
@@ -23,7 +23,7 @@ export const STAGE_GUIDE = {
     icon: '👤',
     color: '#8B5CF6',
   },
-  Body: {
+  body: {
     label: 'Body',
     guideQuestion: 'Tell me 3 things about the story',
     description: 'Share your thoughts with 3 reasons',
@@ -47,7 +47,7 @@ export const STAGE_GUIDE = {
       },
     ],
   },
-  Conclusion: {
+  conclusion: {
     label: 'Conclusion',
     guideQuestion: 'How do you feel about this book?',
     description: 'Share your final thoughts and feelings',
@@ -61,10 +61,12 @@ export const STAGE_GUIDE = {
  * Get the current guide question based on stage and body sub-question index
  */
 export function getCurrentGuideQuestion(stage, bodyIndex = 0) {
-  const stageData = STAGE_GUIDE[stage];
+  // Normalize stage key to lowercase for consistent lookup
+  const normalizedStage = stage ? stage.toLowerCase() : '';
+  const stageData = STAGE_GUIDE[normalizedStage];
   if (!stageData) return { question: '', example: '' };
 
-  if (stage === 'Body' && stageData.subQuestions) {
+  if (normalizedStage === 'body' && stageData.subQuestions) {
     const sub = stageData.subQuestions[Math.min(bodyIndex, stageData.subQuestions.length - 1)];
     return {
       question: sub.question,

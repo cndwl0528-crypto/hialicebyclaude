@@ -130,13 +130,17 @@ router.post('/start', optionalAuth, async (req, res) => {
 router.post('/:id/message', optionalAuth, async (req, res) => {
   try {
     const { id: sessionId } = req.params;
-    const { content, stage } = req.body;
+    const { content, stage: rawStage } = req.body;
 
-    if (!content || !stage) {
+    if (!content || !rawStage) {
       return res.status(400).json({ error: 'content and stage required' });
     }
 
-    // Get current session
+    // Normalize stage value to lowercase so frontend casing (Title/Body/etc.)
+    // and backend casing (title/body/etc.) remain consistent.
+    const stage = rawStage.toLowerCase();
+
+    // Get current session first — needed to resolve student_id and book_id
     const { data: session, error: sessionError } = await supabase
       .from('sessions')
       .select('id, student_id, book_id, stage')
@@ -147,29 +151,36 @@ router.post('/:id/message', optionalAuth, async (req, res) => {
       return res.status(404).json({ error: 'Session not found' });
     }
 
-    // Get student and book details
-    const { data: student } = await supabase
-      .from('students')
-      .select('id, name, level')
-      .eq('id', session.student_id)
-      .single();
+    // Fetch student, book, and conversation history in parallel (eliminates N+1)
+    const [
+      { data: student },
+      { data: book },
+      { data: dialogues },
+    ] = await Promise.all([
+      supabase
+        .from('students')
+        .select('id, name, level')
+        .eq('id', session.student_id)
+        .single(),
+      supabase
+        .from('books')
+        .select('title')
+        .eq('id', session.book_id)
+        .single(),
+      supabase
+        .from('dialogues')
+        .select('speaker, content, turn, stage')
+        .eq('session_id', sessionId)
+        .order('created_at', { ascending: true }),
+    ]);
 
-    const { data: book } = await supabase
-      .from('books')
-      .select('title')
-      .eq('id', session.book_id)
-      .single();
-
-    // Get conversation history
-    const { data: dialogues } = await supabase
-      .from('dialogues')
-      .select('speaker, content, turn, stage')
-      .eq('session_id', sessionId)
-      .order('created_at', { ascending: true });
-
-    // Calculate current turn number for this stage
-    const stageTurns = dialogues?.filter(d => d.stage === stage) || [];
-    const currentTurn = Math.floor(stageTurns.length / 2) + 1;
+    // Calculate current turn number for this stage.
+    // Count only student messages so that each student response maps to a
+    // single turn, and Alice replies don't inflate the turn counter.
+    const studentTurnsInStage = dialogues?.filter(
+      d => d.stage === stage && d.speaker === 'student'
+    ) || [];
+    const currentTurn = studentTurnsInStage.length + 1;
 
     // Insert student message
     const { error: studentDialogueError } = await supabase
@@ -318,11 +329,13 @@ router.post('/:id/complete', optionalAuth, async (req, res) => {
       );
     }
 
-    // Count vocabulary for this session (unique words used by student)
+    // Count vocabulary recorded during this session only
+    // Filter by session_id when available; otherwise fall back to first_used >= session start
     const { data: vocab } = await supabase
       .from('vocabulary')
       .select('id')
-      .eq('student_id', session.student_id);
+      .eq('student_id', session.student_id)
+      .gte('first_used', session.started_at);
 
     // Count turns per stage to calculate level score
     const { data: allDialogues } = await supabase
