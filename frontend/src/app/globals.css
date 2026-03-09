@@ -2,12 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ===== Ghibli Studio Color Variables ===== */
 :root {
-  --primary: #4A90D9;
-  --accent: #F39C12;
-  --success: #27AE60;
-  --background: #F5F7FA;
-  --error: #E74C3C;
+  --primary: #5C8B5C;
+  --primary-light: #7AAE7A;
+  --primary-dark: #3D6B3D;
+  --sky: #87CEDB;
+  --sky-light: #A8DAEA;
+  --accent: #D4A843;
+  --accent-light: #E8C46A;
+  --success: #7AC87A;
+  --danger: #D4736B;
+  --background: #F5F0E8;
+  --background-alt: #EDE5D4;
+  --card: #FFFCF3;
+  --nav-bg: #D6C9A8;
+  --text-dark: #3D2E1E;
+  --text-mid: #6B5744;
+  --text-light: #9B8777;
 }
 
 * {
@@ -19,27 +31,116 @@ html {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+  font-family: 'Nunito', 'Quicksand', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: #F5F0E8;
+  color: #3D2E1E;
 }
 
-/* Animation: Pulse for voice button */
+/* ===== Custom Scrollbar (Forest Green) ===== */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #EDE5D4;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #7AAE7A;
+  border-radius: 4px;
+  border: 2px solid #EDE5D4;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #5C8B5C;
+}
+
+/* ===== Ghibli Background Pattern ===== */
+.ghibli-bg {
+  background-image:
+    radial-gradient(circle at 20% 50%, rgba(92, 139, 92, 0.05) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(135, 206, 219, 0.05) 0%, transparent 50%);
+}
+
+/* ===== Ghibli Card Style ===== */
+.ghibli-card {
+  background: #FFFCF3;
+  border: 1px solid #E8DEC8;
+  border-radius: 1.5rem;
+  box-shadow: 0 4px 20px rgba(61, 46, 30, 0.06);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ghibli-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(61, 46, 30, 0.10);
+}
+
+/* ===== Ghibli Button Style ===== */
+.ghibli-btn {
+  background: #5C8B5C;
+  color: white;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  font-weight: 700;
+  transition: all 0.2s ease;
+  font-family: 'Nunito', sans-serif;
+}
+
+.ghibli-btn:hover {
+  background: #3D6B3D;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(61, 107, 61, 0.3);
+}
+
+/* ===== Float Animation (Totoro Feeling) ===== */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+.float-animation {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* ===== Leaf Sway Animation ===== */
+@keyframes leaf-sway {
+  0%, 100% { transform: rotate(-3deg); }
+  50% { transform: rotate(3deg); }
+}
+
+.leaf-sway {
+  animation: leaf-sway 2.5s ease-in-out infinite;
+}
+
+/* ===== Shimmer Animation ===== */
+@keyframes shimmer {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
+}
+
+.shimmer {
+  animation: shimmer 2s ease-in-out infinite;
+}
+
+/* ===== Pulse Animation (Voice Button) ===== */
 @keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 .pulse {
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
+/* ===== Scale In Animation ===== */
 @keyframes scaleIn {
   from {
     transform: scale(0.95);
@@ -55,7 +156,106 @@ body {
   animation: scaleIn 0.2s ease-out;
 }
 
-/* Smooth transitions */
+/* ===== Fade In Animation ===== */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* ===== Smooth Transitions ===== */
 .transition-smooth {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ===== Ghibli Input Style ===== */
+.ghibli-input {
+  background: #FFFCF3;
+  border: 1.5px solid #D6C9A8;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+  color: #3D2E1E;
+  font-family: 'Nunito', sans-serif;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ghibli-input:focus {
+  outline: none;
+  border-color: #5C8B5C;
+  box-shadow: 0 0 0 3px rgba(92, 139, 92, 0.15);
+}
+
+/* ===== Ghibli Badge Styles ===== */
+.badge-beginner {
+  background-color: #C8E6C9;
+  color: #2E7D32;
+}
+
+.badge-intermediate {
+  background-color: #FFE0B2;
+  color: #E65100;
+}
+
+.badge-advanced {
+  background-color: #E1BEE7;
+  color: #6A1B9A;
+}
+
+/* ===== Navigation Active State ===== */
+.nav-link-active {
+  background-color: #5C8B5C;
+  color: white;
+  border-radius: 0.75rem;
+}
+
+/* ===== Chat Bubble Styles ===== */
+.bubble-alice {
+  background: #D6E9D6;
+  color: #3D2E1E;
+  border-radius: 1rem 1rem 1rem 0;
+}
+
+.bubble-student {
+  background: #FFFCF3;
+  color: #3D2E1E;
+  border: 1px solid #D6C9A8;
+  border-radius: 1rem 1rem 0 1rem;
+}
+
+/* ===== Ghibli Section Divider ===== */
+.ghibli-divider {
+  border-bottom: 3px solid #C8E6C9;
+  padding-bottom: 0.5rem;
+}
+
+/* ===== Progress Bar ===== */
+.progress-ghibli {
+  background: #EDE5D4;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.progress-ghibli-fill {
+  background: #5C8B5C;
+  border-radius: 9999px;
+  transition: width 0.5s ease;
+}
+
+/* ===== Hover Lift Effect ===== */
+.hover-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(61, 46, 30, 0.12);
 }

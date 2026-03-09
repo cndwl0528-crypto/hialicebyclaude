@@ -24,7 +24,7 @@ const MOCK_RECENT_SESSIONS = [
   {
     id: 2,
     studentName: 'Bob',
-    bookTitle: 'Charlotte\'s Web',
+    bookTitle: "Charlotte's Web",
     stage: 'Body',
     grammarScore: 78,
     timestamp: new Date(Date.now() - 7200000).toISOString(),
@@ -122,7 +122,15 @@ const WEEKLY_SESSIONS = [
   { day: 'Sun', sessions: 5 },
 ];
 
-const maxSessions = Math.max(...WEEKLY_SESSIONS.map(d => d.sessions));
+const maxSessions = Math.max(...WEEKLY_SESSIONS.map((d) => d.sessions));
+
+// Stage badge colors
+const STAGE_BADGE_STYLES = {
+  Title: { bg: '#E8F5E8', text: '#3D6B3D' },
+  Introduction: { bg: '#E0F4F9', text: '#2A7A8C' },
+  Body: { bg: '#FFF8E1', text: '#8C6D00' },
+  Conclusion: { bg: '#E8F5E8', text: '#2E7D32' },
+};
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState(MOCK_STATS);
@@ -130,7 +138,6 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Try to fetch from API
     const fetchStats = async () => {
       try {
         setLoading(true);
@@ -169,25 +176,27 @@ export default function AdminDashboard() {
     return date.toLocaleDateString();
   };
 
+  const statCards = [
+    { label: 'Total Students', value: stats.totalStudents, icon: '👨‍🎓', color: '#5C8B5C' },
+    { label: 'Total Books', value: stats.totalBooks, icon: '📚', color: '#D4A843' },
+    { label: 'Active Sessions', value: stats.activeSessions, icon: '⏳', color: '#87CEDB' },
+    { label: 'Avg Grammar Score', value: `${stats.avgGrammarScore}%`, icon: '📝', color: '#D4736B' },
+  ];
+
   return (
     <div className="space-y-8">
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {[
-          { label: 'Total Students', value: stats.totalStudents, icon: '👨‍🎓', color: '#4A90D9' },
-          { label: 'Total Books', value: stats.totalBooks, icon: '📚', color: '#F39C12' },
-          { label: 'Active Sessions', value: stats.activeSessions, icon: '⏳', color: '#27AE60' },
-          { label: 'Avg Grammar Score', value: `${stats.avgGrammarScore}%`, icon: '📝', color: '#E74C3C' },
-        ].map((stat, idx) => (
+        {statCards.map((stat, idx) => (
           <div
             key={idx}
-            className="bg-white rounded-lg shadow-md p-6 border-l-4"
+            className="bg-[#FFFCF3] rounded-2xl shadow-[0_4px_20px_rgba(61,46,30,0.08)] p-6 border-l-4 border-[#E8DEC8] hover:-translate-y-0.5 transition-transform"
             style={{ borderLeftColor: stat.color }}
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-500 text-sm font-semibold">{stat.label}</p>
-                <p className="text-3xl font-bold text-gray-800 mt-2">{stat.value}</p>
+                <p className="text-[#6B5744] text-sm font-semibold">{stat.label}</p>
+                <p className="text-3xl font-extrabold text-[#3D2E1E] mt-2">{stat.value}</p>
               </div>
               <span className="text-4xl">{stat.icon}</span>
             </div>
@@ -199,64 +208,64 @@ export default function AdminDashboard() {
       <div className="flex flex-wrap gap-4">
         <Link
           href="/admin/students"
-          className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all font-semibold"
+          className="px-6 py-3 bg-[#5C8B5C] text-white rounded-xl hover:bg-[#3D6B3D] transition-all font-bold shadow-[0_2px_8px_rgba(61,107,61,0.3)] hover:-translate-y-0.5"
           style={{ minHeight: '48px', minWidth: '150px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
-          ➕ Add Student
+          Add Student
         </Link>
         <Link
           href="/admin/books"
-          className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all font-semibold"
+          className="px-6 py-3 bg-[#D4A843] text-white rounded-xl hover:bg-[#B8903A] transition-all font-bold shadow-[0_2px_8px_rgba(212,168,67,0.3)] hover:-translate-y-0.5"
           style={{ minHeight: '48px', minWidth: '150px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
-          ➕ Add Book
+          Add Book
         </Link>
         <Link
           href="/admin/reports"
-          className="px-6 py-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-all font-semibold"
+          className="px-6 py-3 bg-[#87CEDB] text-[#3D2E1E] rounded-xl hover:bg-[#5BA8B8] hover:text-white transition-all font-bold shadow-[0_2px_8px_rgba(135,206,219,0.3)] hover:-translate-y-0.5"
           style={{ minHeight: '48px', minWidth: '150px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
-          📊 View Reports
+          View Reports
         </Link>
       </div>
 
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Sessions Per Week Chart */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">Sessions Per Week</h3>
+        <div className="bg-[#FFFCF3] rounded-2xl shadow-[0_4px_20px_rgba(61,46,30,0.08)] p-6 border border-[#E8DEC8]">
+          <h3 className="text-lg font-extrabold text-[#3D2E1E] mb-4">Sessions Per Week</h3>
           <div className="flex items-end justify-around h-64 gap-2">
             {WEEKLY_SESSIONS.map((item, idx) => (
               <div key={idx} className="flex flex-col items-center gap-2 flex-1">
                 <div
-                  className="bg-blue-400 rounded-t-lg w-full transition-all hover:bg-blue-500"
+                  className="rounded-t-lg w-full transition-all hover:opacity-80"
                   style={{
                     height: `${(item.sessions / maxSessions) * 200}px`,
                     minHeight: '20px',
+                    backgroundColor: '#D4A843',
                   }}
                   title={`${item.sessions} sessions`}
                 />
-                <span className="text-xs font-semibold text-gray-600">{item.day}</span>
-                <span className="text-xs text-gray-400">{item.sessions}</span>
+                <span className="text-xs font-bold text-[#6B5744]">{item.day}</span>
+                <span className="text-xs text-[#9B8777]">{item.sessions}</span>
               </div>
             ))}
           </div>
         </div>
 
         {/* Level Distribution Chart */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">Level Distribution</h3>
+        <div className="bg-[#FFFCF3] rounded-2xl shadow-[0_4px_20px_rgba(61,46,30,0.08)] p-6 border border-[#E8DEC8]">
+          <h3 className="text-lg font-extrabold text-[#3D2E1E] mb-4">Level Distribution</h3>
           <div className="flex items-center justify-center gap-8 h-64">
             <svg viewBox="0 0 200 200" className="w-48 h-48">
-              {/* Pie Chart - Simplified */}
-              <circle cx="100" cy="100" r="80" fill="#A8E6CF" />
-              <circle cx="100" cy="100" r="70" fill="white" />
+              <circle cx="100" cy="100" r="80" fill="#C8E6C9" />
+              <circle cx="100" cy="100" r="70" fill="#FFFCF3" />
               <circle
                 cx="100"
                 cy="100"
                 r="80"
                 fill="none"
-                stroke="#FFD3B6"
+                stroke="#FFE0B2"
                 strokeWidth="16"
                 strokeDasharray={`${(LEVEL_DISTRIBUTION.Intermediate / 24) * 502} 502`}
               />
@@ -265,8 +274,9 @@ export default function AdminDashboard() {
                 y="100"
                 textAnchor="middle"
                 dy="0.3em"
-                className="text-sm font-bold"
-                fill="#333"
+                fontSize="18"
+                fontWeight="bold"
+                fill="#3D2E1E"
               >
                 {LEVEL_DISTRIBUTION.Beginner}
               </text>
@@ -279,13 +289,13 @@ export default function AdminDashboard() {
                     style={{
                       backgroundColor:
                         level === 'Beginner'
-                          ? '#A8E6CF'
+                          ? '#C8E6C9'
                           : level === 'Intermediate'
-                          ? '#FFD3B6'
-                          : '#F8B195',
+                          ? '#FFE0B2'
+                          : '#E1BEE7',
                     }}
                   />
-                  <span className="text-sm font-medium text-gray-700">
+                  <span className="text-sm font-semibold text-[#6B5744]">
                     {level}: {count} students
                   </span>
                 </div>
@@ -296,67 +306,73 @@ export default function AdminDashboard() {
       </div>
 
       {/* Recent Sessions */}
-      <div className="bg-white rounded-lg shadow-md p-6">
+      <div className="bg-[#FFFCF3] rounded-2xl shadow-[0_4px_20px_rgba(61,46,30,0.08)] p-6 border border-[#E8DEC8]">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-gray-800">Recent Sessions</h3>
+          <h3 className="text-lg font-extrabold text-[#3D2E1E]">Recent Sessions</h3>
           <Link
             href="/admin/reports"
-            className="text-blue-500 hover:text-blue-700 text-sm font-semibold"
+            className="text-[#5C8B5C] hover:text-[#3D6B3D] text-sm font-bold transition-colors"
           >
-            View All →
+            View All
           </Link>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b-2 border-gray-200">
-                <th className="text-left py-3 px-4 font-semibold text-gray-700">Student</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-700">Book</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-700">Stage</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-700">Grammar</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-700">Status</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-700">Time</th>
+              <tr className="border-b-2 border-[#E8DEC8]">
+                <th className="text-left py-3 px-4 font-bold text-[#6B5744]">Student</th>
+                <th className="text-left py-3 px-4 font-bold text-[#6B5744]">Book</th>
+                <th className="text-left py-3 px-4 font-bold text-[#6B5744]">Stage</th>
+                <th className="text-left py-3 px-4 font-bold text-[#6B5744]">Grammar</th>
+                <th className="text-left py-3 px-4 font-bold text-[#6B5744]">Status</th>
+                <th className="text-left py-3 px-4 font-bold text-[#6B5744]">Time</th>
               </tr>
             </thead>
             <tbody>
               {sessions.map((session) => (
                 <tr
                   key={session.id}
-                  className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                  className="border-b border-[#EDE5D4] hover:bg-[#F5F0E8] transition-colors"
                 >
-                  <td className="py-3 px-4 font-medium text-gray-800">{session.studentName}</td>
-                  <td className="py-3 px-4 text-gray-700 max-w-xs truncate">
+                  <td className="py-3 px-4 font-semibold text-[#3D2E1E]">{session.studentName}</td>
+                  <td className="py-3 px-4 text-[#6B5744] max-w-xs truncate">
                     {session.bookTitle}
                   </td>
                   <td className="py-3 px-4">
-                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+                    <span
+                      className="px-3 py-1 rounded-full text-xs font-bold"
+                      style={{
+                        backgroundColor: (STAGE_BADGE_STYLES[session.stage] || { bg: '#E8F5E8' }).bg,
+                        color: (STAGE_BADGE_STYLES[session.stage] || { text: '#3D6B3D' }).text,
+                      }}
+                    >
                       {session.stage}
                     </span>
                   </td>
                   <td className="py-3 px-4">
                     <span
-                      className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        session.grammarScore >= 80
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-yellow-100 text-yellow-700'
-                      }`}
+                      className="px-3 py-1 rounded-full text-xs font-bold"
+                      style={{
+                        backgroundColor: session.grammarScore >= 80 ? '#C8E6C9' : '#FFF8E1',
+                        color: session.grammarScore >= 80 ? '#2E7D32' : '#8C6D00',
+                      }}
                     >
                       {session.grammarScore}%
                     </span>
                   </td>
                   <td className="py-3 px-4">
                     <span
-                      className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        session.status === 'completed'
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-blue-100 text-blue-700'
-                      }`}
+                      className="px-3 py-1 rounded-full text-xs font-bold"
+                      style={{
+                        backgroundColor: session.status === 'completed' ? '#C8E6C9' : '#E0F4F9',
+                        color: session.status === 'completed' ? '#2E7D32' : '#2A7A8C',
+                      }}
                     >
-                      {session.status === 'completed' ? '✓ Done' : '⏳ Active'}
+                      {session.status === 'completed' ? 'Done' : 'Active'}
                     </span>
                   </td>
-                  <td className="py-3 px-4 text-gray-500 text-xs">
+                  <td className="py-3 px-4 text-[#9B8777] text-xs">
                     {formatTime(session.timestamp)}
                   </td>
                 </tr>

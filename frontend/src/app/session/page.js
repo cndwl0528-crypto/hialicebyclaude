@@ -32,14 +32,13 @@ const MOCK_AI_RESPONSES = {
   ],
 };
 
-// Worksheet row data for the visible frame
 const WORKSHEET_ROWS = [
-  { stage: 'Title', label: 'Title', color: '#4A90D9', icon: '📖', question: 'What is this book about?', example: 'e.g. This book is about a caterpillar that becomes a butterfly.' },
-  { stage: 'Introduction', label: 'Introduction', color: '#8B5CF6', icon: '👤', question: 'Who is your favorite character? Why?', example: 'e.g. I would choose the caterpillar because it is brave.' },
-  { stage: 'Body', label: 'Body ①', color: '#F39C12', icon: '💭', question: 'What is the most important part of the story? Why?', example: 'e.g. The most important part is when the caterpillar eats all the food.', bodyIndex: 0 },
-  { stage: 'Body', label: 'Body ②', color: '#F39C12', icon: '💭', question: 'What would you change about the story? Why?', example: 'e.g. I would add more animals because it would be more fun.', bodyIndex: 1 },
-  { stage: 'Body', label: 'Body ③', color: '#F39C12', icon: '💭', question: 'What did you learn from this story?', example: 'e.g. Moreover, I learned that change can be beautiful.', bodyIndex: 2 },
-  { stage: 'Conclusion', label: 'Conclusion', color: '#27AE60', icon: '⭐', question: 'How do you feel about this book?', example: 'e.g. Reading this book was really fun and I learned a lot.' },
+  { stage: 'Title', label: 'Title', color: '#5C8B5C', icon: '📖', question: 'What is this book about?', example: 'e.g. This book is about a caterpillar that becomes a butterfly.' },
+  { stage: 'Introduction', label: 'Introduction', color: '#87CEDB', icon: '👤', question: 'Who is your favorite character? Why?', example: 'e.g. I would choose the caterpillar because it is brave.' },
+  { stage: 'Body', label: 'Body ①', color: '#D4A843', icon: '💭', question: 'What is the most important part of the story? Why?', example: 'e.g. The most important part is when the caterpillar eats all the food.', bodyIndex: 0 },
+  { stage: 'Body', label: 'Body ②', color: '#D4A843', icon: '💭', question: 'What would you change about the story? Why?', example: 'e.g. I would add more animals because it would be more fun.', bodyIndex: 1 },
+  { stage: 'Body', label: 'Body ③', color: '#D4A843', icon: '💭', question: 'What did you learn from this story?', example: 'e.g. Moreover, I learned that change can be beautiful.', bodyIndex: 2 },
+  { stage: 'Conclusion', label: 'Conclusion', color: '#7AC87A', icon: '⭐', question: 'How do you feel about this book?', example: 'e.g. Reading this book was really fun and I learned a lot.' },
 ];
 
 function getWorksheetRowIndex(stageIndex, bodyReasonCount) {
@@ -57,7 +56,6 @@ export default function SessionPage() {
   const bookId = searchParams.get('bookId');
   const bookTitle = searchParams.get('bookTitle');
 
-  // Session state
   const [session, setSession] = useState(null);
   const [sessionId, setSessionId] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -75,7 +73,6 @@ export default function SessionPage() {
   const [sessionStartTime, setSessionStartTime] = useState(null);
   const [error, setError] = useState(null);
   const [showSkipButton, setShowSkipButton] = useState(false);
-  // Track student answers per worksheet row for the frame display
   const [worksheetAnswers, setWorksheetAnswers] = useState({});
 
   const { isListening, transcript, speak, startListening, stopListening, supported } = useSpeech();
@@ -84,7 +81,6 @@ export default function SessionPage() {
   const silenceTimerRef = useRef(null);
   const activeRowRef = useRef(null);
 
-  // Get student data from sessionStorage
   const [studentId, setStudentId] = useState(null);
   const [studentName, setStudentName] = useState(null);
 
@@ -105,7 +101,6 @@ export default function SessionPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Scroll active worksheet row into view
   useEffect(() => {
     activeRowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [currentStage, bodyReasonCount]);
@@ -117,10 +112,8 @@ export default function SessionPage() {
     return 'http://localhost:3001';
   };
 
-  // Current active worksheet row index
   const activeRowIndex = getWorksheetRowIndex(currentStage, bodyReasonCount);
 
-  // Initialize session and start first question
   useEffect(() => {
     if (bookId && studentId) {
       initializeSession();
@@ -170,7 +163,6 @@ export default function SessionPage() {
     }
   };
 
-  // Handle auto-send after silence detection
   useEffect(() => {
     if (isListening && transcript && transcript.trim()) {
       if (silenceTimerRef.current) {
@@ -209,7 +201,6 @@ export default function SessionPage() {
     setMessages((prev) => [...prev, studentMessage]);
     setInputText('');
 
-    // Save student answer to worksheet frame
     const rowIdx = getWorksheetRowIndex(currentStage, bodyReasonCount);
     setWorksheetAnswers((prev) => ({
       ...prev,
@@ -243,7 +234,6 @@ export default function SessionPage() {
         }
       }
 
-      // Fallback to mock responses
       await new Promise((resolve) => setTimeout(resolve, 800));
       const stageIndex = currentStage;
       const stageQuestions = MOCK_AI_RESPONSES[STAGES[stageIndex]];
@@ -251,7 +241,7 @@ export default function SessionPage() {
       const nextQuestion =
         nextTurnIndex < stageQuestions.length
           ? stageQuestions[nextTurnIndex]
-          : 'That was wonderful! Let\'s move to the next topic.';
+          : "That was wonderful! Let's move to the next topic.";
 
       let reasonCount = bodyReasonCount;
       if (STAGES[stageIndex] === 'Body') {
@@ -435,16 +425,17 @@ export default function SessionPage() {
 
   if (sessionComplete) {
     return (
-      <div className="min-h-[calc(100vh-120px)] flex items-center justify-center py-12 bg-[#F5F7FA]">
-        <div className="bg-white rounded-lg shadow-md p-8 max-w-md text-center">
-          <div className="text-6xl mb-4">🎉</div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Great Job!</h2>
-          <p className="text-gray-600 mb-6">
-            You completed the reading session for <span className="font-semibold">&quot;{bookTitle}&quot;</span>. Let&apos;s review what you learned!
+      <div className="min-h-[calc(100vh-120px)] flex items-center justify-center py-12 bg-[#F5F0E8]">
+        <div className="ghibli-card p-8 max-w-md text-center">
+          <div className="text-6xl mb-4 float-animation inline-block">🎉</div>
+          <h2 className="text-2xl font-extrabold text-[#3D2E1E] mb-2">Great Job!</h2>
+          <p className="text-[#6B5744] font-semibold mb-6">
+            You completed the reading session for{' '}
+            <span className="font-bold text-[#3D6B3D]">&quot;{bookTitle}&quot;</span>. Let&apos;s review what you learned!
           </p>
           <button
             onClick={() => router.push('/review')}
-            className="w-full py-3 px-6 bg-[#4A90D9] text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold"
+            className="w-full py-3 px-6 bg-[#5C8B5C] text-white rounded-2xl hover:bg-[#3D6B3D] transition-colors font-bold hover:-translate-y-0.5 shadow-[0_4px_12px_rgba(92,139,92,0.3)]"
           >
             View Word Review
           </button>
@@ -454,31 +445,33 @@ export default function SessionPage() {
   }
 
   return (
-    <div className="flex flex-col lg:flex-row h-[calc(100vh-120px)] bg-[#F5F7FA]">
+    <div className="flex flex-col lg:flex-row h-[calc(100vh-120px)] bg-[#F5F0E8]">
       {/* Stage Transition Overlay */}
       {showStageTransition && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 animate-fade-in">
-          <div className="bg-white rounded-lg p-8 shadow-lg animate-bounce">
-            <p className="text-lg font-semibold text-gray-800">
-              Moving to: <span className="text-[#4A90D9]">{nextStageName}</span>
+        <div className="fixed inset-0 bg-[#3D6B3D] bg-opacity-50 flex items-center justify-center z-50 animate-fade-in">
+          <div className="ghibli-card p-8 shadow-lg animate-bounce">
+            <div className="text-3xl text-center mb-3 float-animation">🌿</div>
+            <p className="text-base font-bold text-[#3D2E1E]">
+              Moving to:{' '}
+              <span className="text-[#5C8B5C]">{nextStageName}</span>
             </p>
           </div>
         </div>
       )}
 
-      {/* ============ LEFT: Worksheet Frame ============ */}
-      <div className="lg:w-80 w-full lg:h-full bg-white border-r border-gray-200 shadow-sm flex-shrink-0 overflow-y-auto">
+      {/* ===== LEFT: Worksheet Frame ===== */}
+      <div className="lg:w-80 w-full lg:h-full bg-[#FFFCF3] border-r border-[#D6C9A8] shadow-[2px_0_12px_rgba(61,46,30,0.06)] flex-shrink-0 overflow-y-auto">
         {/* Worksheet Header */}
-        <div className="bg-[#4A90D9] text-white px-4 py-3 flex items-center gap-2 sticky top-0 z-10">
+        <div className="bg-[#5C8B5C] text-white px-4 py-3 flex items-center gap-2 sticky top-0 z-10">
           <span className="text-xl">📝</span>
           <div>
-            <h2 className="font-bold text-sm">Reading Worksheet</h2>
-            <p className="text-xs text-blue-100 truncate">{bookTitle || 'Book Title'}</p>
+            <h2 className="font-extrabold text-sm">Reading Worksheet</h2>
+            <p className="text-xs text-green-100 truncate">{bookTitle || 'Book Title'}</p>
           </div>
           {process.env.NODE_ENV === 'development' && (
             <button
               onClick={handleSkipToNextStage}
-              className="ml-auto px-2 py-1 text-xs font-semibold bg-white bg-opacity-20 rounded hover:bg-opacity-30 transition-colors"
+              className="ml-auto px-2 py-1 text-xs font-bold bg-white bg-opacity-20 rounded-lg hover:bg-opacity-30 transition-colors"
               title="Skip to next stage (dev only)"
             >
               Skip →
@@ -487,7 +480,7 @@ export default function SessionPage() {
         </div>
 
         {/* Worksheet Table */}
-        <div className="divide-y divide-gray-100">
+        <div className="divide-y divide-[#EDE5D4]">
           {WORKSHEET_ROWS.map((row, idx) => {
             const isActive = idx === activeRowIndex;
             const isCompleted = idx < activeRowIndex;
@@ -500,63 +493,62 @@ export default function SessionPage() {
                 ref={isActive ? activeRowRef : null}
                 className={`transition-all duration-300 ${
                   isActive
-                    ? 'bg-blue-50 border-l-4 border-[#4A90D9]'
+                    ? 'bg-[#E8F5E8] border-l-4 border-[#5C8B5C]'
                     : isCompleted
-                    ? 'bg-green-50 border-l-4 border-[#27AE60]'
-                    : 'bg-gray-50 border-l-4 border-transparent opacity-60'
+                    ? 'bg-[#C8E6C9] bg-opacity-40 border-l-4 border-[#7AC87A]'
+                    : 'bg-[#F5F0E8] border-l-4 border-transparent opacity-60'
                 }`}
               >
                 {/* Row Header */}
                 <div className="flex items-center gap-2 px-3 py-2">
                   <span
-                    className="inline-flex items-center justify-center w-6 h-6 rounded-full text-white text-xs font-bold flex-shrink-0"
-                    style={{ backgroundColor: isCompleted ? '#27AE60' : row.color }}
+                    className="inline-flex items-center justify-center w-6 h-6 rounded-full text-white text-xs font-extrabold flex-shrink-0"
+                    style={{ backgroundColor: isCompleted ? '#7AC87A' : row.color }}
                   >
                     {isCompleted ? '✓' : row.icon}
                   </span>
                   <span
-                    className="text-xs font-bold uppercase tracking-wide"
-                    style={{ color: isCompleted ? '#27AE60' : row.color }}
+                    className="text-xs font-extrabold uppercase tracking-wide"
+                    style={{ color: isCompleted ? '#5C8B5C' : row.color }}
                   >
                     {row.label}
                   </span>
                   {isActive && (
-                    <span className="ml-auto text-xs text-[#4A90D9] font-semibold animate-pulse">
-                      ● Now
+                    <span className="ml-auto text-xs text-[#5C8B5C] font-bold animate-pulse">
+                      Now
                     </span>
                   )}
                 </div>
 
-                {/* Guide Question (cloud bubble style) */}
+                {/* Guide Question */}
                 <div className="px-3 pb-2">
                   <div
-                    className={`relative rounded-lg px-3 py-2 text-xs ${
-                      isActive ? 'bg-white shadow-sm border border-blue-200' : 'bg-white bg-opacity-60'
+                    className={`relative rounded-xl px-3 py-2 text-xs ${
+                      isActive
+                        ? 'bg-[#FFFCF3] shadow-sm border border-[#C8E6C9]'
+                        : 'bg-[#FFFCF3] bg-opacity-60'
                     }`}
                   >
-                    {/* Speech bubble tail */}
                     <div
                       className="absolute -top-1 left-4 w-2 h-2 rotate-45"
                       style={{
-                        backgroundColor: isActive ? '#fff' : 'rgba(255,255,255,0.6)',
-                        borderTop: isActive ? '1px solid #bfdbfe' : 'none',
-                        borderLeft: isActive ? '1px solid #bfdbfe' : 'none',
+                        backgroundColor: isActive ? '#FFFCF3' : 'rgba(255,252,243,0.6)',
+                        borderTop: isActive ? '1px solid #C8E6C9' : 'none',
+                        borderLeft: isActive ? '1px solid #C8E6C9' : 'none',
                       }}
-                    ></div>
-                    <p className={`font-semibold ${isActive ? 'text-gray-800' : 'text-gray-500'}`}>
+                    />
+                    <p className={`font-bold ${isActive ? 'text-[#3D2E1E]' : 'text-[#9B8777]'}`}>
                       {row.question}
                     </p>
-                    {/* Student's answer (if completed) */}
                     {answer && (
-                      <div className="mt-2 pt-2 border-t border-gray-100">
-                        <p className="text-xs text-[#27AE60] font-medium">
-                          💬 {answer.length > 80 ? answer.substring(0, 80) + '...' : answer}
+                      <div className="mt-2 pt-2 border-t border-[#E8DEC8]">
+                        <p className="text-xs text-[#5C8B5C] font-semibold">
+                          {answer.length > 80 ? answer.substring(0, 80) + '...' : answer}
                         </p>
                       </div>
                     )}
-                    {/* Example answer (if pending or active without answer) */}
                     {!answer && (
-                      <p className="text-gray-400 mt-1 italic text-xs">{row.example}</p>
+                      <p className="text-[#9B8777] mt-1 italic text-xs">{row.example}</p>
                     )}
                   </div>
                 </div>
@@ -566,52 +558,56 @@ export default function SessionPage() {
         </div>
 
         {/* Progress Summary */}
-        <div className="sticky bottom-0 bg-white border-t border-gray-200 px-4 py-3">
-          <div className="flex items-center justify-between text-xs text-gray-500">
-            <span>Progress</span>
-            <span className="font-semibold text-[#4A90D9]">
+        <div className="sticky bottom-0 bg-[#FFFCF3] border-t border-[#D6C9A8] px-4 py-3">
+          <div className="flex items-center justify-between text-xs text-[#6B5744] mb-1">
+            <span className="font-bold">Progress</span>
+            <span className="font-extrabold text-[#5C8B5C]">
               {Object.keys(worksheetAnswers).length} / {WORKSHEET_ROWS.length}
             </span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+          <div className="w-full bg-[#EDE5D4] rounded-full h-2">
             <div
-              className="bg-[#4A90D9] h-2 rounded-full transition-all duration-500"
+              className="bg-[#5C8B5C] h-2 rounded-full transition-all duration-500"
               style={{ width: `${(Object.keys(worksheetAnswers).length / WORKSHEET_ROWS.length) * 100}%` }}
-            ></div>
+            />
           </div>
         </div>
       </div>
 
-      {/* ============ RIGHT: Chat Area ============ */}
+      {/* ===== RIGHT: Chat Area ===== */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Error Banner */}
         {error && (
-          <div className="bg-amber-50 border-l-4 border-amber-400 p-3 mx-3 mt-2 rounded">
-            <p className="text-sm text-amber-800">
-              <span className="font-semibold">Note:</span> {error}
+          <div className="bg-[#FFF8E8] border-l-4 border-[#D4A843] p-3 mx-3 mt-2 rounded-xl">
+            <p className="text-sm text-[#6B5744] font-semibold">
+              <span className="font-bold">Note:</span> {error}
             </p>
           </div>
         )}
 
         {/* Chat Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#F5F0E8]">
           {messages.map((msg) => (
             <div
               key={msg.id}
               className={`flex ${
-                msg.speaker === 'alice' ? 'justify-start' : msg.speaker === 'student' ? 'justify-end' : 'justify-center'
+                msg.speaker === 'alice'
+                  ? 'justify-start'
+                  : msg.speaker === 'student'
+                  ? 'justify-end'
+                  : 'justify-center'
               } animate-fade-in`}
             >
               {msg.speaker === 'alice' && !msg.isTransition && (
                 <div className="flex gap-3">
-                  <div className="w-8 h-8 rounded-full bg-[#4A90D9] flex items-center justify-center flex-shrink-0 mt-1">
-                    <span className="text-white text-sm font-bold">A</span>
+                  <div className="w-8 h-8 rounded-full bg-[#5C8B5C] flex items-center justify-center flex-shrink-0 mt-1 shadow-sm">
+                    <span className="text-white text-sm font-extrabold">A</span>
                   </div>
                   <div className="flex-1">
-                    <div className="bg-blue-100 text-gray-800 px-4 py-3 rounded-lg rounded-tl-none max-w-xs lg:max-w-md">
-                      <p className="text-sm">{msg.content}</p>
+                    <div className="bg-[#D6E9D6] text-[#3D2E1E] px-4 py-3 rounded-2xl rounded-tl-none max-w-xs lg:max-w-md shadow-[0_2px_8px_rgba(61,46,30,0.08)]">
+                      <p className="text-sm font-semibold">{msg.content}</p>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1 ml-1">
+                    <p className="text-xs text-[#9B8777] mt-1 ml-1 font-medium">
                       {msg.timestamp?.toLocaleTimeString([], {
                         hour: '2-digit',
                         minute: '2-digit',
@@ -622,10 +618,10 @@ export default function SessionPage() {
               )}
               {msg.speaker === 'student' && (
                 <div className="flex flex-col items-end gap-1">
-                  <div className="bg-gray-300 text-gray-900 px-4 py-3 rounded-lg rounded-tr-none max-w-xs lg:max-w-md">
-                    <p className="text-sm">{msg.content}</p>
+                  <div className="bg-[#FFFCF3] text-[#3D2E1E] border border-[#D6C9A8] px-4 py-3 rounded-2xl rounded-tr-none max-w-xs lg:max-w-md shadow-[0_2px_8px_rgba(61,46,30,0.06)]">
+                    <p className="text-sm font-semibold">{msg.content}</p>
                   </div>
-                  <p className="text-xs text-gray-500 mr-2">
+                  <p className="text-xs text-[#9B8777] mr-2 font-medium">
                     {msg.timestamp?.toLocaleTimeString([], {
                       hour: '2-digit',
                       minute: '2-digit',
@@ -634,8 +630,8 @@ export default function SessionPage() {
                 </div>
               )}
               {msg.isTransition && (
-                <div className="bg-[#F39C12] bg-opacity-20 border-l-4 border-[#F39C12] px-4 py-3 rounded text-center max-w-md">
-                  <p className="text-sm font-semibold text-[#F39C12]">{msg.content}</p>
+                <div className="bg-[#D4A843] bg-opacity-15 border-l-4 border-[#D4A843] px-4 py-3 rounded-xl text-center max-w-md">
+                  <p className="text-sm font-bold text-[#A8822E]">{msg.content}</p>
                 </div>
               )}
             </div>
@@ -645,14 +641,14 @@ export default function SessionPage() {
           {loading && (
             <div className="flex justify-start animate-fade-in">
               <div className="flex gap-3">
-                <div className="w-8 h-8 rounded-full bg-[#4A90D9] flex items-center justify-center flex-shrink-0 mt-1">
-                  <span className="text-white text-sm font-bold">A</span>
+                <div className="w-8 h-8 rounded-full bg-[#5C8B5C] flex items-center justify-center flex-shrink-0 mt-1">
+                  <span className="text-white text-sm font-extrabold">A</span>
                 </div>
-                <div className="bg-blue-100 px-4 py-3 rounded-lg rounded-tl-none">
+                <div className="bg-[#D6E9D6] px-4 py-3 rounded-2xl rounded-tl-none">
                   <div className="flex gap-1">
-                    <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
-                    <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                    <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                    <div className="w-2 h-2 bg-[#5C8B5C] rounded-full animate-bounce" style={{ animationDelay: '0s' }} />
+                    <div className="w-2 h-2 bg-[#5C8B5C] rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+                    <div className="w-2 h-2 bg-[#5C8B5C] rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
                   </div>
                 </div>
               </div>
@@ -663,36 +659,37 @@ export default function SessionPage() {
         </div>
 
         {/* Input Area */}
-        <div className="bg-white border-t border-gray-200 p-4 space-y-3 flex-shrink-0">
-          {/* Current Stage Indicator (mobile only, since worksheet frame is hidden on small screens) */}
+        <div className="bg-[#FFFCF3] border-t border-[#D6C9A8] p-4 space-y-3 flex-shrink-0 shadow-[0_-4px_12px_rgba(61,46,30,0.06)]">
+          {/* Current Stage Indicator (mobile only) */}
           <div className="lg:hidden flex items-center gap-2 mb-2">
             {WORKSHEET_ROWS[activeRowIndex] && (
               <>
                 <span
-                  className="inline-flex items-center justify-center w-6 h-6 rounded-full text-white text-xs font-bold"
+                  className="inline-flex items-center justify-center w-6 h-6 rounded-full text-white text-xs font-extrabold"
                   style={{ backgroundColor: WORKSHEET_ROWS[activeRowIndex].color }}
                 >
                   {WORKSHEET_ROWS[activeRowIndex].icon}
                 </span>
-                <span className="text-sm font-bold" style={{ color: WORKSHEET_ROWS[activeRowIndex].color }}>
+                <span className="text-sm font-extrabold" style={{ color: WORKSHEET_ROWS[activeRowIndex].color }}>
                   {WORKSHEET_ROWS[activeRowIndex].label}
                 </span>
-                <span className="text-xs text-gray-400 ml-1">—</span>
-                <span className="text-xs text-gray-500 flex-1 truncate">{WORKSHEET_ROWS[activeRowIndex].question}</span>
+                <span className="text-xs text-[#9B8777] flex-1 truncate font-medium ml-1">
+                  — {WORKSHEET_ROWS[activeRowIndex].question}
+                </span>
               </>
             )}
           </div>
 
           {/* Live Transcript Display */}
           {isListening && transcript && (
-            <div className="bg-blue-50 border-l-4 border-[#4A90D9] p-3 rounded animate-fade-in">
-              <p className="text-sm text-gray-700">
-                <span className="font-semibold">You said:</span> {transcript}
+            <div className="bg-[#E8F5E8] border-l-4 border-[#5C8B5C] p-3 rounded-xl animate-fade-in">
+              <p className="text-sm text-[#3D2E1E] font-semibold">
+                <span className="font-extrabold">You said:</span> {transcript}
               </p>
             </div>
           )}
 
-          {/* Voice Button with Label */}
+          {/* Voice Button */}
           <div className="flex flex-col items-center gap-2">
             <VoiceButton
               isListening={isListening}
@@ -700,8 +697,8 @@ export default function SessionPage() {
               onStop={handleVoiceInput}
               size={80}
             />
-            <p className="text-sm font-medium text-gray-700">
-              {isListening ? '🎤 Listening...' : '🎤 Tap to speak'}
+            <p className="text-sm font-bold text-[#5C8B5C]">
+              {isListening ? 'Listening...' : 'Tap to speak'}
             </p>
           </div>
 
@@ -714,13 +711,13 @@ export default function SessionPage() {
               onChange={(e) => setInputText(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleTextSend()}
               placeholder="Or type your answer here..."
-              className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4A90D9] text-sm disabled:bg-gray-100"
+              className="flex-1 px-4 py-3 border border-[#D6C9A8] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#5C8B5C] focus:border-transparent text-sm bg-[#FFFCF3] text-[#3D2E1E] font-semibold disabled:bg-[#EDE5D4]"
               disabled={loading}
             />
             <button
               onClick={handleTextSend}
               disabled={loading || !inputText.trim()}
-              className="px-6 py-3 bg-[#4A90D9] text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 transition-colors font-semibold text-sm min-w-[48px] min-h-[48px]"
+              className="px-6 py-3 bg-[#5C8B5C] text-white rounded-xl hover:bg-[#3D6B3D] disabled:bg-[#D6C9A8] transition-colors font-bold text-sm min-w-[48px] min-h-[48px] hover:-translate-y-0.5"
               title={loading ? 'Waiting for response...' : 'Send message'}
             >
               Send
@@ -728,14 +725,14 @@ export default function SessionPage() {
           </div>
 
           {!supported && (
-            <p className="text-xs text-amber-600 text-center">
+            <p className="text-xs text-[#D4A843] text-center font-semibold">
               Voice input not supported on this device. Please use text input.
             </p>
           )}
 
           {!apiAvailable && (
-            <p className="text-xs text-gray-500 text-center">
-              Running in offline mode - using mock responses
+            <p className="text-xs text-[#9B8777] text-center font-medium">
+              Running in offline mode — using mock responses
             </p>
           )}
         </div>

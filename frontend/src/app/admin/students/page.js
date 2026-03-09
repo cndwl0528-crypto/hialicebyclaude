@@ -32,7 +32,7 @@ const MOCK_STUDENTS = [
     lastActive: new Date(Date.now() - 7200000).toISOString(),
     email: 'bob.parent@example.com',
     readingHistory: [
-      { title: 'Charlotte\'s Web', completedAt: new Date(Date.now() - 7200000).toISOString() },
+      { title: "Charlotte's Web", completedAt: new Date(Date.now() - 7200000).toISOString() },
       { title: 'The Lion, the Witch and the Wardrobe', completedAt: new Date(Date.now() - 86400000).toISOString() },
       { title: 'Magic Tree House: Dinosaurs Before Dark', completedAt: new Date(Date.now() - 172800000).toISOString() },
     ],
@@ -57,6 +57,12 @@ const MOCK_STUDENTS = [
 
 const LEVELS = ['Beginner', 'Intermediate', 'Advanced'];
 
+const LEVEL_BADGE_STYLES = {
+  Beginner: { bg: '#C8E6C9', text: '#2E7D32' },
+  Intermediate: { bg: '#FFE0B2', text: '#E65100' },
+  Advanced: { bg: '#E1BEE7', text: '#6A1B9A' },
+};
+
 export default function StudentsPage() {
   const [students, setStudents] = useState(MOCK_STUDENTS);
   const [filteredStudents, setFilteredStudents] = useState(MOCK_STUDENTS);
@@ -67,7 +73,6 @@ export default function StudentsPage() {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [editingStudent, setEditingStudent] = useState(null);
 
-  // Form state
   const [formData, setFormData] = useState({
     name: '',
     age: '',
@@ -168,27 +173,21 @@ export default function StudentsPage() {
     return date.toLocaleDateString();
   };
 
-  const LEVEL_COLORS = {
-    Beginner: 'bg-green-100 text-green-700',
-    Intermediate: 'bg-blue-100 text-blue-700',
-    Advanced: 'bg-purple-100 text-purple-700',
-  };
-
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-800">Student Management</h1>
+        <h1 className="text-3xl font-extrabold text-[#3D2E1E]">Student Management</h1>
         <button
           onClick={() => {
             setShowAddForm(true);
             setEditingStudent(null);
             setFormData({ name: '', age: '', level: 'Beginner', email: '' });
           }}
-          className="px-4 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all font-semibold"
+          className="px-5 py-3 bg-[#5C8B5C] text-white rounded-xl hover:bg-[#3D6B3D] transition-all font-bold shadow-[0_2px_8px_rgba(61,107,61,0.3)] hover:-translate-y-0.5"
           style={{ minHeight: '48px' }}
         >
-          ➕ Add New Student
+          Add New Student
         </button>
       </div>
 
@@ -200,7 +199,7 @@ export default function StudentsPage() {
             placeholder="Search by name or email..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="w-full px-4 py-3 border border-[#D6C9A8] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#5C8B5C] bg-[#FFFCF3] text-[#3D2E1E] placeholder-[#9B8777] font-semibold"
           />
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -208,12 +207,21 @@ export default function StudentsPage() {
             <button
               key={level}
               onClick={() => setSelectedLevel(level)}
-              className={`px-4 py-2 rounded-lg font-semibold transition-all ${
-                selectedLevel === level
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
-              style={{ minHeight: '48px' }}
+              className="px-4 py-2 rounded-xl font-bold transition-all"
+              style={{
+                minHeight: '48px',
+                backgroundColor:
+                  selectedLevel === level
+                    ? level === 'All'
+                      ? '#5C8B5C'
+                      : level === 'Beginner'
+                      ? '#2E7D32'
+                      : level === 'Intermediate'
+                      ? '#E65100'
+                      : '#6A1B9A'
+                    : '#EDE5D4',
+                color: selectedLevel === level ? '#FFFFFF' : '#3D2E1E',
+              }}
             >
               {level}
             </button>
@@ -223,9 +231,9 @@ export default function StudentsPage() {
 
       {/* Add/Edit Form Modal */}
       {showAddForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">
+        <div className="fixed inset-0 bg-[#3D2E1E] bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#FFFCF3] rounded-2xl shadow-[0_8px_40px_rgba(61,46,30,0.25)] max-w-md w-full p-6 border border-[#E8DEC8]">
+            <h2 className="text-2xl font-extrabold text-[#3D2E1E] mb-4">
               {editingStudent ? 'Edit Student' : 'Add New Student'}
             </h2>
 
@@ -234,41 +242,35 @@ export default function StudentsPage() {
               className="space-y-4"
             >
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Name
-                </label>
+                <label className="block text-sm font-bold text-[#6B5744] mb-2">Name</label>
                 <input
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  className="w-full px-4 py-2 border border-[#D6C9A8] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#5C8B5C] bg-[#F5F0E8] text-[#3D2E1E]"
                   placeholder="Student name"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Age
-                  </label>
+                  <label className="block text-sm font-bold text-[#6B5744] mb-2">Age</label>
                   <input
                     type="number"
                     min="6"
                     max="13"
                     value={formData.age}
                     onChange={(e) => setFormData({ ...formData, age: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    className="w-full px-4 py-2 border border-[#D6C9A8] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#5C8B5C] bg-[#F5F0E8] text-[#3D2E1E]"
                     placeholder="Age"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Level
-                  </label>
+                  <label className="block text-sm font-bold text-[#6B5744] mb-2">Level</label>
                   <select
                     value={formData.level}
                     onChange={(e) => setFormData({ ...formData, level: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    className="w-full px-4 py-2 border border-[#D6C9A8] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#5C8B5C] bg-[#F5F0E8] text-[#3D2E1E]"
                   >
                     {LEVELS.map((level) => (
                       <option key={level} value={level}>
@@ -280,14 +282,12 @@ export default function StudentsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Parent Email
-                </label>
+                <label className="block text-sm font-bold text-[#6B5744] mb-2">Parent Email</label>
                 <input
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  className="w-full px-4 py-2 border border-[#D6C9A8] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#5C8B5C] bg-[#F5F0E8] text-[#3D2E1E]"
                   placeholder="parent@example.com"
                 />
               </div>
@@ -295,7 +295,7 @@ export default function StudentsPage() {
               <div className="flex gap-3 pt-4">
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all font-semibold"
+                  className="flex-1 px-4 py-3 bg-[#5C8B5C] text-white rounded-xl hover:bg-[#3D6B3D] transition-all font-bold"
                   style={{ minHeight: '48px' }}
                 >
                   {editingStudent ? 'Update' : 'Add'} Student
@@ -307,7 +307,7 @@ export default function StudentsPage() {
                     setEditingStudent(null);
                     setFormData({ name: '', age: '', level: 'Beginner', email: '' });
                   }}
-                  className="flex-1 px-4 py-3 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-all font-semibold"
+                  className="flex-1 px-4 py-3 bg-[#EDE5D4] text-[#3D2E1E] rounded-xl hover:bg-[#D6C9A8] transition-all font-bold"
                   style={{ minHeight: '48px' }}
                 >
                   Cancel
@@ -319,51 +319,59 @@ export default function StudentsPage() {
       )}
 
       {/* Students Table */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      <div className="bg-[#FFFCF3] rounded-2xl shadow-[0_4px_20px_rgba(61,46,30,0.08)] overflow-hidden border border-[#E8DEC8]">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b-2 border-gray-200 bg-gray-50">
-                <th className="text-left py-4 px-4 font-semibold text-gray-700">Name</th>
-                <th className="text-left py-4 px-4 font-semibold text-gray-700">Age</th>
-                <th className="text-left py-4 px-4 font-semibold text-gray-700">Level</th>
-                <th className="text-left py-4 px-4 font-semibold text-gray-700">Books</th>
-                <th className="text-left py-4 px-4 font-semibold text-gray-700">Avg Grammar</th>
-                <th className="text-left py-4 px-4 font-semibold text-gray-700">Last Active</th>
-                <th className="text-left py-4 px-4 font-semibold text-gray-700">Actions</th>
+              <tr className="border-b-2 border-[#E8DEC8] bg-[#F5F0E8]">
+                <th className="text-left py-4 px-4 font-bold text-[#6B5744]">Name</th>
+                <th className="text-left py-4 px-4 font-bold text-[#6B5744]">Age</th>
+                <th className="text-left py-4 px-4 font-bold text-[#6B5744]">Level</th>
+                <th className="text-left py-4 px-4 font-bold text-[#6B5744]">Books</th>
+                <th className="text-left py-4 px-4 font-bold text-[#6B5744]">Avg Grammar</th>
+                <th className="text-left py-4 px-4 font-bold text-[#6B5744]">Last Active</th>
+                <th className="text-left py-4 px-4 font-bold text-[#6B5744]">Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredStudents.map((student) => (
                 <React.Fragment key={student.id}>
                   <tr
-                    className="border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
+                    className="border-b border-[#EDE5D4] hover:bg-[#F5F0E8] transition-colors cursor-pointer"
                     onClick={() =>
                       setExpandedStudent(
                         expandedStudent === student.id ? null : student.id
                       )
                     }
                   >
-                    <td className="py-4 px-4 font-medium text-gray-800">{student.name}</td>
-                    <td className="py-4 px-4 text-gray-700">{student.age}</td>
+                    <td className="py-4 px-4 font-bold text-[#3D2E1E]">{student.name}</td>
+                    <td className="py-4 px-4 text-[#6B5744] font-semibold">{student.age}</td>
                     <td className="py-4 px-4">
                       <span
-                        className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                          LEVEL_COLORS[student.level]
-                        }`}
+                        className="px-3 py-1 rounded-full text-xs font-bold"
+                        style={{
+                          backgroundColor: LEVEL_BADGE_STYLES[student.level].bg,
+                          color: LEVEL_BADGE_STYLES[student.level].text,
+                        }}
                       >
                         {student.level}
                       </span>
                     </td>
-                    <td className="py-4 px-4 text-gray-700 font-medium">
+                    <td className="py-4 px-4 text-[#6B5744] font-bold">
                       {student.booksRead}
                     </td>
                     <td className="py-4 px-4">
-                      <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+                      <span
+                        className="px-3 py-1 rounded-full text-xs font-bold"
+                        style={{
+                          backgroundColor: student.avgGrammar >= 80 ? '#C8E6C9' : '#FFF8E1',
+                          color: student.avgGrammar >= 80 ? '#2E7D32' : '#8C6D00',
+                        }}
+                      >
                         {student.avgGrammar}%
                       </span>
                     </td>
-                    <td className="py-4 px-4 text-gray-500 text-xs">
+                    <td className="py-4 px-4 text-[#9B8777] text-xs font-semibold">
                       {formatTime(student.lastActive)}
                     </td>
                     <td className="py-4 px-4">
@@ -373,20 +381,28 @@ export default function StudentsPage() {
                             e.stopPropagation();
                             handleEditStudent(student);
                           }}
-                          className="px-3 py-2 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-all text-xs font-semibold"
-                          style={{ minHeight: '36px' }}
+                          className="px-3 py-2 rounded-lg text-xs font-bold transition-all"
+                          style={{
+                            backgroundColor: '#E0F4F9',
+                            color: '#2A7A8C',
+                            minHeight: '36px',
+                          }}
                         >
-                          ✏️ Edit
+                          Edit
                         </button>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             setDeleteConfirm(student.id);
                           }}
-                          className="px-3 py-2 bg-red-100 text-red-700 rounded hover:bg-red-200 transition-all text-xs font-semibold"
-                          style={{ minHeight: '36px' }}
+                          className="px-3 py-2 rounded-lg text-xs font-bold transition-all"
+                          style={{
+                            backgroundColor: '#FCE8E6',
+                            color: '#B85A53',
+                            minHeight: '36px',
+                          }}
                         >
-                          🗑️ Delete
+                          Delete
                         </button>
                       </div>
                     </td>
@@ -394,44 +410,40 @@ export default function StudentsPage() {
 
                   {/* Expanded Details */}
                   {expandedStudent === student.id && (
-                    <tr className="bg-gray-50 border-b border-gray-100">
+                    <tr className="bg-[#F5F0E8] border-b border-[#E8DEC8]">
                       <td colSpan="7" className="py-4 px-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           {/* Reading History */}
                           <div>
-                            <h4 className="font-semibold text-gray-800 mb-3">
-                              Reading History
-                            </h4>
+                            <h4 className="font-bold text-[#3D2E1E] mb-3">Reading History</h4>
                             <div className="space-y-2">
                               {student.readingHistory.length > 0 ? (
                                 student.readingHistory.map((book, idx) => (
-                                  <div key={idx} className="text-sm text-gray-700">
-                                    <p className="font-medium">{book.title}</p>
-                                    <p className="text-xs text-gray-500">
+                                  <div key={idx} className="text-sm text-[#6B5744]">
+                                    <p className="font-semibold text-[#3D2E1E]">{book.title}</p>
+                                    <p className="text-xs text-[#9B8777]">
                                       {formatTime(book.completedAt)}
                                     </p>
                                   </div>
                                 ))
                               ) : (
-                                <p className="text-sm text-gray-500">No books read yet</p>
+                                <p className="text-sm text-[#9B8777]">No books read yet</p>
                               )}
                             </div>
                           </div>
 
                           {/* Statistics */}
                           <div>
-                            <h4 className="font-semibold text-gray-800 mb-3">
-                              Vocabulary Stats
-                            </h4>
-                            <div className="bg-white p-4 rounded-lg border border-gray-200">
-                              <p className="text-sm text-gray-700 mb-2">
-                                <span className="font-semibold">
+                            <h4 className="font-bold text-[#3D2E1E] mb-3">Vocabulary Stats</h4>
+                            <div className="bg-[#FFFCF3] p-4 rounded-xl border border-[#E8DEC8]">
+                              <p className="text-sm text-[#6B5744] mb-2">
+                                <span className="font-bold text-[#5C8B5C]">
                                   {student.vocabularyCount}
                                 </span>{' '}
                                 words learned
                               </p>
-                              <p className="text-sm text-gray-700">
-                                <span className="font-semibold">
+                              <p className="text-sm text-[#6B5744]">
+                                <span className="font-bold text-[#5C8B5C]">
                                   {student.avgGrammar}%
                                 </span>{' '}
                                 average grammar score
@@ -450,30 +462,31 @@ export default function StudentsPage() {
 
         {filteredStudents.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-gray-500 text-lg">No students found</p>
+            <span className="text-4xl float-animation block mb-3">🌿</span>
+            <p className="text-[#9B8777] text-lg font-semibold">No students found</p>
           </div>
         )}
       </div>
 
-      {/* Delete Confirmation */}
+      {/* Delete Confirmation Modal */}
       {deleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-sm w-full p-6">
-            <h3 className="text-xl font-bold text-gray-800 mb-4">Delete Student?</h3>
-            <p className="text-gray-600 mb-6">
+        <div className="fixed inset-0 bg-[#3D2E1E] bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#FFFCF3] rounded-2xl shadow-[0_8px_40px_rgba(61,46,30,0.25)] max-w-sm w-full p-6 border border-[#E8DEC8]">
+            <h3 className="text-xl font-extrabold text-[#3D2E1E] mb-4">Delete Student?</h3>
+            <p className="text-[#6B5744] mb-6 font-semibold">
               Are you sure you want to delete this student? This action cannot be undone.
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => handleDeleteStudent(deleteConfirm)}
-                className="flex-1 px-4 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all font-semibold"
+                className="flex-1 px-4 py-3 bg-[#D4736B] text-white rounded-xl hover:bg-[#B85A53] transition-all font-bold"
                 style={{ minHeight: '48px' }}
               >
                 Delete
               </button>
               <button
                 onClick={() => setDeleteConfirm(null)}
-                className="flex-1 px-4 py-3 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-all font-semibold"
+                className="flex-1 px-4 py-3 bg-[#EDE5D4] text-[#3D2E1E] rounded-xl hover:bg-[#D6C9A8] transition-all font-bold"
                 style={{ minHeight: '48px' }}
               >
                 Cancel

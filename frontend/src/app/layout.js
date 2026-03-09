@@ -28,69 +28,85 @@ export default function RootLayout({ children }) {
     { href: '/', label: 'Home', icon: '🏠' },
     { href: '/books', label: 'Books', icon: '📚' },
     { href: '/review', label: 'Review', icon: '⭐' },
-    { href: '/vocabulary', label: 'Vocabulary', icon: '📖' },
+    { href: '/vocabulary', label: 'Words', icon: '📖' },
     { href: '/profile', label: 'Profile', icon: '👤' },
   ];
 
+  const logoText = 'HiAlice';
+  const logoEmoji = '🌿';
+
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-        <meta name="theme-color" content="#4A90D9" />
+        <meta name="theme-color" content="#5C8B5C" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="HiAlice" />
         <meta name="apple-mobile-web-app-icon" content="/icon-192.png" />
         <link rel="manifest" href="/manifest.json" />
-        <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect fill='%234A90D9' width='64' height='64'/><text x='50%' y='50%' font-size='40' dominant-baseline='middle' text-anchor='middle' fill='white'>📚</text></svg>" />
+        <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect fill='%235C8B5C' width='64' height='64'/><text x='50%' y='50%' font-size='40' dominant-baseline='middle' text-anchor='middle' fill='white'>🌿</text></svg>" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Quicksand:wght@400;500;600;700&display=swap"
+          rel="stylesheet"
+        />
         <title>HiAlice — AI English Reading</title>
         <meta name="description" content="AI-powered English reading companion for children aged 6-13" />
       </head>
-      <body className="bg-background min-h-screen">
+      <body className="bg-[#F5F0E8] min-h-screen font-nunito" suppressHydrationWarning>
         <ErrorBoundary>
           <OfflineBanner />
-          <nav className="bg-white shadow-sm px-4 sm:px-6 py-3 flex items-center justify-between overflow-x-auto">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="text-xl font-bold text-primary hover:text-blue-600 transition-colors flex-shrink-0">
-              📚 HiAlice
-            </Link>
-            <div className="hidden md:flex gap-2">
-              {navLinks.slice(1).map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                    pathname === link.href
-                      ? 'bg-primary text-white'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  {link.icon} {link.label}
-                </Link>
-              ))}
-            </div>
-          </div>
-          <span className="text-sm text-gray-400 flex-shrink-0">v1.0</span>
-        </nav>
 
-        {/* Mobile Navigation */}
-        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex gap-1 px-2 py-2">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`flex-1 px-3 py-2 text-center text-xs rounded-lg font-semibold transition-all ${
-                pathname === link.href
-                  ? 'bg-primary text-white'
-                  : 'text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              <div className="text-lg mb-1">{link.icon}</div>
-              {link.label}
-            </Link>
-          ))}
-        </div>
+          {/* Top Navigation */}
+          <nav className="bg-[#D6C9A8] shadow-[0_2px_12px_rgba(61,46,30,0.10)] px-4 sm:px-6 py-3 flex items-center justify-between overflow-x-auto ghibli-bg sticky top-0 z-40">
+            <div className="flex items-center gap-4">
+              <Link
+                href="/"
+                className="text-xl font-extrabold text-[#3D6B3D] hover:text-[#5C8B5C] transition-colors flex-shrink-0 flex items-center gap-1"
+                suppressHydrationWarning
+              >
+                <span className="leaf-sway inline-block" suppressHydrationWarning>{logoEmoji}</span>
+                <span suppressHydrationWarning>{logoText}</span>
+              </Link>
+              <div className="hidden md:flex gap-1">
+                {navLinks.slice(1).map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className={`px-4 py-2 rounded-xl text-sm font-bold transition-all hover:-translate-y-0.5 ${
+                      pathname === link.href
+                        ? 'bg-[#5C8B5C] text-white shadow-[0_2px_8px_rgba(92,139,92,0.4)]'
+                        : 'text-[#3D2E1E] hover:bg-[#C8DBC8]'
+                    }`}
+                  >
+                    {link.icon} {link.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+            <span className="text-xs text-[#9B8777] flex-shrink-0 font-semibold">v1.0</span>
+          </nav>
+
+          {/* Mobile Bottom Navigation */}
+          <div className="md:hidden fixed bottom-0 left-0 right-0 bg-[#D6C9A8] border-t border-[#C4B49A] flex gap-1 px-2 py-2 z-40 shadow-[0_-4px_20px_rgba(61,46,30,0.10)]">
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`flex-1 px-2 py-2 text-center text-xs rounded-xl font-bold transition-all ${
+                  pathname === link.href
+                    ? 'bg-[#5C8B5C] text-white shadow-[0_2px_8px_rgba(92,139,92,0.4)]'
+                    : 'text-[#3D2E1E] hover:bg-[#C8DBC8]'
+                }`}
+              >
+                <div className="text-lg mb-0.5">{link.icon}</div>
+                {link.label}
+              </Link>
+            ))}
+          </div>
 
           <main className="max-w-4xl mx-auto px-4 py-6 pb-24 md:pb-6">
             {children}
