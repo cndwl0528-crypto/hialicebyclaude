@@ -14,4 +14,10 @@ export const config = {
   jwt: {
     secret: process.env.JWT_SECRET || 'hialice-dev-secret',
   },
+  elevenLabs: {
+    apiKey: process.env.ELEVENLABS_API_KEY,
+  },
+  openai: {
+    apiKey: process.env.OPENAI_API_KEY, // Whisper STT
+  },
 };

@@ -116,25 +116,16 @@ export default function useSpeech() {
     synthRef.current.speak(utterance);
   }, []);
 
-  // ElevenLabs TTS (API-based, higher quality)
+  // ElevenLabs TTS via backend proxy (API key stays server-side)
   const speakElevenLabs = useCallback(async (text) => {
-    const apiKey = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY;
-    if (!apiKey) return speakBrowser(text);
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
     setIsSpeaking(true);
     try {
-      const voiceId = 'EXAVITQu4vr4xnSDxMaL'; // Sarah - warm female
-      const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+      const res = await fetch(`${apiUrl}/api/tts/speak`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'xi-api-key': apiKey,
-        },
-        body: JSON.stringify({
-          text,
-          model_id: 'eleven_turbo_v2',
-          voice_settings: { stability: 0.7, similarity_boost: 0.8, style: 0.3, speed: 0.85 },
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
       });
 
       if (!res.ok) throw new Error('ElevenLabs API error');
@@ -151,11 +142,11 @@ export default function useSpeech() {
     }
   }, [speakBrowser]);
 
-  // Main speak function — tries ElevenLabs first, falls back to browser
+  // Main speak function — tries backend TTS proxy first, falls back to browser
   const speak = useCallback((text) => {
     if (!text) return;
-    const hasElevenLabs = !!process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY;
-    if (hasElevenLabs) {
+    const hasTtsProxy = !!process.env.NEXT_PUBLIC_ENABLE_TTS_PROXY;
+    if (hasTtsProxy) {
       speakElevenLabs(text);
     } else {
       speakBrowser(text);
