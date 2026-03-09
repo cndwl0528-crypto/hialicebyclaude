@@ -505,6 +505,44 @@ export async function pauseSession(sessionId) {
   }
 }
 
+/**
+ * Get AI-generated personal feedback for a completed session
+ * GET /sessions/:sessionId/feedback
+ */
+export async function getSessionFeedback(sessionId) {
+  try {
+    const response = await apiFetch(`/sessions/${sessionId}/feedback`);
+    return response;
+  } catch (error) {
+    console.error('Get session feedback failed:', error);
+    if (process.env.NODE_ENV === 'development') {
+      return {
+        success: true,
+        ai_feedback: 'You did such a wonderful job today! Your ideas were creative and your vocabulary is growing so fast. Keep reading and sharing your thoughts!',
+      };
+    }
+    throw error;
+  }
+}
+
+/**
+ * Record an emotion reaction to an Alice message (fire-and-forget analytics)
+ * POST /sessions/:sessionId/emotion
+ */
+export async function recordEmotionReaction(sessionId, data) {
+  try {
+    const response = await apiFetch(`/sessions/${sessionId}/emotion`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return response;
+  } catch (error) {
+    // Silent failure — emotion reactions are non-critical analytics
+    console.warn('Record emotion reaction failed (non-critical):', error);
+    return { success: false };
+  }
+}
+
 // ==================== Vocabulary ====================
 
 /**
@@ -692,6 +730,8 @@ export default {
   getStudentSessions,
   getSessionStageScores,
   pauseSession,
+  getSessionFeedback,
+  recordEmotionReaction,
   getStudentVocabulary,
   getVocabDueToday,
   getVocabStats,

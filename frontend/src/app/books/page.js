@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import BookCard from '@/components/BookCard';
+import BookRecommendation from '@/components/BookRecommendation';
 
 const MOCK_BOOKS = [
   {
@@ -119,6 +120,7 @@ export default function BooksPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [studentLevel, setStudentLevel] = useState('All');
+  const [studentId, setStudentId] = useState(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -130,6 +132,11 @@ export default function BooksPage() {
         if (storedLevel) {
           setStudentLevel(storedLevel);
           setSelectedLevel(storedLevel);
+        }
+
+        const storedStudentId = sessionStorage.getItem('studentId');
+        if (storedStudentId) {
+          setStudentId(storedStudentId);
         }
 
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -272,6 +279,17 @@ export default function BooksPage() {
             </div>
           )}
         </>
+      )}
+
+      {/* What to Read Next — shown when a student level is known */}
+      {studentLevel !== 'All' && !loading && (
+        <div className="mt-10 pt-8 border-t border-[#E8DEC8]">
+          <BookRecommendation
+            studentId={studentId}
+            studentLevel={studentLevel}
+            onSelectBook={(book) => handleSelectBook(book.id, book.title)}
+          />
+        </div>
       )}
     </div>
   );

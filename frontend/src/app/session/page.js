@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import useSpeech from '@/hooks/useSpeech';
 import VoiceButton from '@/components/VoiceButton';
 import { STAGE_GUIDE, getCurrentGuideQuestion } from '@/lib/stageQuestions';
+import { pauseSession as apiPauseSession } from '@/services/api';
 
 const STAGES = ['Title', 'Introduction', 'Body', 'Conclusion'];
 const MAX_TURNS_PER_STAGE = 3;
@@ -75,6 +76,14 @@ export default function SessionPage() {
   const [showSkipButton, setShowSkipButton] = useState(false);
   const [worksheetAnswers, setWorksheetAnswers] = useState({});
 
+  // Phase 2B: emotion reactions, session timer, timeout warning, AI feedback
+  const [emotionHistory, setEmotionHistory] = useState([]);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
+  const [aiFeedback, setAiFeedback] = useState(null);
+  const [showAiFeedbackCard, setShowAiFeedbackCard] = useState(false);
+  const timerRef = useRef(null);
+
   const { isListening, transcript, speak, startListening, stopListening, supported } = useSpeech();
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -104,6 +113,33 @@ export default function SessionPage() {
   useEffect(() => {
     activeRowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [currentStage, bodyReasonCount]);
+
+  // Session timer — starts when component mounts
+  useEffect(() => {
+    timerRef.current = setInterval(() => {
+      setElapsedSeconds((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(timerRef.current);
+  }, []);
+
+  // 30-minute timeout warning
+  useEffect(() => {
+    if (elapsedSeconds === 1800) {
+      setShowTimeoutWarning(true);
+    }
+  }, [elapsedSeconds]);
+
+  const elapsedTime = useMemo(() => {
+    const m = Math.floor(elapsedSeconds / 60);
+    const s = elapsedSeconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  }, [elapsedSeconds]);
+
+  // Derived turn count within the current stage (1-indexed for display)
+  const turnCount = currentStage === 2 /* Body */
+    ? bodyReasonCount + 1
+    : currentTurn + 1;
+  const maxTurns = MAX_TURNS_PER_STAGE;
 
   const getApiUrl = () => {
     if (typeof window !== 'undefined') {
@@ -337,10 +373,15 @@ export default function SessionPage() {
       ? Math.round((new Date() - sessionStartTime) / 1000)
       : 0;
 
+    // Stop the session timer
+    clearInterval(timerRef.current);
+
+    let capturedAiFeedback = null;
+
     if (apiAvailable && sessionId) {
       try {
         const apiUrl = getApiUrl();
-        await fetch(`${apiUrl}/api/sessions/${sessionId}/complete`, {
+        const completeRes = await fetch(`${apiUrl}/api/sessions/${sessionId}/complete`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -348,6 +389,12 @@ export default function SessionPage() {
             duration,
           }),
         });
+
+        if (completeRes.ok) {
+          const completeData = await completeRes.json();
+          // Capture ai_feedback if returned by the backend
+          capturedAiFeedback = completeData.ai_feedback || completeData.aiFeedback || null;
+        }
       } catch (error) {
         console.warn('Error completing session on backend:', error);
       }
@@ -370,11 +417,23 @@ export default function SessionPage() {
           studentMessageCount: messages.filter((m) => m.speaker === 'student').length,
           totalTurns: messages.length,
           worksheetAnswers,
+          ai_feedback: capturedAiFeedback,
         })
       );
     }
 
-    setSessionComplete(true);
+    // Show AI feedback card before transitioning to the completion screen
+    if (capturedAiFeedback) {
+      setAiFeedback(capturedAiFeedback);
+      setShowAiFeedbackCard(true);
+      // Auto-dismiss after 6 seconds and then show the completion screen
+      setTimeout(() => {
+        setShowAiFeedbackCard(false);
+        setSessionComplete(true);
+      }, 6000);
+    } else {
+      setSessionComplete(true);
+    }
   };
 
   const handleSkipToNextStage = () => {
@@ -384,6 +443,30 @@ export default function SessionPage() {
       completeSession();
     }
   };
+
+  // Phase 2B: Record emoji emotion reaction (fire-and-forget)
+  const handleEmotionReact = useCallback((emoji) => {
+    const lastAliceMsg = messages.filter((m) => m.speaker === 'alice').at(-1);
+    if (lastAliceMsg) {
+      setEmotionHistory((prev) => [
+        ...prev,
+        { emoji, messageId: lastAliceMsg.id, timestamp: Date.now() },
+      ]);
+    }
+  }, [messages]);
+
+  // Phase 2B: Pause session and redirect to /books
+  const handlePauseSession = useCallback(async () => {
+    setShowTimeoutWarning(false);
+    if (sessionId) {
+      try {
+        await apiPauseSession(sessionId);
+      } catch (err) {
+        console.warn('Pause session API failed (continuing with redirect):', err);
+      }
+    }
+    router.push('/books');
+  }, [sessionId, router]);
 
   const handleVoiceInput = () => {
     if (isListening) {
@@ -423,6 +506,33 @@ export default function SessionPage() {
     };
   }, [transcript, isListening, handleSendMessage]);
 
+  // Phase 2B: AI Feedback preview card shown immediately after session ends
+  if (showAiFeedbackCard && aiFeedback) {
+    return (
+      <div className="min-h-[calc(100vh-120px)] flex items-center justify-center py-12 bg-[#F5F0E8]">
+        <div className="ghibli-card p-8 max-w-md text-center animate-fade-in">
+          <div className="text-5xl mb-4">🤖</div>
+          <h2 className="text-xl font-extrabold text-[#92400E] mb-3">A Message from HiAlice</h2>
+          <div className="bg-gradient-to-br from-[#FEF3C7] to-[#FDE68A] border-2 border-[#F59E0B]/30 rounded-2xl p-5 mb-6 text-left">
+            <p className="text-[#78350F] text-sm leading-relaxed italic">
+              &quot;{aiFeedback}&quot;
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              setShowAiFeedbackCard(false);
+              setSessionComplete(true);
+            }}
+            className="w-full py-3 px-6 bg-[#5C8B5C] text-white rounded-2xl hover:bg-[#3D6B3D] transition-colors font-bold hover:-translate-y-0.5 shadow-[0_4px_12px_rgba(92,139,92,0.3)]"
+          >
+            See My Review
+          </button>
+          <p className="text-xs text-[#9CA3AF] mt-3">This screen closes automatically in a few seconds</p>
+        </div>
+      </div>
+    );
+  }
+
   if (sessionComplete) {
     return (
       <div className="min-h-[calc(100vh-120px)] flex items-center justify-center py-12 bg-[#F5F0E8]">
@@ -455,6 +565,35 @@ export default function SessionPage() {
               Moving to:{' '}
               <span className="text-[#5C8B5C]">{nextStageName}</span>
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Phase 2B: 30-minute timeout warning dialog */}
+      {showTimeoutWarning && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="ghibli-card p-6 max-w-sm mx-4 text-center">
+            <div className="text-4xl mb-3">💤</div>
+            <h3 className="text-lg font-bold text-[#2C4A2E] mb-2">Need a break?</h3>
+            <p className="text-sm text-[#4B5563] mb-4">
+              You&apos;ve been reading for 30 minutes! Great job! Want to save and come back later?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={handlePauseSession}
+                className="flex-1 bg-[#F59E0B] text-white rounded-xl py-2 text-sm font-medium min-h-[48px]"
+                aria-label="Save your progress and exit"
+              >
+                Save &amp; Exit 💾
+              </button>
+              <button
+                onClick={() => setShowTimeoutWarning(false)}
+                className="flex-1 bg-[#4A7C59] text-white rounded-xl py-2 text-sm font-medium min-h-[48px]"
+                aria-label="Continue the session"
+              >
+                Keep Going! 💪
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -591,19 +730,19 @@ export default function SessionPage() {
 
         {/* Chat Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#F5F0E8]">
-          {messages.map((msg) => (
+          {messages.map((msg, i) => (
             <div
               key={msg.id}
-              className={`flex ${
+              className={`flex flex-col ${
                 msg.speaker === 'alice'
-                  ? 'justify-start'
+                  ? 'items-start'
                   : msg.speaker === 'student'
-                  ? 'justify-end'
-                  : 'justify-center'
+                  ? 'items-end'
+                  : 'items-center'
               } animate-fade-in`}
             >
               {msg.speaker === 'alice' && !msg.isTransition && (
-                <div className="flex gap-3">
+                <div className="flex gap-3 w-full">
                   <div className="w-8 h-8 rounded-full bg-[#5C8B5C] flex items-center justify-center flex-shrink-0 mt-1 shadow-sm">
                     <span className="text-white text-sm font-extrabold">A</span>
                   </div>
@@ -620,6 +759,24 @@ export default function SessionPage() {
                   </div>
                 </div>
               )}
+
+              {/* Phase 2B: Emotion check-in after the last Alice message */}
+              {msg.speaker === 'alice' && !msg.isTransition && i === messages.length - 1 && !loading && (
+                <div className="flex gap-2 mt-2 justify-start pl-11" role="group" aria-label="How do you feel?">
+                  <span className="text-xs text-[#6B7280] mr-1 self-center">How do you feel?</span>
+                  {['😊', '🤔', '😮'].map((emoji) => (
+                    <button
+                      key={emoji}
+                      onClick={() => handleEmotionReact(emoji)}
+                      className="text-lg hover:scale-125 transition-transform cursor-pointer bg-white/60 rounded-full w-8 h-8 flex items-center justify-center shadow-sm min-w-[32px] min-h-[32px]"
+                      aria-label={`React with ${emoji}`}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {msg.speaker === 'student' && (
                 <div className="flex flex-col items-end gap-1">
                   <div className="bg-[#FFFCF3] text-[#3D2E1E] border border-[#D6C9A8] px-4 py-3 rounded-2xl rounded-tr-none max-w-xs lg:max-w-md shadow-[0_2px_8px_rgba(61,46,30,0.06)]">
@@ -633,6 +790,7 @@ export default function SessionPage() {
                   </p>
                 </div>
               )}
+
               {msg.isTransition && (
                 <div className="bg-[#D4A843] bg-opacity-15 border-l-4 border-[#D4A843] px-4 py-3 rounded-xl text-center max-w-md">
                   <p className="text-sm font-bold text-[#A8822E]">{msg.content}</p>
@@ -668,6 +826,16 @@ export default function SessionPage() {
 
         {/* Input Area */}
         <div className="bg-[#FFFCF3] border-t border-[#D6C9A8] p-4 space-y-3 flex-shrink-0 shadow-[0_-4px_12px_rgba(61,46,30,0.06)]">
+          {/* Phase 2B: Stage + Turn progress indicator */}
+          <div className="flex items-center justify-between mb-2 px-1" aria-label="Session progress">
+            <span className="text-xs font-medium text-[#4A7C59] bg-[#E8F5E9] px-3 py-1 rounded-full">
+              {STAGES[currentStage]} Stage
+            </span>
+            <span className="text-xs text-[#9CA3AF]">
+              Turn {Math.min(turnCount, maxTurns)}/{maxTurns} &bull; {elapsedTime}
+            </span>
+          </div>
+
           {/* Current Stage Indicator (mobile only) */}
           <div className="lg:hidden flex items-center gap-2 mb-2">
             {WORKSHEET_ROWS[activeRowIndex] && (
@@ -688,6 +856,26 @@ export default function SessionPage() {
               </>
             )}
           </div>
+
+          {/* Phase 2B: Short-answer encouragement — shown when last Alice message is still a question */}
+          {!loading && messages.length > 0 && (() => {
+            const lastAlice = [...messages].reverse().find((m) => m.speaker === 'alice');
+            const lastStudent = [...messages].reverse().find((m) => m.speaker === 'student');
+            const lastStudentAfterAlice = lastStudent && lastAlice && lastStudent.id > lastAlice.id;
+            if (lastStudentAfterAlice && lastStudent.content.trim().split(/\s+/).length < 4 && lastAlice?.content.includes('?')) {
+              return (
+                <div
+                  role="status"
+                  className="bg-[#FFF8E8] border-l-4 border-[#D4A843] px-3 py-2 rounded-xl animate-fade-in"
+                >
+                  <p className="text-sm font-bold text-[#A8822E]">
+                    Tell me more! 🌟 Can you add a little more detail?
+                  </p>
+                </div>
+              );
+            }
+            return null;
+          })()}
 
           {/* Live Transcript Display */}
           {isListening && transcript && (

@@ -1,5 +1,6 @@
 import express from 'express';
 import { supabase } from '../lib/supabase.js';
+import { authMiddleware } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -33,6 +34,73 @@ router.get('/', async (req, res) => {
     });
   } catch (err) {
     console.error('Get books error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * GET /recommendations/:studentId
+ *
+ * Returns level-appropriate books the student has not yet completed.
+ * Ordered by insertion order (newest additions first via Supabase default).
+ * Requires a valid Bearer token.
+ *
+ * Path params:
+ *   studentId {string} — UUID of the student
+ *
+ * Returns: { recommendations: Book[], studentLevel: string }
+ */
+router.get('/recommendations/:studentId', authMiddleware, async (req, res) => {
+  try {
+    const { studentId } = req.params;
+
+    // 1. Resolve the student's reading level
+    const { data: student, error: studentError } = await supabase
+      .from('students')
+      .select('level')
+      .eq('id', studentId)
+      .single();
+
+    if (studentError || !student) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+
+    // 2. Collect book IDs the student has already completed
+    const { data: completedSessions } = await supabase
+      .from('sessions')
+      .select('book_id')
+      .eq('student_id', studentId)
+      .eq('is_complete', true);
+
+    const readBookIds = (completedSessions || [])
+      .map((s) => s.book_id)
+      .filter(Boolean);
+
+    // 3. Query books that match the student's level and haven't been read
+    let query = supabase
+      .from('books')
+      .select('id, title, author, level, genre, cover_emoji, description, synopsis, moral_lesson')
+      .eq('level', student.level)
+      .limit(5);
+
+    // Supabase does not support an empty `not in` filter — guard defensively
+    if (readBookIds.length > 0) {
+      query = query.not('id', 'in', `(${readBookIds.join(',')})`);
+    }
+
+    const { data: recommendations, error: booksError } = await query;
+
+    if (booksError) {
+      console.error('Recommendations query error:', booksError);
+      return res.status(500).json({ error: 'Failed to fetch recommendations' });
+    }
+
+    return res.status(200).json({
+      recommendations: recommendations || [],
+      studentLevel: student.level,
+    });
+  } catch (err) {
+    console.error('Recommendations endpoint error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });

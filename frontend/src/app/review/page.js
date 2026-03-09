@@ -54,6 +54,7 @@ export default function ReviewPage() {
   const [stageBreakdown, setStageBreakdown] = useState([]);
   const [achievementsEarned, setAchievementsEarned] = useState([]);
   const [showAchievements, setShowAchievements] = useState(false);
+  const [aiFeedback, setAiFeedback] = useState(null);
 
   useEffect(() => {
     const fetchReview = async () => {
@@ -96,6 +97,19 @@ export default function ReviewPage() {
           setUsingFallback(true);
         }
 
+        // Phase 2B: Restore ai_feedback from sessionStorage as early fallback
+        if (sessionDataStr) {
+          try {
+            const sessionData = JSON.parse(sessionDataStr);
+            const storedFeedback = sessionData.ai_feedback || sessionData.aiFeedback || null;
+            if (storedFeedback) {
+              setAiFeedback(storedFeedback);
+            }
+          } catch (e) {
+            console.warn('Failed to parse ai_feedback from sessionStorage:', e);
+          }
+        }
+
         // Process review data
         if (reviewData && reviewData.review) {
           const apiReview = reviewData.review;
@@ -104,6 +118,12 @@ export default function ReviewPage() {
             bookTitle: apiReview.bookTitle || bookTitle || MOCK_REVIEW_DATA.bookTitle,
             studentName: apiReview.studentName || studentName || MOCK_REVIEW_DATA.studentName,
           });
+
+          // Phase 2B: ai_feedback from API response takes priority over sessionStorage
+          const apiFeedback = apiReview.ai_feedback || apiReview.aiFeedback || null;
+          if (apiFeedback) {
+            setAiFeedback(apiFeedback);
+          }
 
           // Vocabulary from API takes priority
           const vocabList = apiReview.vocabulary || [];
@@ -316,6 +336,21 @@ export default function ReviewPage() {
           >
             Dismiss
           </button>
+        </div>
+      )}
+
+      {/* Phase 2B: AI Personal Feedback Card */}
+      {aiFeedback && (
+        <div className="ghibli-card bg-gradient-to-br from-[#FEF3C7] to-[#FDE68A] border-2 border-[#F59E0B]/30 p-6 mb-6">
+          <div className="flex items-start gap-3">
+            <div className="text-3xl flex-shrink-0" aria-hidden="true">🤖</div>
+            <div>
+              <h3 className="font-bold text-[#92400E] mb-2">Message from HiAlice</h3>
+              <p className="text-[#78350F] text-sm leading-relaxed italic">
+                &quot;{aiFeedback}&quot;
+              </p>
+            </div>
+          </div>
         </div>
       )}
 

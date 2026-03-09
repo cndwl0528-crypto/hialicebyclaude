@@ -19,7 +19,7 @@
 import express from 'express';
 import { supabase } from '../lib/supabase.js';
 import { authMiddleware } from '../middleware/auth.js';
-import { getAliceResponse } from '../alice/engine.js';
+import { getAliceResponse, generateSessionFeedback } from '../alice/engine.js';
 import { extractVocabulary } from '../alice/vocabularyExtractor.js';
 import { calculateGrammarScore } from '../alice/levelDetector.js';
 import { checkAndAwardAchievements } from '../lib/achievements.js';
@@ -183,10 +183,10 @@ router.post('/start', optionalAuth, async (req, res) => {
       return res.status(404).json({ error: 'Student not found' });
     }
 
-    // Verify book exists
+    // Verify book exists; fetch rich context fields for AI prompt personalisation
     const { data: book, error: bookError } = await supabase
       .from('books')
-      .select('id, title, level')
+      .select('id, title, author, level, synopsis, key_themes, emotional_keywords, key_characters, moral_lesson')
       .eq('id', bookId)
       .single();
 
@@ -211,7 +211,7 @@ router.post('/start', optionalAuth, async (req, res) => {
       return res.status(500).json({ error: sessionError.message });
     }
 
-    // Get HiAlice's opening question from the AI engine
+    // Get HiAlice's opening question — pass full book object for context-aware prompt
     const aliceResponse = await getAliceResponse({
       bookTitle: book.title,
       studentName: student.name,
@@ -220,6 +220,7 @@ router.post('/start', optionalAuth, async (req, res) => {
       turn: 1,
       studentMessage: null,
       conversationHistory: [],
+      book,
     });
 
     const grammarScore = calculateGrammarScore('', student.level);
@@ -304,7 +305,7 @@ router.post('/:id/message', optionalAuth, async (req, res) => {
         .single(),
       supabase
         .from('books')
-        .select('title')
+        .select('id, title, author, level, synopsis, key_themes, emotional_keywords, key_characters, moral_lesson')
         .eq('id', session.book_id)
         .single(),
       supabase
@@ -335,7 +336,7 @@ router.post('/:id/message', optionalAuth, async (req, res) => {
       console.error('Student dialogue error:', studentDialogueError);
     }
 
-    // Get Alice's response from the AI engine
+    // Get Alice's response — pass full book object for context-aware, emotion-eliciting prompt
     const aliceResponse = await getAliceResponse({
       bookTitle: book.title,
       studentName: student.name,
@@ -344,6 +345,7 @@ router.post('/:id/message', optionalAuth, async (req, res) => {
       turn: currentTurn,
       studentMessage: content,
       conversationHistory: dialogues || [],
+      book,
     });
 
     // Score the student's response
@@ -522,6 +524,29 @@ router.post('/:id/complete', optionalAuth, async (req, res) => {
       );
     await Promise.all(stageInserts);
 
+    // --- Fetch book context for AI feedback generation ---
+    const { data: sessionBook } = await supabase
+      .from('books')
+      .select('id, title, author, synopsis, key_themes, emotional_keywords, key_characters, moral_lesson')
+      .eq('id', session.book_id)
+      .single();
+
+    // --- Generate personalised AI feedback from HiAlice ---
+    // Run asynchronously alongside the session update; failures are non-fatal.
+    let aiFeedback = null;
+    try {
+      aiFeedback = await generateSessionFeedback({
+        student: { name: student.name, level: studentLevel },
+        book: sessionBook || { title: session.book_id },
+        dialogues: allDialogues || [],
+        levelScore,
+        grammarScore: averageGrammarScore,
+      });
+    } catch (feedbackErr) {
+      console.error('[Sessions] AI feedback generation failed:', feedbackErr.message);
+      // Non-fatal — session completion proceeds without feedback text
+    }
+
     // --- Update session row ---
     const completedAt = new Date().toISOString();
     await supabase
@@ -533,6 +558,7 @@ router.post('/:id/complete', optionalAuth, async (req, res) => {
         is_complete: true,
         stage: 'conclusion',
         status: 'completed',
+        ...(aiFeedback ? { ai_feedback: aiFeedback } : {}),
       })
       .eq('id', sessionId);
 
@@ -618,6 +644,7 @@ router.post('/:id/complete', optionalAuth, async (req, res) => {
         grammarScore: averageGrammarScore,
         vocabularyCount,
         stageBreakdown,
+        aiFeedback,
       },
       newAchievements,
     });
@@ -668,6 +695,53 @@ router.get('/:id/review', optionalAuth, async (req, res) => {
     });
   } catch (err) {
     console.error('Review error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ============================================================================
+// GET /:id/feedback
+// ============================================================================
+
+/**
+ * Retrieve the AI-generated feedback for a completed session.
+ *
+ * Returns the text stored in sessions.ai_feedback (written during /complete).
+ * If the session is not yet complete, or feedback generation had failed,
+ * a 404 with an explanatory message is returned — not a 500 — so the client
+ * can display a graceful "feedback not available" state.
+ *
+ * Returns: { sessionId, aiFeedback, generatedAt }
+ */
+router.get('/:id/feedback', optionalAuth, async (req, res) => {
+  try {
+    const { id: sessionId } = req.params;
+
+    const { data: session, error: sessionError } = await supabase
+      .from('sessions')
+      .select('id, is_complete, completed_at, ai_feedback')
+      .eq('id', sessionId)
+      .single();
+
+    if (sessionError) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    if (!session.is_complete) {
+      return res.status(404).json({ error: 'Session is not yet complete — feedback is not available' });
+    }
+
+    if (!session.ai_feedback) {
+      return res.status(404).json({ error: 'AI feedback has not been generated for this session' });
+    }
+
+    return res.status(200).json({
+      sessionId: session.id,
+      aiFeedback: session.ai_feedback,
+      generatedAt: session.completed_at,
+    });
+  } catch (err) {
+    console.error('Feedback retrieval error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
