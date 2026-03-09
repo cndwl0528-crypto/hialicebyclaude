@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSessionReview, getSessionStageScores } from '@/services/api';
 import LoadingCard from '@/components/LoadingCard';
+import PrintableWorksheet from '@/components/PrintableWorksheet';
+import BookRecommendation from '@/components/BookRecommendation';
 
 const MOCK_REVIEW_DATA = {
   sessionId: 'session-001',
@@ -663,6 +665,25 @@ export default function ReviewPage() {
             );
           })}
         </div>
+      </div>
+
+      {/* Printable Worksheet */}
+      <div className="mb-6">
+        <PrintableWorksheet
+          sessionData={review}
+          studentName={sessionStorage.getItem('studentName') || review?.studentName || 'Student'}
+          bookTitle={review?.bookTitle || review?.book_title || 'My Book'}
+        />
+      </div>
+
+      {/* Book Recommendations */}
+      <div className="mb-6">
+        <BookRecommendation
+          studentLevel={sessionStorage.getItem('studentLevel') || 'intermediate'}
+          studentId={sessionStorage.getItem('studentId') || null}
+          currentBook={{ title: review?.bookTitle || review?.book_title }}
+          onSelectBook={() => router.push('/books')}
+        />
       </div>
 
       {/* Action Buttons */}

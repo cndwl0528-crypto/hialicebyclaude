@@ -414,4 +414,74 @@ router.put('/notifications/:id/read', authMiddleware, async (req, res) => {
   }
 });
 
+// ============================================================================
+// POST /consent
+// ============================================================================
+
+/**
+ * Record verifiable parental consent under COPPA.
+ * This endpoint is intentionally unauthenticated — consent must be submittable
+ * before a parent account is fully established.
+ *
+ * Body: { parentEmail, parentName, consentGiven, consentTimestamp, consentVersion }
+ * Returns: { success: true, consentDate }
+ */
+router.post('/consent', async (req, res) => {
+  try {
+    const { parentEmail, parentName, consentGiven, consentTimestamp, consentVersion } = req.body;
+
+    if (!parentEmail || !parentName || !consentGiven) {
+      return res.status(400).json({
+        error: 'parentEmail, parentName, and consentGiven are required',
+      });
+    }
+
+    // Attempt to update the matching parent record with consent metadata.
+    // A missing record is non-fatal — the consent is still recorded in the
+    // audit log, which is the authoritative compliance ledger.
+    const { error: updateError } = await supabase
+      .from('parents')
+      .update({
+        coppa_consent: consentGiven,
+        coppa_consent_date: consentTimestamp || new Date().toISOString(),
+        coppa_consent_name: parentName,
+        coppa_consent_version: consentVersion || '1.0',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('email', parentEmail);
+
+    if (updateError) {
+      // Parent not yet created or email mismatch — log a warning and continue.
+      // The audit log below is the source of truth.
+      console.warn('[consent] Parent record not found for email, proceeding to audit log:', parentEmail);
+    }
+
+    // Append an immutable entry to the COPPA consent audit trail.
+    // Failure here is surfaced as a 500 because compliance logging must succeed.
+    const { error: auditError } = await supabase.from('consent_audit_log').insert({
+      parent_email: parentEmail,
+      parent_name: parentName,
+      consent_given: consentGiven,
+      consent_timestamp: consentTimestamp || new Date().toISOString(),
+      consent_version: consentVersion || '1.0',
+      ip_address: req.ip,
+      user_agent: req.headers['user-agent'] || null,
+    });
+
+    if (auditError) {
+      console.error('[consent] Audit log insert failed:', auditError);
+      return res.status(500).json({ error: 'Failed to record consent audit entry' });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Consent recorded successfully',
+      consentDate: consentTimestamp || new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error('Consent error:', err);
+    return res.status(500).json({ error: 'Failed to record consent' });
+  }
+});
+
 export default router;

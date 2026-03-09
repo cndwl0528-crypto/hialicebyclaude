@@ -26,6 +26,28 @@ const MOCK_SESSIONS = [
 
 const AVATAR_OPTIONS = ['👧', '👦', '🧒', '👩', '🧑', '😊', '🌟', '🎓'];
 
+/**
+ * Mirrors the ACHIEVEMENT_CATALOGUE from AchievementUnlock.jsx.
+ * Keyed by the same achievement_type strings so earned badges can
+ * be resolved to display metadata without importing the component.
+ */
+const ACHIEVEMENT_CATALOGUE = {
+  'first-book':      { icon: '📚', label: 'First Book!' },
+  'five-books':      { icon: '📚', label: 'Bookshelf Builder' },
+  'ten-books':       { icon: '🏆', label: 'Reading Champion' },
+  'word-50':         { icon: '💡', label: 'Word Wizard' },
+  'word-100':        { icon: '🧠', label: 'Vocabulary Master' },
+  'streak-3':        { icon: '🔥', label: '3-Day Streak!' },
+  'streak-7':        { icon: '🌟', label: 'Week Warrior' },
+  'grammar-90':      { icon: '✨', label: 'Grammar Star' },
+  'perfect-session': { icon: '🎯', label: 'Perfect Session!' },
+  'early-bird':      { icon: '🌅', label: 'Early Bird' },
+  'night-owl':       { icon: '🦉', label: 'Night Owl' },
+  'speed-reader':    { icon: '⚡', label: 'Speed Reader' },
+  'deep-thinker':    { icon: '🤔', label: 'Deep Thinker' },
+  'bookworm':        { icon: '🐛', label: 'Bookworm' },
+};
+
 const BADGES = [
   { id: 'first-book', label: 'First Book', emoji: '📚', condition: (sessions) => sessions.length >= 1 },
   { id: 'five-books', label: '5 Books', emoji: '📖', condition: (sessions) => sessions.length >= 5 },
@@ -378,38 +400,61 @@ export default function ProfilePage() {
         </div>
 
         {/* Achievement Badges */}
-        <div className="ghibli-card p-6 mb-6">
-          <h3 className="text-2xl font-extrabold text-[#3D2E1E] mb-4">Achievements</h3>
-          <div className="mb-6">
-            <p className="text-[#6B5744] text-sm font-extrabold mb-3">Earned Badges</p>
-            {earnedBadges.length === 0 && serverAchievements.length === 0 ? (
-              <p className="text-[#9B8777] italic font-semibold">No badges earned yet. Keep learning!</p>
-            ) : (
-              <div className="flex flex-wrap gap-4">
-                {earnedBadges.map((badge) => (
-                  <div key={badge.id} className="flex flex-col items-center p-4 rounded-2xl bg-[#F5F0E8] border border-[#E8DEC8]">
-                    <div className="text-4xl mb-2">{badge.emoji}</div>
-                    <p className="text-sm font-extrabold text-[#3D2E1E] text-center">{badge.label}</p>
-                  </div>
-                ))}
-                {serverAchievements.map((achievement, idx) => (
-                  <div key={`server-${idx}`} className="flex flex-col items-center p-4 rounded-2xl bg-[#F5F0E8] border border-[#E8DEC8]">
-                    <div className="text-4xl mb-2">{achievement.emoji || '🏆'}</div>
-                    <p className="text-sm font-extrabold text-[#3D2E1E] text-center">{achievement.label || achievement.name}</p>
-                  </div>
-                ))}
+        <div className="ghibli-card p-5 mb-6">
+          <h3 className="font-bold text-[#2C4A2E] mb-3 flex items-center gap-2 text-2xl">
+            Your Badges
+            <span className="text-xs text-[#9CA3AF] font-normal ml-auto">
+              {earnedBadges.length + serverAchievements.length} earned
+            </span>
+          </h3>
+
+          {/* Compact grid of earned badges — merges local BADGES + server achievements */}
+          <div className="grid grid-cols-4 gap-3 mb-5">
+            {earnedBadges.map((badge) => (
+              <div
+                key={badge.id}
+                className="flex flex-col items-center gap-1 p-2 rounded-xl bg-[#F5F0E8]"
+                title={badge.label}
+              >
+                <span className="text-2xl">{badge.emoji}</span>
+                <span className="text-[10px] text-center text-[#6B7280] leading-tight">{badge.label}</span>
+              </div>
+            ))}
+            {serverAchievements.map((achievement, idx) => {
+              const meta = ACHIEVEMENT_CATALOGUE[achievement.achievement_type || achievement.id] || {};
+              return (
+                <div
+                  key={`server-${idx}`}
+                  className="flex flex-col items-center gap-1 p-2 rounded-xl bg-[#F5F0E8]"
+                  title={meta.label || achievement.label || achievement.name || 'Achievement'}
+                >
+                  <span className="text-2xl">{meta.icon || achievement.emoji || '🏅'}</span>
+                  <span className="text-[10px] text-center text-[#6B7280] leading-tight">
+                    {meta.label || achievement.label || achievement.name || 'Achievement'}
+                  </span>
+                </div>
+              );
+            })}
+            {earnedBadges.length === 0 && serverAchievements.length === 0 && (
+              <div className="col-span-4 text-center py-4 text-sm text-[#9CA3AF]">
+                Complete sessions to earn badges!
               </div>
             )}
           </div>
 
+          {/* Locked / in-progress badges */}
           {unearnedBadges.length > 0 && (
             <div>
-              <p className="text-[#6B5744] text-sm font-extrabold mb-3">In Progress</p>
-              <div className="flex flex-wrap gap-4">
+              <p className="text-[#6B5744] text-xs font-extrabold mb-2 uppercase tracking-wide">In Progress</p>
+              <div className="grid grid-cols-4 gap-3">
                 {unearnedBadges.map((badge) => (
-                  <div key={badge.id} className="flex flex-col items-center p-4 rounded-2xl opacity-50 bg-[#EDE5D4]">
-                    <div className="text-4xl mb-2 grayscale">{badge.emoji}</div>
-                    <p className="text-sm font-extrabold text-[#6B5744] text-center">{badge.label}</p>
+                  <div
+                    key={badge.id}
+                    className="flex flex-col items-center gap-1 p-2 rounded-xl opacity-40 bg-[#EDE5D4]"
+                    title={badge.label}
+                  >
+                    <span className="text-2xl grayscale">{badge.emoji}</span>
+                    <span className="text-[10px] text-center text-[#6B5744] leading-tight">{badge.label}</span>
                   </div>
                 ))}
               </div>

@@ -26,6 +26,57 @@ function resolveJwtSecret() {
   return secret;
 }
 
+// ============================================================================
+// Environment validation
+// ============================================================================
+
+/**
+ * Required environment variables per runtime environment.
+ * In production every variable in the list must be set or the process exits.
+ * In development missing variables produce a console warning so local work
+ * is not blocked, but the developer is clearly informed.
+ */
+const REQUIRED_ENV_VARS = {
+  production: [
+    'SUPABASE_URL',
+    'SUPABASE_SERVICE_KEY',
+    'ANTHROPIC_API_KEY',
+    'JWT_SECRET',
+    'ALLOWED_ORIGINS',
+  ],
+  development: [
+    'SUPABASE_URL',
+    'SUPABASE_SERVICE_KEY',
+  ],
+};
+
+/**
+ * Validate that all environment variables required for the current
+ * NODE_ENV are present.
+ *
+ * - Production: any missing variable causes an immediate process exit (1).
+ * - Development: missing variables log a warning; fallbacks keep the server running.
+ *
+ * @returns {{ valid: boolean, missing: string[] }}
+ */
+export function validateEnv() {
+  const env = nodeEnv;
+  const required = REQUIRED_ENV_VARS[env] ?? REQUIRED_ENV_VARS.development;
+  const missing = required.filter(key => !process.env[key]);
+
+  if (missing.length > 0) {
+    const msg = `Missing required environment variables: ${missing.join(', ')}`;
+    if (env === 'production') {
+      console.error(`[CONFIG ERROR] ${msg}`);
+      process.exit(1);
+    } else {
+      console.warn(`[CONFIG WARNING] ${msg} — Using fallbacks for development`);
+    }
+  }
+
+  return { valid: missing.length === 0, missing };
+}
+
 export const config = {
   port: process.env.PORT || 5000,
   nodeEnv,

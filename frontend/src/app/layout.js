@@ -12,6 +12,7 @@ export default function RootLayout({ children }) {
   const pathname = usePathname();
   const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userRole, setUserRole] = useState(null);
 
   // Register service worker for offline support and PWA
   useEffect(() => {
@@ -27,11 +28,12 @@ export default function RootLayout({ children }) {
     }
   }, []);
 
-  // Check login state on route change
+  // Check login state and role on route change
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const token = sessionStorage.getItem('token');
       setIsLoggedIn(!!token);
+      setUserRole(sessionStorage.getItem('userRole'));
     }
   }, [pathname]);
 
@@ -46,12 +48,19 @@ export default function RootLayout({ children }) {
     }
   };
 
+  const isParentOrAdmin =
+    userRole === 'parent' ||
+    userRole === 'admin' ||
+    userRole === 'super_admin';
+
   const navLinks = [
     { href: '/', label: 'Home', icon: '🏠' },
     { href: '/books', label: 'Books', icon: '📚' },
     { href: '/review', label: 'Review', icon: '⭐' },
     { href: '/vocabulary', label: 'Words', icon: '📖' },
     { href: '/profile', label: 'Profile', icon: '👤' },
+    // Only shown when the logged-in user has a parent or admin role.
+    ...(isParentOrAdmin ? [{ href: '/parent', label: 'Parent', icon: '👪' }] : []),
   ];
 
   const logoText = 'HiAlice';

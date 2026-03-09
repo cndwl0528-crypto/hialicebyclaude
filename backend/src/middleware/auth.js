@@ -52,3 +52,31 @@ export function generateToken(payload) {
 
   return `${header}.${body}.${signature}`;
 }
+
+/**
+ * Require admin or super_admin role.
+ * Must be used after authMiddleware so req.user is already populated.
+ */
+export function requireAdmin(req, res, next) {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  if (req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+  next();
+}
+
+/**
+ * Require parent, admin, or super_admin role.
+ * Must be used after authMiddleware so req.user is already populated.
+ */
+export function requireParent(req, res, next) {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  if (!['parent', 'admin', 'super_admin'].includes(req.user.role)) {
+    return res.status(403).json({ error: 'Parent access required' });
+  }
+  next();
+}

@@ -1,23 +1,30 @@
 import express from 'express';
 import { supabase } from '../lib/supabase.js';
-import { authMiddleware } from '../middleware/auth.js';
+import { authMiddleware, requireAdmin } from '../middleware/auth.js';
 import { getAliceResponse } from '../alice/engine.js';
 import { getStudentAchievements } from '../lib/achievements.js';
 
 const router = express.Router();
 
 /**
- * Optional admin authentication middleware
- * In development, allows requests without auth header for easier testing
- * In production, requires valid admin auth token
+ * Admin authentication middleware chain.
+ *
+ * Development  — skips token verification for easier local testing.
+ * Production   — verifies JWT via authMiddleware, then enforces admin/super_admin
+ *                role via requireAdmin.
+ *
+ * Usage: router.get('/path', adminAuth, handler)
  */
 function optionalAdminAuth(req, res, next) {
   if (process.env.NODE_ENV === 'development') {
-    // Skip auth in development mode
+    // Skip auth in development mode for easier local testing.
     return next();
   }
-  // In production, use standard auth middleware
-  return authMiddleware(req, res, next);
+  // In production, verify token then enforce admin role.
+  authMiddleware(req, res, (err) => {
+    if (err) return next(err);
+    requireAdmin(req, res, next);
+  });
 }
 
 /**

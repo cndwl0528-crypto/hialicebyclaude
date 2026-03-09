@@ -119,3 +119,98 @@ export const rateLimiter = createRateLimiter(60 * 1000, 100);
  * Apply to /auth/parent-login to mitigate brute-force attacks.
  */
 export const authRateLimiter = createRateLimiter(60 * 1000, 10);
+
+// ============================================================================
+// Input length limiter
+// ============================================================================
+
+const MAX_BODY_JSON_SIZE = 10_000; // 10 KB serialised JSON
+
+/**
+ * Reject payloads that exceed MAX_BODY_JSON_SIZE and truncate individual
+ * string fields to 1 000 characters so runaway inputs never reach the AI or DB.
+ *
+ * This is a defence-in-depth complement to Express's built-in `limit` option
+ * on `express.json()`, which guards the raw byte stream.  Here we guard the
+ * parsed object, which can differ after compression.
+ */
+export function inputLengthLimiter(req, res, next) {
+  const serialised = JSON.stringify(req.body || {});
+  if (serialised.length > MAX_BODY_JSON_SIZE) {
+    return res.status(413).json({ error: 'Request body too large' });
+  }
+
+  req.body = truncateStrings(req.body);
+  next();
+}
+
+/**
+ * Recursively truncate all string values in an object to maxLen characters.
+ * Returns a new object; does not mutate the original.
+ *
+ * @param {unknown} obj
+ * @param {number}  [maxLen=1000]
+ * @returns {unknown}
+ */
+function truncateStrings(obj, maxLen = 1000) {
+  if (!obj || typeof obj !== 'object') return obj;
+
+  return Object.fromEntries(
+    Object.entries(obj).map(([key, value]) => {
+      if (typeof value === 'string') {
+        return [key, value.length > maxLen ? value.substring(0, maxLen) : value];
+      }
+      if (Array.isArray(value)) {
+        return [key, value.map(item => {
+          if (typeof item === 'string') return item.length > maxLen ? item.substring(0, maxLen) : item;
+          if (item && typeof item === 'object') return truncateStrings(item, maxLen);
+          return item;
+        })];
+      }
+      if (value && typeof value === 'object') {
+        return [key, truncateStrings(value, maxLen)];
+      }
+      return [key, value];
+    })
+  );
+}
+
+// ============================================================================
+// Profanity filter (children's safety net)
+// ============================================================================
+
+/**
+ * Minimal blocklist.
+ * This is a last-resort safety net; primary content moderation happens inside
+ * the AI system prompt (prompts.js) which instructs HiAlice to stay on-topic
+ * and age-appropriate.  A dedicated library (e.g. `bad-words`) should replace
+ * this list before production.
+ */
+const BLOCKED_WORDS = [
+  'stupid', 'idiot', 'hate', 'kill', 'die',
+];
+
+/**
+ * Scan `req.body.content` for blocked words.
+ * When found, the middleware does NOT block the request — instead it:
+ *   1. Sets `req.body._hasProfanity = true` so downstream handlers can log/flag.
+ *   2. Replaces each blocked word with asterisks of the same length.
+ *
+ * Keeping the message (sanitised) rather than rejecting it avoids frustrating
+ * young users who may trigger false positives on common words.
+ */
+export function profanityFilter(req, res, next) {
+  if (req.body?.content && typeof req.body.content === 'string') {
+    const lower = req.body.content.toLowerCase();
+    const hasBlocked = BLOCKED_WORDS.some(word => lower.includes(word));
+
+    if (hasBlocked) {
+      req.body._hasProfanity = true;
+      req.body.content = BLOCKED_WORDS.reduce(
+        (text, word) => text.replace(new RegExp(word, 'gi'), '*'.repeat(word.length)),
+        req.body.content
+      );
+    }
+  }
+  next();
+}

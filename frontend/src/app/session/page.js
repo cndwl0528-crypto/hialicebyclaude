@@ -6,8 +6,11 @@ import useSpeech from '@/hooks/useSpeech';
 import VoiceButton from '@/components/VoiceButton';
 import { STAGE_GUIDE, getCurrentGuideQuestion } from '@/lib/stageQuestions';
 import { pauseSession as apiPauseSession } from '@/services/api';
+import ConfettiCelebration from '@/components/ConfettiCelebration';
+import AchievementUnlock from '@/components/AchievementUnlock';
 
 const STAGES = ['Title', 'Introduction', 'Body', 'Conclusion'];
+const STAGE_EMOJIS = ['📖', '👤', '💭', '⭐'];
 const MAX_TURNS_PER_STAGE = 3;
 
 const MOCK_AI_RESPONSES = {
@@ -83,6 +86,24 @@ export default function SessionPage() {
   const [aiFeedback, setAiFeedback] = useState(null);
   const [showAiFeedbackCard, setShowAiFeedbackCard] = useState(false);
   const timerRef = useRef(null);
+
+  // Level-based UI: determine mode from sessionStorage once (stable across renders)
+  const isBeginnerMode = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    return (sessionStorage.getItem('studentLevel') || 'intermediate') === 'beginner';
+  }, []);
+
+  // For beginners, text input is hidden by default; others see it immediately.
+  // useState lazy initialiser runs once so it safely reads sessionStorage on mount.
+  const [showTextInput, setShowTextInput] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return (sessionStorage.getItem('studentLevel') || 'intermediate') !== 'beginner';
+  });
+
+  // Confetti + achievement state
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [pendingAchievements, setPendingAchievements] = useState([]);
+  const [showAchievements, setShowAchievements] = useState(false);
 
   const { isListening, transcript, speak, startListening, stopListening, supported } = useSpeech();
   const messagesEndRef = useRef(null);
@@ -394,6 +415,12 @@ export default function SessionPage() {
           const completeData = await completeRes.json();
           // Capture ai_feedback if returned by the backend
           capturedAiFeedback = completeData.ai_feedback || completeData.aiFeedback || null;
+          // Capture achievements if returned
+          const achievementsEarned = completeData.achievements || completeData.achievementsEarned || [];
+          if (achievementsEarned.length > 0) {
+            setPendingAchievements(achievementsEarned);
+            setShowAchievements(true);
+          }
         }
       } catch (error) {
         console.warn('Error completing session on backend:', error);
@@ -430,9 +457,11 @@ export default function SessionPage() {
       setTimeout(() => {
         setShowAiFeedbackCard(false);
         setSessionComplete(true);
+        setShowConfetti(true);
       }, 6000);
     } else {
       setSessionComplete(true);
+      setShowConfetti(true);
     }
   };
 
@@ -716,6 +745,20 @@ export default function SessionPage() {
 
       {/* ===== RIGHT: Chat Area ===== */}
       <div className="flex-1 flex flex-col min-w-0">
+        {/* Session top bar: book title + Save & Exit */}
+        <div className="bg-[#FFFCF3] border-b border-[#D6C9A8] px-4 py-2 flex items-center justify-between flex-shrink-0">
+          <p className="text-xs font-semibold text-[#6B5744] truncate max-w-[60%]">
+            {bookTitle || 'Reading Session'}
+          </p>
+          <button
+            onClick={handlePauseSession}
+            className="text-xs text-[#9CA3AF] hover:text-[#4A7C59] flex items-center gap-1 px-3 py-1 rounded-lg border border-[#E5E7EB] hover:border-[#4A7C59] transition-colors min-h-[36px]"
+            aria-label="Save and exit session"
+          >
+            Save &amp; Exit
+          </button>
+        </div>
+
         {/* Error Banner */}
         {error && (
           <div
@@ -829,7 +872,9 @@ export default function SessionPage() {
           {/* Phase 2B: Stage + Turn progress indicator */}
           <div className="flex items-center justify-between mb-2 px-1" aria-label="Session progress">
             <span className="text-xs font-medium text-[#4A7C59] bg-[#E8F5E9] px-3 py-1 rounded-full">
-              {STAGES[currentStage]} Stage
+              {isBeginnerMode
+                ? `${STAGE_EMOJIS[currentStage]} Stage`
+                : `${STAGES[currentStage]} Stage`}
             </span>
             <span className="text-xs text-[#9CA3AF]">
               Turn {Math.min(turnCount, maxTurns)}/{maxTurns} &bull; {elapsedTime}
@@ -886,41 +931,91 @@ export default function SessionPage() {
             </div>
           )}
 
-          {/* Voice Button */}
-          <div className="flex flex-col items-center gap-2">
-            <VoiceButton
-              isListening={isListening}
-              onStart={handleVoiceInput}
-              onStop={handleVoiceInput}
-              size={80}
-              disabled={loading}
-            />
-            <p className="text-sm font-bold text-[#5C8B5C]">
-              {isListening ? 'Listening...' : 'Tap to speak'}
-            </p>
-          </div>
-
-          {/* Text Input */}
-          <div className="flex gap-2">
-            <input
-              ref={inputRef}
-              type="text"
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleTextSend()}
-              placeholder="Or type your answer here..."
-              className="flex-1 px-4 py-3 border border-[#D6C9A8] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#5C8B5C] focus:border-transparent text-sm bg-[#FFFCF3] text-[#3D2E1E] font-semibold disabled:bg-[#EDE5D4]"
-              disabled={loading}
-            />
-            <button
-              onClick={handleTextSend}
-              disabled={loading || !inputText.trim()}
-              className="px-6 py-3 bg-[#5C8B5C] text-white rounded-xl hover:bg-[#3D6B3D] disabled:bg-[#D6C9A8] transition-colors font-bold text-sm min-w-[48px] min-h-[48px] hover:-translate-y-0.5"
-              title={loading ? 'Waiting for response...' : 'Send message'}
-            >
-              Send
-            </button>
-          </div>
+          {/* Input area — layout branches on student level */}
+          {isBeginnerMode ? (
+            /* Beginner: large centred voice button, text input hidden by default */
+            <div className="flex flex-col items-center gap-3 w-full">
+              <div className="relative">
+                <VoiceButton
+                  isListening={isListening}
+                  onStart={handleVoiceInput}
+                  onStop={handleVoiceInput}
+                  size={100}
+                  disabled={loading}
+                  className="w-[100px] h-[100px] text-3xl"
+                />
+              </div>
+              <p className="text-sm font-bold text-[#5C8B5C]">
+                {isListening ? 'Listening...' : 'Tap to speak'}
+              </p>
+              <button
+                onClick={() => setShowTextInput((v) => !v)}
+                className="text-xs text-[#9CA3AF] underline"
+              >
+                {showTextInput ? 'Hide keyboard' : 'Type instead'}
+              </button>
+              {showTextInput && (
+                <div className="w-full flex gap-2">
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={inputText}
+                    onChange={(e) => setInputText(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleTextSend()}
+                    placeholder="Type your answer here..."
+                    className="flex-1 px-4 py-3 border border-[#D6C9A8] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#5C8B5C] focus:border-transparent text-sm bg-[#FFFCF3] text-[#3D2E1E] font-semibold disabled:bg-[#EDE5D4]"
+                    disabled={loading}
+                  />
+                  <button
+                    onClick={handleTextSend}
+                    disabled={loading || !inputText.trim()}
+                    className="px-6 py-3 bg-[#5C8B5C] text-white rounded-xl hover:bg-[#3D6B3D] disabled:bg-[#D6C9A8] transition-colors font-bold text-sm min-w-[48px] min-h-[48px] hover:-translate-y-0.5"
+                    title={loading ? 'Waiting for response...' : 'Send message'}
+                  >
+                    Send
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Intermediate / Advanced: text input first, voice button to the right */
+            <div className="flex gap-3 items-end w-full">
+              <div className="flex flex-col gap-2 flex-1">
+                <div className="flex gap-2">
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={inputText}
+                    onChange={(e) => setInputText(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleTextSend()}
+                    placeholder="Or type your answer here..."
+                    className="flex-1 px-4 py-3 border border-[#D6C9A8] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#5C8B5C] focus:border-transparent text-sm bg-[#FFFCF3] text-[#3D2E1E] font-semibold disabled:bg-[#EDE5D4]"
+                    disabled={loading}
+                  />
+                  <button
+                    onClick={handleTextSend}
+                    disabled={loading || !inputText.trim()}
+                    className="px-6 py-3 bg-[#5C8B5C] text-white rounded-xl hover:bg-[#3D6B3D] disabled:bg-[#D6C9A8] transition-colors font-bold text-sm min-w-[48px] min-h-[48px] hover:-translate-y-0.5"
+                    title={loading ? 'Waiting for response...' : 'Send message'}
+                  >
+                    Send
+                  </button>
+                </div>
+              </div>
+              <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                <VoiceButton
+                  isListening={isListening}
+                  onStart={handleVoiceInput}
+                  onStop={handleVoiceInput}
+                  size={56}
+                  disabled={loading}
+                />
+                <p className="text-xs font-semibold text-[#5C8B5C]">
+                  {isListening ? 'Listening' : 'Speak'}
+                </p>
+              </div>
+            </div>
+          )}
 
           {!supported && (
             <p className="text-xs text-[#D4A843] text-center font-semibold">
@@ -936,5 +1031,21 @@ export default function SessionPage() {
         </div>
       </div>
     </div>
+
+    {/* Confetti celebration — fires when session completes */}
+    <ConfettiCelebration
+      active={showConfetti}
+      duration={4000}
+      onComplete={() => setShowConfetti(false)}
+    />
+
+    {/* Achievement modal — shows unlocked badges sequentially */}
+    <AchievementUnlock
+      achievements={pendingAchievements}
+      onClose={() => {
+        setShowAchievements(false);
+        setPendingAchievements([]);
+      }}
+    />
   );
 }

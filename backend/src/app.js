@@ -1,13 +1,18 @@
 import express from 'express';
 import cors from 'cors';
 import { errorHandler } from './middleware/errorHandler.js';
-import { sanitizeBody, sanitizeQuery, rateLimiter } from './middleware/sanitize.js';
+import { sanitizeBody, sanitizeQuery, rateLimiter, inputLengthLimiter, profanityFilter } from './middleware/sanitize.js';
+import { validateEnv } from './lib/config.js';
 import authRouter from './routes/auth.js';
 import booksRouter from './routes/books.js';
 import sessionsRouter from './routes/sessions.js';
 import vocabularyRouter from './routes/vocabulary.js';
 import adminRouter from './routes/admin.js';
 import ttsRouter from './routes/tts.js';
+
+// Validate required environment variables at startup.
+// Exits the process in production if critical vars are missing.
+validateEnv();
 
 const app = express();
 
@@ -21,10 +26,12 @@ app.use(cors({
   credentials: true,
 }));
 
-app.use(express.json({ limit: '1mb' })); // Limit payload size
-app.use(rateLimiter); // Rate limiting
-app.use(sanitizeBody); // Sanitize request bodies
-app.use(sanitizeQuery); // Sanitize query params
+app.use(express.json({ limit: '1mb' })); // Limit raw payload size
+app.use(rateLimiter);          // Per-IP rate limiting
+app.use(inputLengthLimiter);   // Reject/truncate oversized request bodies
+app.use(sanitizeBody);         // Strip HTML/XSS from all body strings
+app.use(sanitizeQuery);        // Strip HTML/XSS from query params
+app.use(profanityFilter);      // Flag and sanitise inappropriate content in student messages
 
 // Security headers
 app.use((req, res, next) => {
