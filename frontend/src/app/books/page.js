@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import BookCard from '@/components/BookCard';
 import BookRecommendation from '@/components/BookRecommendation';
+import BookCoverIllustration from '@/components/BookCoverIllustration';
 
 const MOCK_BOOKS = [
   {
@@ -255,41 +256,11 @@ export default function BooksPage() {
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {filteredBooks.map((book) => (
-              <div
+              <BookCard
                 key={book.id}
+                book={book}
                 onClick={() => handleSelectBook(book.id, book.title)}
-                className="bg-[#FFFCF3] rounded-2xl border border-[#E8DEC8] shadow-[0_4px_20px_rgba(61,46,30,0.06)] hover:shadow-[0_8px_30px_rgba(61,46,30,0.12)] transition-all duration-200 hover:-translate-y-1.5 cursor-pointer overflow-hidden"
-              >
-                {/* Book Cover Thumbnail */}
-                <div className="bg-gradient-to-br from-[#A8DAEA] to-[#C8E6C9] py-6 flex items-center justify-center">
-                  <span className="text-6xl">{book.cover || '📖'}</span>
-                </div>
-
-                <div className="p-5">
-                  <h3 className="text-base font-extrabold text-[#3D2E1E] mb-1 line-clamp-2">
-                    {book.title}
-                  </h3>
-                  <p className="text-[#6B5744] text-sm font-semibold mb-2">{book.author}</p>
-                  <p className="text-[#9B8777] text-sm mb-4 line-clamp-2 font-medium">
-                    {book.description}
-                  </p>
-                  <div className="flex gap-2 flex-wrap mb-4">
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-bold ${
-                        LEVEL_BADGE_STYLES[book.level] || 'bg-[#EDE5D4] text-[#6B5744]'
-                      }`}
-                    >
-                      {book.level}
-                    </span>
-                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#EDE5D4] text-[#6B5744]">
-                      {book.genre}
-                    </span>
-                  </div>
-                  <button className="w-full py-2 bg-[#5C8B5C] hover:bg-[#3D6B3D] text-white rounded-xl font-bold text-sm transition-all hover:-translate-y-0.5">
-                    Start Reading
-                  </button>
-                </div>
-              </div>
+              />
             ))}
           </div>
 
