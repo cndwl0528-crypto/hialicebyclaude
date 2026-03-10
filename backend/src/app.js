@@ -1,4 +1,5 @@
 import express from 'express';
+import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import { errorHandler } from './middleware/errorHandler.js';
 import { sanitizeBody, sanitizeQuery, rateLimiter, inputLengthLimiter, profanityFilter } from './middleware/sanitize.js';
@@ -9,6 +10,7 @@ import sessionsRouter from './routes/sessions.js';
 import vocabularyRouter from './routes/vocabulary.js';
 import adminRouter from './routes/admin.js';
 import ttsRouter from './routes/tts.js';
+import coppaRouter from './routes/coppa.js';
 
 // Validate required environment variables at startup.
 // Exits the process in production if critical vars are missing.
@@ -27,6 +29,7 @@ app.use(cors({
 }));
 
 app.use(express.json({ limit: '1mb' })); // Limit raw payload size
+app.use(cookieParser());
 app.use(rateLimiter);          // Per-IP rate limiting
 app.use(inputLengthLimiter);   // Reject/truncate oversized request bodies
 app.use(sanitizeBody);         // Strip HTML/XSS from all body strings
@@ -65,6 +68,7 @@ app.use('/api/sessions', sessionsRouter);
 app.use('/api/vocabulary', vocabularyRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/tts', ttsRouter);
+app.use('/api/coppa', coppaRouter);
 
 // Error handler
 app.use(errorHandler);

@@ -546,6 +546,44 @@ RULES:
 }
 
 // ============================================================================
+// QUESTION REPHRASING PROMPT
+// ============================================================================
+
+/**
+ * Build a prompt for rephrasing a question when a student is stuck.
+ * Used when silence detection indicates the student needs a different approach.
+ *
+ * @param {string} originalQuestion - The question Alice asked that the student is stuck on
+ * @param {string} studentName - Student's name
+ * @param {string} level - 'beginner' | 'intermediate' | 'advanced'
+ * @param {string} bookTitle - Current book title
+ * @returns {string} System prompt for rephrasing
+ */
+export function getRephrasePrompt(originalQuestion, studentName, level, bookTitle) {
+  const levelRules = LEVEL_RULES[level] || LEVEL_RULES.intermediate;
+  const levelDesc = LEVEL_DESCRIPTIONS[level] || LEVEL_DESCRIPTIONS.intermediate;
+
+  return `You are HiAlice. ${studentName} (${levelDesc.ageRange}, ${levelDesc.characteristics} level) is taking a long time to answer your question about "${bookTitle}".
+
+ORIGINAL QUESTION: "${originalQuestion}"
+
+${studentName} seems stuck. Rephrase this question to be:
+1. SIMPLER — use fewer and easier words
+2. MORE SPECIFIC — narrow the scope (instead of "What did you think?" → "Was it more funny or scary?")
+3. CHOICE-BASED — offer 2-3 options to choose from when possible
+4. ENCOURAGING — start with "That's a tough one!" or "Let me ask it another way..."
+
+RULES:
+- Vocabulary: ${levelRules.vocabulary}
+- Max response: ${levelDesc.maxResponseLength} words
+- NEVER make ${studentName} feel bad about needing help
+- ONE question only, SHORT and clear
+- For beginners: always offer A or B choices
+
+Return ONLY the rephrased question — no explanation or preamble.`;
+}
+
+// ============================================================================
 // DEFAULT EXPORT
 // ============================================================================
 
@@ -556,6 +594,7 @@ export default {
   isShortAnswer,
   getShortAnswerFollowUp,
   getMetacognitivePrompt,
+  getRephrasePrompt,
   LEVEL_DESCRIPTIONS,
   LEVEL_RULES,
   STAGE_GUIDANCE,

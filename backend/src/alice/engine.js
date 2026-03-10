@@ -23,7 +23,8 @@ import {
   getSessionFeedbackPrompt,
   isShortAnswer,
   getShortAnswerFollowUp,
-  getMetacognitivePrompt
+  getMetacognitivePrompt,
+  getRephrasePrompt
 } from './prompts.js';
 import { getCrossBookContext } from './crossBookMemory.js';
 
@@ -348,6 +349,51 @@ export async function getMetacognitiveResponse({ studentName, bookTitle, level, 
 }
 
 // ============================================================================
+// QUESTION REPHRASE GENERATOR
+// ============================================================================
+
+/**
+ * Generate a simpler version of a question when a student appears stuck.
+ * Called when the silence detection threshold is exceeded.
+ *
+ * @param {object} params
+ * @param {string} params.originalQuestion - The question to rephrase
+ * @param {string} params.studentName - Student's name
+ * @param {string} params.level - Student's level
+ * @param {string} params.bookTitle - Current book title
+ * @returns {Promise<{ content: string, isMock?: boolean }>}
+ */
+export async function rephraseQuestion({ originalQuestion, studentName, level, bookTitle }) {
+  if (!anthropic) {
+    // Mock: offer a simple choice-based alternative
+    return {
+      content: `That's a tricky one! Let me ask differently — did you think it was more EXCITING or more SURPRISING? Which one feels right to you?`,
+      isMock: true,
+    };
+  }
+
+  try {
+    const systemPrompt = getRephrasePrompt(originalQuestion, studentName, level, bookTitle);
+
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 150,
+      temperature: 0.8,
+      messages: [{ role: 'user', content: `Please rephrase this question for a stuck student: "${originalQuestion}"` }],
+      system: systemPrompt,
+    });
+
+    return { content: response.content[0]?.text?.trim() || '' };
+  } catch (error) {
+    console.error('[Alice Engine] Rephrase error:', error.message);
+    return {
+      content: `Hmm, let me think of another way to ask! Was there something in the story that made you feel HAPPY or SURPRISED?`,
+      isMock: true,
+    };
+  }
+}
+
+// ============================================================================
 // DEFAULT EXPORT
 // ============================================================================
 
@@ -355,5 +401,6 @@ export default {
   getAliceResponse,
   generateSessionFeedback,
   formatConversationHistory,
-  getMetacognitiveResponse
+  getMetacognitiveResponse,
+  rephraseQuestion
 };

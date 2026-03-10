@@ -1,20 +1,35 @@
 import crypto from 'crypto';
 import { config } from '../lib/config.js';
 
+export const COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax',
+  path: '/',
+  maxAge: 24 * 60 * 60 * 1000, // 24 hours in ms
+};
+
+export const COOKIE_NAME = 'hialice_token';
+
 export function authMiddleware(req, res, next) {
-  const authHeader = req.headers.authorization;
-  
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  // Try cookie first (preferred — httpOnly, secure)
+  let token = req.cookies?.[COOKIE_NAME];
+
+  // Fall back to Authorization header for backwards compatibility and API clients
+  if (!token) {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    }
+  }
+
+  if (!token) {
     return res.status(401).json({ error: 'No token provided' });
   }
 
-  const token = authHeader.split(' ')[1];
-
   try {
-    // Simple JWT-like token verification
-    // In production, use Supabase Auth verification
     const [headerB64, payloadB64, signature] = token.split('.');
-    
+
     const expectedSig = crypto
       .createHmac('sha256', config.jwt.secret)
       .update(`${headerB64}.${payloadB64}`)
@@ -25,7 +40,7 @@ export function authMiddleware(req, res, next) {
     }
 
     const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString());
-    
+
     if (payload.exp && Date.now() > payload.exp * 1000) {
       return res.status(401).json({ error: 'Token expired' });
     }
