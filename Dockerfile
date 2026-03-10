@@ -48,7 +48,7 @@ RUN mkdir -p ./public
 
 # Copy built frontend from stage 1
 COPY --from=frontend-builder /app/frontend/.next ./public/.next
-COPY --from=frontend-builder /app/frontend/public/* ./public/ 2>/dev/null || true
+COPY --from=frontend-builder /app/frontend/public/ ./public/
 
 # Create a simple health check endpoint script
 RUN echo '#!/bin/sh\nnode -e "require(\"https\").get(\"http://localhost:3001/health\", (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on(\"error\", () => process.exit(1))"' > /healthcheck.sh && chmod +x /healthcheck.sh
