@@ -22,8 +22,11 @@ import {
   getSystemPrompt,
   getSessionFeedbackPrompt,
   isShortAnswer,
-  getShortAnswerFollowUp
+  getShortAnswerFollowUp,
+  getMetacognitivePrompt,
+  getRephrasePrompt
 } from './prompts.js';
+import { getCrossBookContext } from './crossBookMemory.js';
 
 // ============================================================================
 // CLIENT INITIALISATION
@@ -69,6 +72,7 @@ export function formatConversationHistory(dialogues) {
  * @param {string|null}   params.studentMessage - Student's latest message (null for opening)
  * @param {Array}         [params.conversationHistory=[]] - Prior dialogue rows
  * @param {object}        [params.book]      - Full book object (preferred over bookTitle string)
+ * @param {string}        [params.crossBookContext=''] - Cross-book memory context string to append to system prompt
  * @returns {Promise<{ content: string, grammarFeedback: string, isMock?: boolean, usage?: object }>}
  */
 export async function getAliceResponse({
@@ -79,7 +83,8 @@ export async function getAliceResponse({
   turn,
   studentMessage,
   conversationHistory = [],
-  book = null
+  book = null,
+  crossBookContext = ''
 }) {
   try {
     // If the Claude API is not configured, fall back to canned responses.
@@ -101,6 +106,11 @@ export async function getAliceResponse({
       && studentMessage.trim() !== '';
 
     let systemPrompt = getSystemPrompt(bookContext, studentName, level, stage, turn);
+
+    // Inject cross-book memory context if available
+    if (crossBookContext) {
+      systemPrompt += crossBookContext;
+    }
 
     if (hasStudentMessage && isShortAnswer(studentMessage, level)) {
       const followUp = getShortAnswerFollowUp(level, stage, bookContext.title);
@@ -285,11 +295,112 @@ function generateBasicGrammarFeedback(text) {
 }
 
 // ============================================================================
+// METACOGNITIVE RESPONSE GENERATOR
+// ============================================================================
+
+/**
+ * Generate HiAlice's response during the metacognitive closing stage.
+ *
+ * Called after the conclusion stage to ask the two self-reflection questions
+ * one at a time. Falls back to a canned response when the API is unavailable.
+ *
+ * @param {object} params
+ * @param {string} params.studentName          - Student's first name
+ * @param {string} params.bookTitle            - Title of the book discussed
+ * @param {string} params.level                - 'beginner' | 'intermediate' | 'advanced'
+ * @param {Array}  [params.conversationHistory=[]] - Prior dialogue rows for this closing
+ * @returns {Promise<{ content: string, isMock?: boolean }>}
+ */
+export async function getMetacognitiveResponse({ studentName, bookTitle, level, conversationHistory = [] }) {
+  if (!anthropic) {
+    return {
+      content: `${studentName}, I loved hearing your thoughts today! Before we finish — which question was the hardest for you to answer? I'm really curious!`,
+      isMock: true
+    };
+  }
+
+  try {
+    const systemPrompt = getMetacognitivePrompt(studentName, bookTitle, level);
+    const messages = formatConversationHistory(conversationHistory);
+
+    if (messages.length === 0) {
+      messages.push({
+        role: 'user',
+        content: 'We just finished the conclusion stage. Please ask the first metacognitive closing question.'
+      });
+    }
+
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 200,
+      temperature: 0.7,
+      system: systemPrompt,
+      messages
+    });
+
+    return { content: response.content[0]?.text || '' };
+  } catch (error) {
+    console.error('[Alice Engine] Metacognitive response error:', error.message);
+    return {
+      content: `Great session, ${studentName}! Which of my questions today was the trickiest for you? I'd love to know!`,
+      isMock: true
+    };
+  }
+}
+
+// ============================================================================
+// QUESTION REPHRASE GENERATOR
+// ============================================================================
+
+/**
+ * Generate a simpler version of a question when a student appears stuck.
+ * Called when the silence detection threshold is exceeded.
+ *
+ * @param {object} params
+ * @param {string} params.originalQuestion - The question to rephrase
+ * @param {string} params.studentName - Student's name
+ * @param {string} params.level - Student's level
+ * @param {string} params.bookTitle - Current book title
+ * @returns {Promise<{ content: string, isMock?: boolean }>}
+ */
+export async function rephraseQuestion({ originalQuestion, studentName, level, bookTitle }) {
+  if (!anthropic) {
+    // Mock: offer a simple choice-based alternative
+    return {
+      content: `That's a tricky one! Let me ask differently — did you think it was more EXCITING or more SURPRISING? Which one feels right to you?`,
+      isMock: true,
+    };
+  }
+
+  try {
+    const systemPrompt = getRephrasePrompt(originalQuestion, studentName, level, bookTitle);
+
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 150,
+      temperature: 0.8,
+      messages: [{ role: 'user', content: `Please rephrase this question for a stuck student: "${originalQuestion}"` }],
+      system: systemPrompt,
+    });
+
+    return { content: response.content[0]?.text?.trim() || '' };
+  } catch (error) {
+    console.error('[Alice Engine] Rephrase error:', error.message);
+    return {
+      content: `Hmm, let me think of another way to ask! Was there something in the story that made you feel HAPPY or SURPRISED?`,
+      isMock: true,
+    };
+  }
+}
+
+// ============================================================================
 // DEFAULT EXPORT
 // ============================================================================
 
 export default {
   getAliceResponse,
   generateSessionFeedback,
-  formatConversationHistory
+  formatConversationHistory,
+  getMetacognitiveResponse,
+  rephraseQuestion
 };

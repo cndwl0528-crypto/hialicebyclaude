@@ -16,7 +16,7 @@
 
 import express from 'express';
 import { supabase } from '../lib/supabase.js';
-import { generateToken, authMiddleware } from '../middleware/auth.js';
+import { generateToken, authMiddleware, COOKIE_OPTIONS, COOKIE_NAME } from '../middleware/auth.js';
 import { authRateLimiter } from '../middleware/sanitize.js';
 
 const router = express.Router();
@@ -77,6 +77,9 @@ router.post('/parent-login', authRateLimiter, async (req, res) => {
       email: parentData.email,
       type: 'parent',
     });
+
+    // Set httpOnly cookie
+    res.cookie(COOKIE_NAME, token, COOKIE_OPTIONS);
 
     return res.status(200).json({
       token,
@@ -140,6 +143,9 @@ router.post('/child-select', authMiddleware, async (req, res) => {
       type: 'student',
     });
 
+    // Set httpOnly cookie
+    res.cookie(COOKIE_NAME, token, COOKIE_OPTIONS);
+
     return res.status(200).json({
       token,
       student: {
@@ -180,6 +186,9 @@ router.post('/logout', authMiddleware, async (req, res) => {
       // Log but do not surface to client — the signOut is best-effort
       console.warn('Supabase signOut error (non-fatal):', error.message);
     }
+
+    // Clear the auth cookie
+    res.clearCookie(COOKIE_NAME, { path: '/' });
 
     return res.status(200).json({
       success: true,

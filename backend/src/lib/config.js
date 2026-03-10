@@ -97,4 +97,7 @@ export const config = {
   openai: {
     apiKey: process.env.OPENAI_API_KEY, // Whisper STT
   },
+  stripe: {
+    secretKey: process.env.STRIPE_SECRET_KEY,
+  },
 };

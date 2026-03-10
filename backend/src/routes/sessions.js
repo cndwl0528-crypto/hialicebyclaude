@@ -21,8 +21,9 @@ import { supabase } from '../lib/supabase.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { getAliceResponse, generateSessionFeedback } from '../alice/engine.js';
 import { extractVocabulary } from '../alice/vocabularyExtractor.js';
-import { calculateGrammarScore } from '../alice/levelDetector.js';
+import { calculateGrammarScore, classifyAnswerDepth, calculateThinkingMomentum } from '../alice/levelDetector.js';
 import { checkAndAwardAchievements } from '../lib/achievements.js';
+import { getCrossBookContext } from '../alice/crossBookMemory.js';
 
 const router = express.Router();
 
@@ -55,7 +56,7 @@ function optionalAuth(req, res, next) {
  * @returns {Object} stageMap e.g. { title: { grammar, fluency, vocabulary, responseCount, avgWords } }
  */
 function computeStageBreakdown(dialogues, level) {
-  const stages = ['title', 'introduction', 'body', 'conclusion'];
+  const stages = ['warm_connection', 'title', 'introduction', 'body', 'conclusion', 'cross_book'];
   const stageMap = {};
 
   stages.forEach((stage) => {
@@ -155,6 +156,68 @@ async function buildAchievementStats(studentId) {
   return { totalBooks, totalWords, streak, avgGrammar };
 }
 
+/**
+ * Asynchronously tag dialogues with Bloom's cognitive levels and calculate
+ * thinking momentum. This runs after session completion and failures are
+ * non-fatal — they do not affect the completion response.
+ *
+ * @param {string} sessionId
+ * @param {Array} studentDialogues - Student dialogue rows with .content
+ * @param {string} level - Student level
+ */
+async function tagCognitiveData(sessionId, studentDialogues, level) {
+  try {
+    // 1. Classify each student response and insert cognitive tags
+    const tagInserts = studentDialogues
+      .filter(d => d.content && d.content.trim().length > 0)
+      .map(d => {
+        const depth = classifyAnswerDepth(d.content, level);
+        // Map answer depth to Bloom's level
+        const bloomLevel = mapDepthToBloom(depth.depth);
+        return supabase.from('dialogue_cognitive_tags').insert({
+          dialogue_id: d.id,
+          bloom_level: bloomLevel,
+          evidence_text: d.content.substring(0, 200),
+          confidence: depth.score,
+          tagged_by: 'classifyAnswerDepth-v1',
+        });
+      });
+
+    await Promise.all(tagInserts);
+
+    // 2. Calculate thinking momentum
+    const depthScores = studentDialogues
+      .filter(d => d.content && d.content.trim().length > 0)
+      .map(d => d.content);
+    const momentum = calculateThinkingMomentum(depthScores);
+
+    // 3. Update session with thinking momentum
+    await supabase
+      .from('sessions')
+      .update({ thinking_momentum: momentum })
+      .eq('id', sessionId);
+
+  } catch (err) {
+    // Non-fatal: cognitive tagging failure should never block session completion
+    console.error('[Sessions] Cognitive tagging error (non-fatal):', err.message);
+  }
+}
+
+/**
+ * Map answer depth classification to Bloom's taxonomy level.
+ * @param {'surface'|'developing'|'analytical'|'deep'} depth
+ * @returns {'remember'|'understand'|'apply'|'analyze'|'evaluate'|'create'}
+ */
+function mapDepthToBloom(depth) {
+  switch (depth) {
+    case 'deep': return 'create';
+    case 'analytical': return 'analyze';
+    case 'developing': return 'understand';
+    case 'surface':
+    default: return 'remember';
+  }
+}
+
 // ============================================================================
 // POST /start
 // ============================================================================
@@ -200,7 +263,7 @@ router.post('/start', optionalAuth, async (req, res) => {
       .insert({
         student_id: studentId,
         book_id: bookId,
-        stage: 'title',
+        stage: 'warm_connection',
         started_at: new Date().toISOString(),
         is_complete: false,
       })
@@ -211,16 +274,20 @@ router.post('/start', optionalAuth, async (req, res) => {
       return res.status(500).json({ error: sessionError.message });
     }
 
+    // Fetch cross-book context for prompt enrichment
+    const { crossBookContext } = await getCrossBookContext(studentId, bookId);
+
     // Get HiAlice's opening question — pass full book object for context-aware prompt
     const aliceResponse = await getAliceResponse({
       bookTitle: book.title,
       studentName: student.name,
       level: student.level,
-      stage: 'title',
+      stage: 'warm_connection',
       turn: 1,
       studentMessage: null,
       conversationHistory: [],
       book,
+      crossBookContext,
     });
 
     const grammarScore = calculateGrammarScore('', student.level);
@@ -230,7 +297,7 @@ router.post('/start', optionalAuth, async (req, res) => {
       .from('dialogues')
       .insert({
         session_id: session.id,
-        stage: 'title',
+        stage: 'warm_connection',
         turn: 1,
         speaker: 'alice',
         content: aliceResponse.content,
@@ -336,6 +403,8 @@ router.post('/:id/message', optionalAuth, async (req, res) => {
       console.error('Student dialogue error:', studentDialogueError);
     }
 
+    const { crossBookContext } = await getCrossBookContext(session.student_id, session.book_id);
+
     // Get Alice's response — pass full book object for context-aware, emotion-eliciting prompt
     const aliceResponse = await getAliceResponse({
       bookTitle: book.title,
@@ -346,6 +415,7 @@ router.post('/:id/message', optionalAuth, async (req, res) => {
       studentMessage: content,
       conversationHistory: dialogues || [],
       book,
+      crossBookContext,
     });
 
     // Score the student's response
@@ -393,7 +463,7 @@ router.post('/:id/message', optionalAuth, async (req, res) => {
 
     // Determine whether the current stage should advance.
     // Body requires 3 student turns; all other stages advance after 2+.
-    const stages = ['title', 'introduction', 'body', 'conclusion'];
+    const stages = ['warm_connection', 'title', 'introduction', 'body', 'conclusion', 'cross_book'];
     const stageIndex = stages.indexOf(stage);
 
     let shouldAdvance = false;
@@ -495,7 +565,7 @@ router.post('/:id/complete', optionalAuth, async (req, res) => {
     const stagesWithResponses = new Set(
       studentDialogues.map((d) => d.stage)
     );
-    const levelScore = Math.round((stagesWithResponses.size / 4) * 100);
+    const levelScore = Math.round((stagesWithResponses.size / 6) * 100);
 
     // --- Per-stage score breakdown ---
     const stageBreakdown = computeStageBreakdown(allDialogues || [], studentLevel);
@@ -633,6 +703,24 @@ router.post('/:id/complete', optionalAuth, async (req, res) => {
       );
       await Promise.all(achievementNotifications);
     }
+
+    // --- Async cognitive tagging (non-blocking) ---
+    // Fire-and-forget: tag dialogues with Bloom's levels and calculate thinking momentum.
+    // We need dialogue IDs, so re-fetch with IDs included.
+    supabase
+      .from('dialogues')
+      .select('id, content, stage, speaker')
+      .eq('session_id', sessionId)
+      .eq('speaker', 'student')
+      .order('created_at', { ascending: true })
+      .then(({ data: tagDialogues }) => {
+        if (tagDialogues && tagDialogues.length > 0) {
+          tagCognitiveData(sessionId, tagDialogues, studentLevel);
+        }
+      })
+      .catch(err => {
+        console.error('[Sessions] Failed to fetch dialogues for tagging:', err.message);
+      });
 
     return res.status(200).json({
       session: {
@@ -994,4 +1082,233 @@ router.put('/:id/resume', optionalAuth, async (req, res) => {
   }
 });
 
+// ============================================================================
+// GET /student/:studentId/highlights
+// ============================================================================
+
+/**
+ * Get thinking highlights from a student's recent sessions.
+ * Returns notable quotes, deep thinking moments, and growth indicators
+ * for the parent "What my child said today" card.
+ *
+ * Returns: { highlights: [{ sessionId, bookTitle, quote, thinkingDepth, stage, createdAt }], growthSummary }
+ */
+router.get('/student/:studentId/highlights', optionalAuth, async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const { limit: rawLimit } = req.query;
+    const limit = Math.min(parseInt(rawLimit) || 5, 20);
+
+    // Fetch recent completed sessions with book titles
+    const { data: sessions, error: sessionsError } = await supabase
+      .from('sessions')
+      .select('id, book_id, completed_at, books(title)')
+      .eq('student_id', studentId)
+      .eq('is_complete', true)
+      .order('completed_at', { ascending: false })
+      .limit(limit);
+
+    if (sessionsError) {
+      return res.status(500).json({ error: sessionsError.message });
+    }
+
+    if (!sessions || sessions.length === 0) {
+      return res.status(200).json({ highlights: [], growthSummary: null });
+    }
+
+    // Fetch student dialogues from those sessions — only student turns with real content
+    const sessionIds = sessions.map(s => s.id);
+    const { data: dialogues } = await supabase
+      .from('dialogues')
+      .select('id, session_id, stage, content, created_at')
+      .in('session_id', sessionIds)
+      .eq('speaker', 'student')
+      .order('created_at', { ascending: false });
+
+    // Build a session lookup map
+    const sessionMap = {};
+    sessions.forEach(s => {
+      sessionMap[s.id] = { bookTitle: s.books?.title || 'Unknown Book', completedAt: s.completed_at };
+    });
+
+    // Score and rank dialogues by "interestingness"
+    const scored = (dialogues || [])
+      .filter(d => d.content && d.content.trim().length > 10)
+      .map(d => {
+        const content = d.content.trim();
+        const wordCount = content.split(/\s+/).length;
+        let interestScore = 0;
+
+        // Longer responses tend to be more thoughtful
+        interestScore += Math.min(wordCount / 5, 10);
+
+        // Presence of reasoning markers
+        if (/\b(because|since|so that|that's why|the reason)\b/i.test(content)) interestScore += 5;
+        if (/\b(I think|I feel|I believe|in my opinion|I wonder)\b/i.test(content)) interestScore += 4;
+        if (/\b(however|but|although|on the other hand)\b/i.test(content)) interestScore += 4;
+        if (/\b(reminds me of|similar to|just like|compared to)\b/i.test(content)) interestScore += 3;
+        if (/\b(if I were|I would|what if|imagine)\b/i.test(content)) interestScore += 3;
+
+        // Body and conclusion stages are typically deeper
+        if (d.stage === 'body' || d.stage === 'conclusion' || d.stage === 'cross_book') interestScore += 2;
+
+        return {
+          sessionId: d.session_id,
+          bookTitle: sessionMap[d.session_id]?.bookTitle || 'Unknown Book',
+          quote: content.length > 200 ? content.substring(0, 200) + '...' : content,
+          thinkingDepth: interestScore > 15 ? 'deep' : interestScore > 8 ? 'analytical' : 'developing',
+          stage: d.stage,
+          createdAt: d.created_at,
+          completedAt: sessionMap[d.session_id]?.completedAt,
+          _score: interestScore,
+        };
+      })
+      .sort((a, b) => b._score - a._score)
+      .slice(0, limit * 2); // Return top highlights
+
+    // Remove internal score from response
+    const highlights = scored.map(({ _score, ...rest }) => rest);
+
+    // Build growth summary
+    const totalSessions = sessions.length;
+    const deepThoughts = highlights.filter(h => h.thinkingDepth === 'deep').length;
+    const growthSummary = {
+      totalRecentSessions: totalSessions,
+      deepThinkingMoments: deepThoughts,
+      mostActiveStage: getMostFrequentStage(highlights),
+      encouragement: deepThoughts >= 3
+        ? 'Your child is showing amazing critical thinking!'
+        : deepThoughts >= 1
+        ? 'Your child is developing deeper thinking skills.'
+        : 'Your child is building a reading habit. Keep encouraging them!',
+    };
+
+    return res.status(200).json({ highlights, growthSummary });
+  } catch (err) {
+    console.error('Highlights error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+function getMostFrequentStage(highlights) {
+  const stageCounts = {};
+  highlights.forEach(h => {
+    stageCounts[h.stage] = (stageCounts[h.stage] || 0) + 1;
+  });
+  let maxStage = 'body';
+  let maxCount = 0;
+  Object.entries(stageCounts).forEach(([stage, count]) => {
+    if (count > maxCount) { maxStage = stage; maxCount = count; }
+  });
+  return maxStage;
+}
+
+// ============================================================================
+// POST /:id/prediction
+// ============================================================================
+
+/**
+ * Save a student prediction during a session.
+ * Body: { predictionText, predictionType, stage, confidenceBefore }
+ * Returns: { prediction }
+ */
+router.post('/:id/prediction', optionalAuth, async (req, res) => {
+  try {
+    const { id: sessionId } = req.params;
+    const { predictionText, predictionType, stage, confidenceBefore } = req.body;
+
+    if (!predictionText || !predictionType) {
+      return res.status(400).json({ error: 'predictionText and predictionType required' });
+    }
+
+    // Fetch session to get student_id and book_id
+    const { data: session, error: sessionError } = await supabase
+      .from('sessions')
+      .select('student_id, book_id')
+      .eq('id', sessionId)
+      .single();
+
+    if (sessionError) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    const { savePrediction } = await import('../alice/predictionTracker.js');
+    const { prediction, error } = await savePrediction({
+      studentId: session.student_id,
+      sessionId,
+      bookId: session.book_id,
+      predictionText,
+      predictionType,
+      stage: stage || 'body',
+      confidenceBefore,
+    });
+
+    if (error) {
+      return res.status(500).json({ error });
+    }
+
+    return res.status(201).json({ prediction });
+  } catch (err) {
+    console.error('Save prediction error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ============================================================================
+// PUT /prediction/:predictionId/verify
+// ============================================================================
+
+/**
+ * Verify a prediction.
+ * Body: { wasCorrect, verificationText, confidenceAfter }
+ * Returns: { success: true }
+ */
+router.put('/prediction/:predictionId/verify', optionalAuth, async (req, res) => {
+  try {
+    const { predictionId } = req.params;
+    const { wasCorrect, verificationText, confidenceAfter } = req.body;
+
+    if (wasCorrect === undefined) {
+      return res.status(400).json({ error: 'wasCorrect is required' });
+    }
+
+    const { verifyPrediction } = await import('../alice/predictionTracker.js');
+    const { success, error } = await verifyPrediction(
+      predictionId, wasCorrect, verificationText || '', confidenceAfter
+    );
+
+    if (!success) {
+      return res.status(500).json({ error });
+    }
+
+    return res.status(200).json({ success: true });
+  } catch (err) {
+    console.error('Verify prediction error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ============================================================================
+// GET /student/:studentId/portfolio
+// ============================================================================
+
+/**
+ * Get a student's prediction portfolio.
+ * Returns: { portfolio, recentPredictions }
+ */
+router.get('/student/:studentId/portfolio', optionalAuth, async (req, res) => {
+  try {
+    const { studentId } = req.params;
+
+    const { getPortfolio } = await import('../alice/predictionTracker.js');
+    const result = await getPortfolio(studentId);
+
+    return res.status(200).json(result);
+  } catch (err) {
+    console.error('Portfolio error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router;
+

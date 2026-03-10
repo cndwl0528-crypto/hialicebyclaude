@@ -9,11 +9,16 @@ import { pauseSession as apiPauseSession } from '@/services/api';
 import ConfettiCelebration from '@/components/ConfettiCelebration';
 import AchievementUnlock from '@/components/AchievementUnlock';
 
-const STAGES = ['Title', 'Introduction', 'Body', 'Conclusion'];
-const STAGE_EMOJIS = ['📖', '👤', '💭', '⭐'];
+const STAGES = ['Warm Connection', 'Title', 'Introduction', 'Body', 'Conclusion', 'Cross Book'];
+const STAGE_EMOJIS = ['🌟', '📖', '👤', '💭', '⭐', '🔗'];
 const MAX_TURNS_PER_STAGE = 3;
 
 const MOCK_AI_RESPONSES = {
+  'Warm Connection': [
+    "Before we dive in, tell me — what was the last really good book you read? What made it so special?",
+    "What kind of stories do you like the most — funny, scary, adventure, or something else?",
+    "When you first saw the cover of this book, what did you think it would be about?",
+  ],
   Title: [
     "What do you think the title means? Why did the author choose this title?",
     "That's interesting! Can you tell me more about why you feel that way?",
@@ -34,23 +39,32 @@ const MOCK_AI_RESPONSES = {
     "Would you recommend this book to a friend? Why or why not?",
     "If you could change one thing in the story, what would it be?",
   ],
+  'Cross Book': [
+    "Does this book remind you of any other book you have read? How are they similar?",
+    "If the main character from this book met a character from another book you love, what do you think they would talk about?",
+    "You have read so many stories now! What kind of reader do you think you are becoming?",
+  ],
 };
 
 const WORKSHEET_ROWS = [
+  { stage: 'Warm Connection', label: 'Warm Connection', color: '#FF6B6B', icon: '🌟', question: 'What kind of stories do you enjoy?', example: 'e.g. I really love adventure stories because they are so exciting.' },
   { stage: 'Title', label: 'Title', color: '#5C8B5C', icon: '📖', question: 'What is this book about?', example: 'e.g. This book is about a caterpillar that becomes a butterfly.' },
   { stage: 'Introduction', label: 'Introduction', color: '#87CEDB', icon: '👤', question: 'Who is your favorite character? Why?', example: 'e.g. I would choose the caterpillar because it is brave.' },
   { stage: 'Body', label: 'Body ①', color: '#D4A843', icon: '💭', question: 'What is the most important part of the story? Why?', example: 'e.g. The most important part is when the caterpillar eats all the food.', bodyIndex: 0 },
   { stage: 'Body', label: 'Body ②', color: '#D4A843', icon: '💭', question: 'What would you change about the story? Why?', example: 'e.g. I would add more animals because it would be more fun.', bodyIndex: 1 },
   { stage: 'Body', label: 'Body ③', color: '#D4A843', icon: '💭', question: 'What did you learn from this story?', example: 'e.g. Moreover, I learned that change can be beautiful.', bodyIndex: 2 },
   { stage: 'Conclusion', label: 'Conclusion', color: '#7AC87A', icon: '⭐', question: 'How do you feel about this book?', example: 'e.g. Reading this book was really fun and I learned a lot.' },
+  { stage: 'Cross Book', label: 'Cross Book', color: '#9B59B6', icon: '🔗', question: 'Does this book remind you of another book?', example: 'e.g. This book reminds me of Charlotte\'s Web because both have animal friends.' },
 ];
 
 function getWorksheetRowIndex(stageIndex, bodyReasonCount) {
   const stage = STAGES[stageIndex];
-  if (stage === 'Title') return 0;
-  if (stage === 'Introduction') return 1;
-  if (stage === 'Body') return 2 + Math.min(bodyReasonCount, 2);
-  if (stage === 'Conclusion') return 5;
+  if (stage === 'Warm Connection') return 0;
+  if (stage === 'Title') return 1;
+  if (stage === 'Introduction') return 2;
+  if (stage === 'Body') return 3 + Math.min(bodyReasonCount, 2);
+  if (stage === 'Conclusion') return 6;
+  if (stage === 'Cross Book') return 7;
   return 0;
 }
 
@@ -195,6 +209,18 @@ export default function SessionPage() {
 
   const initializeSession = async () => {
     console.log('[HiAlice] initializeSession called, bookId:', bookId, 'bookTitle:', bookTitle);
+
+    // Read student info directly from sessionStorage so we don't rely on
+    // React state that may still be null if both mount effects haven't flushed.
+    const resolvedStudentId =
+      studentId ?? (typeof window !== 'undefined' ? sessionStorage.getItem('studentId') : null);
+
+    // Also fall back to sessionStorage for bookId/bookTitle in case URL params are absent.
+    const resolvedBookId =
+      bookId ?? (typeof window !== 'undefined' ? sessionStorage.getItem('bookId') : null);
+    const resolvedBookTitle =
+      bookTitle || (typeof window !== 'undefined' ? sessionStorage.getItem('bookTitle') : '') || 'the book';
+
     try {
       setSessionStartTime(new Date());
       const apiUrl = getApiUrl();
@@ -203,7 +229,11 @@ export default function SessionPage() {
         const response = await fetch(`${apiUrl}/api/sessions/start`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ studentId, bookId, bookTitle }),
+          body: JSON.stringify({
+            studentId: resolvedStudentId,
+            bookId: resolvedBookId,
+            bookTitle: resolvedBookTitle,
+          }),
         });
 
         if (response.ok) {
@@ -211,35 +241,41 @@ export default function SessionPage() {
           setSessionId(data.session?.id || data.sessionId || data.id);
           setApiAvailable(true);
         } else {
+          // Non-2xx response — fall back to demo mode with a local mock sessionId.
+          console.warn('API returned non-OK status, using mock session:', response.status);
           setApiAvailable(false);
+          setSessionId('demo-session-' + Date.now());
         }
-      } catch (error) {
-        console.warn('API unavailable, using mock responses:', error);
+      } catch (fetchError) {
+        // Network / CORS error — API is unreachable, use demo mode.
+        console.warn('API unavailable, using mock responses:', fetchError);
         setApiAvailable(false);
+        setSessionId('demo-session-' + Date.now());
       }
 
       const initialMessage = {
         id: 0,
         speaker: 'alice',
-        content: `Hello! I'm so excited to talk about "${bookTitle}"! Let's start with the title. What do you think the title means?`,
+        content: `Hello! I'm so excited to talk about "${resolvedBookTitle}"! Before we dive in, tell me — what was the last really good book you read? What made it special?`,
         timestamp: new Date(),
-        stage: 'Title',
+        stage: 'Warm Connection',
       };
       setMessages([initialMessage]);
       speak(
-        `Hello! I'm so excited to talk about ${bookTitle}! Let's start with the title. What do you think the title means?`
+        `Hello! I'm so excited to talk about ${resolvedBookTitle}! Before we dive in, tell me — what was the last really good book you read? What made it special?`
       );
       setShowSkipButton(true);
     } catch (error) {
       console.error('Error initializing session:', error);
       setApiAvailable(false);
+      setSessionId('demo-session-' + Date.now());
       setError("Oops! Something went a little wrong. I'll use my notes instead!");
       const fallbackMessage = {
         id: 0,
         speaker: 'alice',
-        content: `Hello! I'm so excited to talk about "${bookTitle}"! Let's start with the title. What do you think the title means?`,
+        content: `Hello! I'm so excited to talk about "${resolvedBookTitle}"! Before we dive in, tell me — what was the last really good book you read? What made it special?`,
         timestamp: new Date(),
-        stage: 'Title',
+        stage: 'Warm Connection',
       };
       setMessages([fallbackMessage]);
     }
@@ -297,16 +333,21 @@ export default function SessionPage() {
 
       await new Promise((resolve) => setTimeout(resolve, 800));
       const stageIndex = currentStage;
-      const stageQuestions = MOCK_AI_RESPONSES[STAGES[stageIndex]];
-      const nextTurnIndex = currentTurn + 1;
+      const stageName = STAGES[stageIndex];
+      const stageQuestions = MOCK_AI_RESPONSES[stageName];
+
+      // Index into the mock responses: question[0] is shown either by the
+      // hardcoded greeting (Warm Connection) or by the stage-transition handler
+      // (all other stages), so we respond with question[currentTurn + 1].
+      const mockIndex = currentTurn + 1;
       const nextQuestion =
-        nextTurnIndex < stageQuestions.length
-          ? stageQuestions[nextTurnIndex]
+        mockIndex < stageQuestions.length
+          ? stageQuestions[mockIndex]
           : "That was wonderful! Let's move to the next topic.";
 
       let reasonCount = bodyReasonCount;
-      if (STAGES[stageIndex] === 'Body') {
-        reasonCount = nextTurnIndex;
+      if (stageName === 'Body') {
+        reasonCount = currentTurn + 1;
       }
 
       await processMockResponse(nextQuestion, reasonCount);
@@ -402,15 +443,41 @@ export default function SessionPage() {
       setShowStageTransition(false);
 
       const transitionMessage = {
-        id: messages.length + 2,
+        id: Date.now(),
         speaker: 'alice',
         content: `Great! Now let's move to the ${stageName} section. I have some new questions for you.`,
         timestamp: new Date(),
         isTransition: true,
         stage: stageName,
       };
-      setMessages((prev) => [...prev, transitionMessage]);
+
+      // In mock mode (or as a fallback), immediately follow the transition
+      // message with the first question of the new stage so the student always
+      // sees an opening question and the mock index stays in sync (currentTurn=0
+      // → respond with stageQuestions[0] on the first student message).
+      const firstQuestion = MOCK_AI_RESPONSES[stageName]?.[0];
+      const firstQuestionMessage = firstQuestion
+        ? {
+            id: Date.now() + 1,
+            speaker: 'alice',
+            content: firstQuestion,
+            timestamp: new Date(),
+            stage: stageName,
+          }
+        : null;
+
+      setMessages((prev) => {
+        const updated = [...prev, transitionMessage];
+        if (firstQuestionMessage) updated.push(firstQuestionMessage);
+        return updated;
+      });
+
+      // Speak the transition message immediately; speak the first question
+      // after a short delay so the two TTS utterances don't overlap.
       speak(`Great! Now let's move to the ${stageName} section. I have some new questions for you.`);
+      if (firstQuestion) {
+        setTimeout(() => speak(firstQuestion), 2000);
+      }
     }, 1500);
   };
 
@@ -450,28 +517,6 @@ export default function SessionPage() {
       } catch (error) {
         console.warn('Error completing session on backend:', error);
       }
-    }
-
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem(
-        'lastSessionData',
-        JSON.stringify({
-          sessionId,
-          bookId,
-          bookTitle,
-          studentId,
-          studentName,
-          messages: messages.filter((m) => m.speaker !== undefined),
-          vocabulary: sessionVocabulary,
-          stageScores,
-          duration,
-          completedAt: new Date().toISOString(),
-          studentMessageCount: messages.filter((m) => m.speaker === 'student').length,
-          totalTurns: messages.length,
-          worksheetAnswers,
-          ai_feedback: capturedAiFeedback,
-        })
-      );
     }
 
     // Show AI feedback card before transitioning to the completion screen
@@ -576,6 +621,7 @@ export default function SessionPage() {
             onClick={() => {
               setShowAiFeedbackCard(false);
               setSessionComplete(true);
+              setShowConfetti(true);
             }}
             className="w-full py-3 px-6 bg-[#5C8B5C] text-white rounded-2xl hover:bg-[#3D6B3D] transition-colors font-bold hover:-translate-y-0.5 shadow-[0_4px_12px_rgba(92,139,92,0.3)]"
           >
@@ -598,7 +644,7 @@ export default function SessionPage() {
             <span className="font-bold text-[#3D6B3D]">&quot;{bookTitle}&quot;</span>. Let&apos;s review what you learned!
           </p>
           <button
-            onClick={() => router.push('/review')}
+            onClick={() => router.push(sessionId ? `/review?sessionId=${sessionId}` : '/review')}
             className="w-full py-3 px-6 bg-[#5C8B5C] text-white rounded-2xl hover:bg-[#3D6B3D] transition-colors font-bold hover:-translate-y-0.5 shadow-[0_4px_12px_rgba(92,139,92,0.3)]"
           >
             View Word Review

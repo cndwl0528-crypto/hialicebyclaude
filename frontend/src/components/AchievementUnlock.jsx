@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 /**
  * Static achievement catalogue.
@@ -52,6 +52,7 @@ function resolveAchievement(achievement) {
 export default function AchievementUnlock({ achievements = [], onClose }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [visible, setVisible] = useState(false);
+  const buttonRef = useRef(null);
 
   // Open the modal whenever a non-empty list is received
   useEffect(() => {
@@ -60,6 +61,16 @@ export default function AchievementUnlock({ achievements = [], onClose }) {
       setVisible(true);
     }
   }, [achievements]);
+
+  // Focus the action button when modal opens and handle Escape
+  useEffect(() => {
+    if (visible) {
+      buttonRef.current?.focus();
+      const handleEscape = (e) => { if (e.key === 'Escape') { setVisible(false); onClose?.(); } };
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [visible, onClose]);
 
   const handleAdvance = () => {
     if (currentIndex < achievements.length - 1) {
@@ -100,12 +111,17 @@ export default function AchievementUnlock({ achievements = [], onClose }) {
           animation: achievement-pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
         }
         .shine-text {
-          background: linear-gradient(90deg, #F59E0B, #FCD34D, #F59E0B, #FCD34D);
+          background: linear-gradient(90deg, #B45309, #D97706, #B45309, #D97706);
           background-size: 200% auto;
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           background-clip: text;
           animation: shine 2s linear infinite;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .achievement-card { animation: none; }
+          .shine-text { animation: none; }
+          .animate-bounce { animation: none; }
         }
       `}</style>
 
@@ -159,6 +175,7 @@ export default function AchievementUnlock({ achievements = [], onClose }) {
 
         {/* Action button */}
         <button
+          ref={buttonRef}
           onClick={handleAdvance}
           className="mt-2 w-full bg-[#4A7C59] text-white rounded-2xl py-3 font-bold text-sm hover:bg-[#3D6B4F] active:scale-95 transition-all min-h-[48px]"
           aria-label={isLast ? 'Close achievements' : 'View next achievement'}

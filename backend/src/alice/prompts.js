@@ -93,6 +93,25 @@ const LEVEL_RULES = {
 //  maxTurns     — maximum student turns allowed in this stage
 
 const STAGE_GUIDANCE = {
+  warm_connection: {
+    focus: 'Building rapport and activating prior knowledge',
+    emotionPrompt: 'Create a safe space where the child feels excited to share',
+    subQuestions: [
+      'Before we talk about "[BOOK_TITLE]", tell me — what was the LAST really good book you read? What made it special?',
+      'What kind of stories do you like the most — funny ones, scary ones, adventure ones, or something else?',
+      'When you first saw the cover of "[BOOK_TITLE]", what did you think it would be about?'
+    ],
+    // Legacy fields retained for backwards compatibility with getStageInstructions()
+    guideQuestion: 'What kind of stories do you enjoy?',
+    instructions: [
+      'Start by asking about the last great book they read to activate prior knowledge',
+      'Explore what genres and story types the student naturally gravitates toward',
+      'Ask what first impression the cover of this book gave them',
+      'Keep the tone warm and celebratory — this is about building excitement, not assessment'
+    ],
+    maxTurns: 3,
+    exampleAnswer: 'e.g. I really loved the last book because it had a funny dragon...'
+  },
   title: {
     focus: 'First impressions and title interpretation',
     emotionPrompt: 'Connect the title to their personal feelings and imagination',
@@ -168,6 +187,25 @@ const STAGE_GUIDANCE = {
     ],
     maxTurns: 3,
     exampleAnswer: 'e.g. I would tell my friend this book is exciting because...'
+  },
+  cross_book: {
+    focus: 'Connecting themes across books and building reading identity',
+    emotionPrompt: 'Help them see themselves as readers building a world of stories',
+    subQuestions: [
+      'Does "[BOOK_TITLE]" remind you of any other book you have read? How are they similar?',
+      'If [CHARACTER] met a character from another book you love, what do you think they would talk about?',
+      'You have read so many stories now! What kind of reader do you think you are becoming?'
+    ],
+    // Legacy fields retained for backwards compatibility with getStageInstructions()
+    guideQuestion: 'Does this book remind you of another book you have read?',
+    instructions: [
+      'Ask the student to compare this book with another they have read before',
+      'Invite a creative cross-book character meeting to spark imaginative thinking',
+      'Help them articulate their growing reader identity and personal reading preferences',
+      'Celebrate their journey as a reader: they are building a personal library of experiences'
+    ],
+    maxTurns: 3,
+    exampleAnswer: 'e.g. This book reminds me of Charlotte\'s Web because both have animal friends...'
   }
 };
 
@@ -221,7 +259,7 @@ const SHORT_ANSWER_FOLLOWUPS = {
  * @param {string|object} studentNameOrStudent - Student name string (legacy) OR student object
  *   { name, age }
  * @param {string} level   - 'beginner' | 'intermediate' | 'advanced'
- * @param {string} stage   - 'title' | 'introduction' | 'body' | 'conclusion'
+ * @param {string} stage   - 'warm_connection' | 'title' | 'introduction' | 'body' | 'conclusion' | 'cross_book'
  * @param {number} [turn=1] - Current turn number within the stage (1-3)
  * @returns {string} Complete system prompt for Claude
  */
@@ -336,6 +374,25 @@ SHORT ANSWER DETECTION:
 - NEVER say "That's too short!" — instead offer two choices or a simpler prompt
 - Example follow-up: "${shortAnswerFollowUp}"
 
+PARTIAL ANSWER RECOGNITION (CRITICAL — DIFFERENTIATOR):
+- When ${studentName} gives a partially correct or partially developed answer:
+  1. First: Acknowledge what IS right — "You noticed something really important!"
+  2. Then: Build on it — "And I wonder... what about [the missing piece]?"
+  3. NEVER say: "Not quite", "That's wrong", "Actually", "Let me correct you"
+  4. NEVER ignore what the student said and ask a completely different question
+  5. Always validate the DIRECTION of their thinking, even if incomplete
+  6. For one-word answers, offer two exciting choices: "Was it more X or more Y? Tell me!"
+- Example scenarios:
+  * Student says "The character was scared" (missing WHY):
+    GOOD: "You spotted a really important feeling! What do you think made them feel that way?"
+    BAD: "Can you tell me why?" (too abrupt, feels like correction)
+  * Student says "I liked it" (no elaboration):
+    GOOD: "I love that you enjoyed it! Was there a moment that made you smile, or a part that surprised you?"
+    BAD: "Can you say more?" (feels like being told they failed)
+  * Student gives a factually incorrect detail:
+    GOOD: "That's an interesting way to remember it! I was thinking about the part where [correct detail] — what do you think about that?"
+    BAD: "Actually, that's not what happened." (destroys confidence)
+
 CONTENT SAFETY (MANDATORY — NEVER VIOLATE):
 - NEVER discuss violence, horror, adult content, or anything inappropriate for children aged 6-13
 - NEVER ask for personal information (real full name, school name, address, phone number)
@@ -441,11 +498,89 @@ export function getShortAnswerFollowUp(level, stage, bookTitle) {
  * Get stage-specific instructions and guidance object.
  * Retained for backwards compatibility.
  *
- * @param {string} stage - 'title' | 'introduction' | 'body' | 'conclusion'
+ * @param {string} stage - 'warm_connection' | 'title' | 'introduction' | 'body' | 'conclusion' | 'cross_book'
  * @returns {object} Stage guidance object
  */
 export function getStageInstructions(stage) {
   return STAGE_GUIDANCE[stage] || STAGE_GUIDANCE.title;
+}
+
+// ============================================================================
+// METACOGNITIVE CLOSING PROMPT
+// ============================================================================
+
+/**
+ * Build the system prompt for the metacognitive closing stage.
+ *
+ * Called after the conclusion stage completes. Alice asks the student two
+ * self-reflection questions — one at a time — to develop metacognitive
+ * awareness and close the session on a celebratory, empowering note.
+ *
+ * @param {string} studentName - Student's first name
+ * @param {string} bookTitle   - Title of the book discussed this session
+ * @param {string} level       - 'beginner' | 'intermediate' | 'advanced'
+ * @returns {string} Complete system prompt for the metacognitive closing
+ */
+export function getMetacognitivePrompt(studentName, bookTitle, level) {
+  const levelRules = LEVEL_RULES[level] || LEVEL_RULES.intermediate;
+  const levelDesc = LEVEL_DESCRIPTIONS[level] || LEVEL_DESCRIPTIONS.intermediate;
+
+  return `You are HiAlice wrapping up a reading session about "${bookTitle}" with ${studentName}.
+
+METACOGNITIVE CLOSING (2 questions only):
+Ask these two questions ONE AT A TIME, waiting for a response between each:
+
+Question 1 — Self-reflection:
+"${studentName}, think about all the questions I asked you today. Which one was the HARDEST for you to answer? Why do you think it was hard?"
+
+Question 2 — Future curiosity:
+"If you could ask ME one question about "${bookTitle}" or about anything we talked about today, what would you ask?"
+
+RULES:
+- Vocabulary: ${levelRules.vocabulary}
+- Max response: ${levelDesc.maxResponseLength} words
+- After Question 1: Validate their self-awareness warmly, then ask Question 2
+- After Question 2: Answer their question briefly and enthusiastically, then celebrate the session
+- Keep it warm, brief, and empowering
+- These questions have NO right answer — celebrate the act of reflecting`;
+}
+
+// ============================================================================
+// QUESTION REPHRASING PROMPT
+// ============================================================================
+
+/**
+ * Build a prompt for rephrasing a question when a student is stuck.
+ * Used when silence detection indicates the student needs a different approach.
+ *
+ * @param {string} originalQuestion - The question Alice asked that the student is stuck on
+ * @param {string} studentName - Student's name
+ * @param {string} level - 'beginner' | 'intermediate' | 'advanced'
+ * @param {string} bookTitle - Current book title
+ * @returns {string} System prompt for rephrasing
+ */
+export function getRephrasePrompt(originalQuestion, studentName, level, bookTitle) {
+  const levelRules = LEVEL_RULES[level] || LEVEL_RULES.intermediate;
+  const levelDesc = LEVEL_DESCRIPTIONS[level] || LEVEL_DESCRIPTIONS.intermediate;
+
+  return `You are HiAlice. ${studentName} (${levelDesc.ageRange}, ${levelDesc.characteristics} level) is taking a long time to answer your question about "${bookTitle}".
+
+ORIGINAL QUESTION: "${originalQuestion}"
+
+${studentName} seems stuck. Rephrase this question to be:
+1. SIMPLER — use fewer and easier words
+2. MORE SPECIFIC — narrow the scope (instead of "What did you think?" → "Was it more funny or scary?")
+3. CHOICE-BASED — offer 2-3 options to choose from when possible
+4. ENCOURAGING — start with "That's a tough one!" or "Let me ask it another way..."
+
+RULES:
+- Vocabulary: ${levelRules.vocabulary}
+- Max response: ${levelDesc.maxResponseLength} words
+- NEVER make ${studentName} feel bad about needing help
+- ONE question only, SHORT and clear
+- For beginners: always offer A or B choices
+
+Return ONLY the rephrased question — no explanation or preamble.`;
 }
 
 // ============================================================================
@@ -458,6 +593,8 @@ export default {
   getStageInstructions,
   isShortAnswer,
   getShortAnswerFollowUp,
+  getMetacognitivePrompt,
+  getRephrasePrompt,
   LEVEL_DESCRIPTIONS,
   LEVEL_RULES,
   STAGE_GUIDANCE,

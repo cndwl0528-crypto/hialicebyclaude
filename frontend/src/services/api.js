@@ -22,6 +22,7 @@ async function apiFetch(endpoint, options = {}) {
   try {
     const response = await fetch(url, {
       ...options,
+      credentials: 'include',
       signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
@@ -716,6 +717,144 @@ export async function getStudentAnalytics(studentId) {
   }
 }
 
+// ==================== Sprint 2-3 Features ====================
+
+/**
+ * Get student thinking highlights for parent dashboard
+ * GET /sessions/student/:studentId/highlights
+ */
+export async function getStudentHighlights(studentId, limit = 5) {
+  try {
+    const response = await apiFetch(`/sessions/student/${studentId}/highlights?limit=${limit}`);
+    return response;
+  } catch (error) {
+    console.error('Get student highlights failed:', error);
+    if (process.env.NODE_ENV === 'development') {
+      return { highlights: [], growthSummary: null };
+    }
+    throw error;
+  }
+}
+
+/**
+ * Save a student prediction during a session
+ * POST /sessions/:sessionId/prediction
+ */
+export async function savePrediction(sessionId, predictionText, predictionType, stage, confidenceBefore) {
+  try {
+    const response = await apiFetch(`/sessions/${sessionId}/prediction`, {
+      method: 'POST',
+      body: JSON.stringify({ predictionText, predictionType, stage, confidenceBefore }),
+    });
+    return response;
+  } catch (error) {
+    console.error('Save prediction failed:', error);
+    return { prediction: null, error: error.message };
+  }
+}
+
+/**
+ * Verify a prediction
+ * PUT /sessions/prediction/:predictionId/verify
+ */
+export async function verifyPrediction(predictionId, wasCorrect, verificationText, confidenceAfter) {
+  try {
+    const response = await apiFetch(`/sessions/prediction/${predictionId}/verify`, {
+      method: 'PUT',
+      body: JSON.stringify({ wasCorrect, verificationText, confidenceAfter }),
+    });
+    return response;
+  } catch (error) {
+    console.error('Verify prediction failed:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Get student prediction portfolio
+ * GET /sessions/student/:studentId/portfolio
+ */
+export async function getPredictionPortfolio(studentId) {
+  try {
+    const response = await apiFetch(`/sessions/student/${studentId}/portfolio`);
+    return response;
+  } catch (error) {
+    console.error('Get prediction portfolio failed:', error);
+    if (process.env.NODE_ENV === 'development') {
+      return { portfolio: { total_predictions: 0 }, recentPredictions: [] };
+    }
+    throw error;
+  }
+}
+
+/**
+ * Create COPPA VPC payment intent
+ * POST /coppa/verify-intent
+ */
+export async function createCoppaIntent(parentEmail, parentName) {
+  try {
+    const response = await apiFetch('/coppa/verify-intent', {
+      method: 'POST',
+      body: JSON.stringify({ parentEmail, parentName }),
+    });
+    return response;
+  } catch (error) {
+    console.error('COPPA intent creation failed:', error);
+    throw error;
+  }
+}
+
+/**
+ * Confirm COPPA VPC verification
+ * POST /coppa/verify-confirm
+ */
+export async function confirmCoppaVerification(paymentIntentId, parentEmail, parentName) {
+  try {
+    const response = await apiFetch('/coppa/verify-confirm', {
+      method: 'POST',
+      body: JSON.stringify({ paymentIntentId, parentEmail, parentName }),
+    });
+    return response;
+  } catch (error) {
+    console.error('COPPA verification failed:', error);
+    throw error;
+  }
+}
+
+/**
+ * Check COPPA VPC status
+ * GET /coppa/status/:email
+ */
+export async function getCoppaStatus(email) {
+  try {
+    const response = await apiFetch(`/coppa/status/${encodeURIComponent(email)}`);
+    return response;
+  } catch (error) {
+    console.error('COPPA status check failed:', error);
+    return { verified: false };
+  }
+}
+
+/**
+ * Request question rephrase when student is stuck
+ * POST /sessions/:sessionId/rephrase
+ */
+export async function requestRephrase(sessionId, originalQuestion, stage) {
+  try {
+    const response = await apiFetch(`/sessions/${sessionId}/rephrase`, {
+      method: 'POST',
+      body: JSON.stringify({ originalQuestion, stage }),
+    });
+    return response;
+  } catch (error) {
+    console.error('Rephrase request failed:', error);
+    return {
+      content: "Let me ask that in a simpler way! Was it more EXCITING or more SURPRISING?",
+      isMock: true,
+    };
+  }
+}
+
 export default {
   parentLogin,
   childSelect,
@@ -740,4 +879,12 @@ export default {
   logout,
   getNotifications,
   getStudentAnalytics,
+  getStudentHighlights,
+  savePrediction,
+  verifyPrediction,
+  getPredictionPortfolio,
+  createCoppaIntent,
+  confirmCoppaVerification,
+  getCoppaStatus,
+  requestRephrase,
 };

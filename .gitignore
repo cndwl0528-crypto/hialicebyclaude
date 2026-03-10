@@ -38,6 +38,18 @@ yarn.lock
 .vscode/
 .idea/
 
+# Claude Code worktrees & agent memory (runtime artifacts)
+.claude/worktrees/
+.claude/agent-memory/
+
+# Dart/Flutter tool cache
+.dart_tool/
+
+# Personal reference files
+*.jpeg
+*.jpg
+*.png
+
 # Auto-generated docs (not project deliverables)
 00_START_HERE.md
 CODE_SNIPPETS_REFERENCE.md

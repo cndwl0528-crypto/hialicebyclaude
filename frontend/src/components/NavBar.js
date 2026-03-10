@@ -31,8 +31,12 @@ export default function NavBar() {
 
   return (
     <>
+      {/* Skip to main content */}
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-white focus:px-4 focus:py-2 focus:text-blue-700 focus:underline">
+        Skip to main content
+      </a>
       {/* Top Navigation */}
-      <nav className="bg-[#D6C9A8] shadow-[0_2px_12px_rgba(61,46,30,0.10)] px-4 sm:px-6 py-3 flex items-center justify-between overflow-x-auto ghibli-bg sticky top-0 z-40">
+      <nav aria-label="Main navigation" className="bg-[#D6C9A8] shadow-[0_2px_12px_rgba(61,46,30,0.10)] px-4 sm:px-6 py-3 flex items-center justify-between overflow-x-auto ghibli-bg sticky top-0 z-40">
         <div className="flex items-center gap-4">
           <Link
             href="/"
@@ -61,12 +65,13 @@ export default function NavBar() {
       </nav>
 
       {/* Mobile Bottom Navigation */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-[#D6C9A8] border-t border-[#C4B49A] flex gap-1 px-2 py-2 z-40 shadow-[0_-4px_20px_rgba(61,46,30,0.10)]">
+      <nav aria-label="Mobile navigation" className="md:hidden fixed bottom-0 left-0 right-0 bg-[#D6C9A8] border-t border-[#C4B49A] flex gap-1 px-2 py-2 z-40 shadow-[0_-4px_20px_rgba(61,46,30,0.10)]">
         {navLinks.map((link) => (
           <Link
             key={link.href}
             href={link.href}
-            className={`flex-1 px-2 py-2 text-center text-xs rounded-xl font-bold transition-all ${
+            aria-label={link.label}
+            className={`flex-1 px-2 py-3 text-center text-xs rounded-xl font-bold transition-all min-h-[48px] ${
               pathname === link.href
                 ? 'bg-[#5C8B5C] text-white shadow-[0_2px_8px_rgba(92,139,92,0.4)]'
                 : 'text-[#3D2E1E] hover:bg-[#C8DBC8]'
@@ -76,7 +81,7 @@ export default function NavBar() {
             {link.label}
           </Link>
         ))}
-      </div>
+      </nav>
     </>
   );
 }
