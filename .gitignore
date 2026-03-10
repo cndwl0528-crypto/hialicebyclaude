@@ -30,8 +30,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Lock files (optional)
-package-lock.json
+# Lock files
 yarn.lock
 
 # IDE
