@@ -93,7 +93,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build backend Docker image
-        run: docker build -t hialice-backend:test ./backend
+        run: docker build -t hialice-backend:test .
 
       - name: Verify image
         run: docker images hialice-backend:test
