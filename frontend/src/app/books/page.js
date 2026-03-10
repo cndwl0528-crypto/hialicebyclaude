@@ -98,6 +98,21 @@ const MOCK_BOOKS = [
   },
 ];
 
+const CEFR_TO_DISPLAY = {
+  A1: 'Beginner',
+  A2: 'Beginner',
+  B1: 'Intermediate',
+  B2: 'Intermediate',
+  C1: 'Advanced',
+  C2: 'Advanced',
+};
+
+function getDisplayLevel(level) {
+  if (!level) return 'Beginner';
+  if (CEFR_TO_DISPLAY[level]) return CEFR_TO_DISPLAY[level];
+  return level; // already Beginner/Intermediate/Advanced
+}
+
 const LEVELS = ['All', 'Beginner', 'Intermediate', 'Advanced'];
 
 const LEVEL_FILTER_STYLES = {
@@ -111,6 +126,12 @@ const LEVEL_BADGE_STYLES = {
   Beginner: 'bg-[#C8E6C9] text-[#2E7D32]',
   Intermediate: 'bg-[#FFE0B2] text-[#E65100]',
   Advanced: 'bg-[#E1BEE7] text-[#6A1B9A]',
+  A1: 'bg-[#C8E6C9] text-[#2E7D32]',
+  A2: 'bg-[#C8E6C9] text-[#2E7D32]',
+  B1: 'bg-[#FFE0B2] text-[#E65100]',
+  B2: 'bg-[#FFE0B2] text-[#E65100]',
+  C1: 'bg-[#E1BEE7] text-[#6A1B9A]',
+  C2: 'bg-[#E1BEE7] text-[#6A1B9A]',
 };
 
 export default function BooksPage() {
@@ -165,7 +186,7 @@ export default function BooksPage() {
 
   const filteredBooks = useMemo(() => {
     let filtered = books;
-    if (selectedLevel !== 'All') filtered = filtered.filter((b) => b.level === selectedLevel);
+    if (selectedLevel !== 'All') filtered = filtered.filter((b) => getDisplayLevel(b.level) === selectedLevel);
     if (searchTerm.trim()) {
       const lower = searchTerm.toLowerCase();
       filtered = filtered.filter((b) =>
@@ -241,7 +262,7 @@ export default function BooksPage() {
               >
                 {/* Book Cover Thumbnail */}
                 <div className="bg-gradient-to-br from-[#A8DAEA] to-[#C8E6C9] py-6 flex items-center justify-center">
-                  <span className="text-6xl">{book.cover}</span>
+                  <span className="text-6xl">{book.cover || '📖'}</span>
                 </div>
 
                 <div className="p-5">

@@ -209,6 +209,18 @@ export default function SessionPage() {
 
   const initializeSession = async () => {
     console.log('[HiAlice] initializeSession called, bookId:', bookId, 'bookTitle:', bookTitle);
+
+    // Read student info directly from sessionStorage so we don't rely on
+    // React state that may still be null if both mount effects haven't flushed.
+    const resolvedStudentId =
+      studentId ?? (typeof window !== 'undefined' ? sessionStorage.getItem('studentId') : null);
+
+    // Also fall back to sessionStorage for bookId/bookTitle in case URL params are absent.
+    const resolvedBookId =
+      bookId ?? (typeof window !== 'undefined' ? sessionStorage.getItem('bookId') : null);
+    const resolvedBookTitle =
+      bookTitle || (typeof window !== 'undefined' ? sessionStorage.getItem('bookTitle') : '') || 'the book';
+
     try {
       setSessionStartTime(new Date());
       const apiUrl = getApiUrl();
@@ -217,7 +229,11 @@ export default function SessionPage() {
         const response = await fetch(`${apiUrl}/api/sessions/start`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ studentId, bookId, bookTitle }),
+          body: JSON.stringify({
+            studentId: resolvedStudentId,
+            bookId: resolvedBookId,
+            bookTitle: resolvedBookTitle,
+          }),
         });
 
         if (response.ok) {
@@ -225,33 +241,39 @@ export default function SessionPage() {
           setSessionId(data.session?.id || data.sessionId || data.id);
           setApiAvailable(true);
         } else {
+          // Non-2xx response — fall back to demo mode with a local mock sessionId.
+          console.warn('API returned non-OK status, using mock session:', response.status);
           setApiAvailable(false);
+          setSessionId('demo-session-' + Date.now());
         }
-      } catch (error) {
-        console.warn('API unavailable, using mock responses:', error);
+      } catch (fetchError) {
+        // Network / CORS error — API is unreachable, use demo mode.
+        console.warn('API unavailable, using mock responses:', fetchError);
         setApiAvailable(false);
+        setSessionId('demo-session-' + Date.now());
       }
 
       const initialMessage = {
         id: 0,
         speaker: 'alice',
-        content: `Hello! I'm so excited to talk about "${bookTitle}"! Before we dive in, tell me — what was the last really good book you read? What made it special?`,
+        content: `Hello! I'm so excited to talk about "${resolvedBookTitle}"! Before we dive in, tell me — what was the last really good book you read? What made it special?`,
         timestamp: new Date(),
         stage: 'Warm Connection',
       };
       setMessages([initialMessage]);
       speak(
-        `Hello! I'm so excited to talk about ${bookTitle}! Before we dive in, tell me — what was the last really good book you read? What made it special?`
+        `Hello! I'm so excited to talk about ${resolvedBookTitle}! Before we dive in, tell me — what was the last really good book you read? What made it special?`
       );
       setShowSkipButton(true);
     } catch (error) {
       console.error('Error initializing session:', error);
       setApiAvailable(false);
+      setSessionId('demo-session-' + Date.now());
       setError("Oops! Something went a little wrong. I'll use my notes instead!");
       const fallbackMessage = {
         id: 0,
         speaker: 'alice',
-        content: `Hello! I'm so excited to talk about "${bookTitle}"! Before we dive in, tell me — what was the last really good book you read? What made it special?`,
+        content: `Hello! I'm so excited to talk about "${resolvedBookTitle}"! Before we dive in, tell me — what was the last really good book you read? What made it special?`,
         timestamp: new Date(),
         stage: 'Warm Connection',
       };
@@ -311,16 +333,21 @@ export default function SessionPage() {
 
       await new Promise((resolve) => setTimeout(resolve, 800));
       const stageIndex = currentStage;
-      const stageQuestions = MOCK_AI_RESPONSES[STAGES[stageIndex]];
-      const nextTurnIndex = currentTurn + 1;
+      const stageName = STAGES[stageIndex];
+      const stageQuestions = MOCK_AI_RESPONSES[stageName];
+
+      // Index into the mock responses: question[0] is shown either by the
+      // hardcoded greeting (Warm Connection) or by the stage-transition handler
+      // (all other stages), so we respond with question[currentTurn + 1].
+      const mockIndex = currentTurn + 1;
       const nextQuestion =
-        nextTurnIndex < stageQuestions.length
-          ? stageQuestions[nextTurnIndex]
+        mockIndex < stageQuestions.length
+          ? stageQuestions[mockIndex]
           : "That was wonderful! Let's move to the next topic.";
 
       let reasonCount = bodyReasonCount;
-      if (STAGES[stageIndex] === 'Body') {
-        reasonCount = nextTurnIndex;
+      if (stageName === 'Body') {
+        reasonCount = currentTurn + 1;
       }
 
       await processMockResponse(nextQuestion, reasonCount);
@@ -416,15 +443,41 @@ export default function SessionPage() {
       setShowStageTransition(false);
 
       const transitionMessage = {
-        id: messages.length + 2,
+        id: Date.now(),
         speaker: 'alice',
         content: `Great! Now let's move to the ${stageName} section. I have some new questions for you.`,
         timestamp: new Date(),
         isTransition: true,
         stage: stageName,
       };
-      setMessages((prev) => [...prev, transitionMessage]);
+
+      // In mock mode (or as a fallback), immediately follow the transition
+      // message with the first question of the new stage so the student always
+      // sees an opening question and the mock index stays in sync (currentTurn=0
+      // → respond with stageQuestions[0] on the first student message).
+      const firstQuestion = MOCK_AI_RESPONSES[stageName]?.[0];
+      const firstQuestionMessage = firstQuestion
+        ? {
+            id: Date.now() + 1,
+            speaker: 'alice',
+            content: firstQuestion,
+            timestamp: new Date(),
+            stage: stageName,
+          }
+        : null;
+
+      setMessages((prev) => {
+        const updated = [...prev, transitionMessage];
+        if (firstQuestionMessage) updated.push(firstQuestionMessage);
+        return updated;
+      });
+
+      // Speak the transition message immediately; speak the first question
+      // after a short delay so the two TTS utterances don't overlap.
       speak(`Great! Now let's move to the ${stageName} section. I have some new questions for you.`);
+      if (firstQuestion) {
+        setTimeout(() => speak(firstQuestion), 2000);
+      }
     }, 1500);
   };
 
