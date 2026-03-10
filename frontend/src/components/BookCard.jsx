@@ -1,51 +1,80 @@
 'use client';
 
+import BookCoverIllustration from './BookCoverIllustration';
+
+const LEVEL_COLORS = {
+  Beginner: { bg: '#C8E6C9', text: '#2E7D32', border: '#81C784' },
+  Intermediate: { bg: '#FFE0B2', text: '#E65100', border: '#FFB74D' },
+  Advanced: { bg: '#E1BEE7', text: '#6A1B9A', border: '#CE93D8' },
+};
+
 export default function BookCard({ book, onClick }) {
-  const LEVEL_COLORS = {
-    Beginner: '#D94878',
-    Intermediate: '#2E6BBF',
-    Advanced: '#1E8449',
-  };
+  const level = book.level || 'Beginner';
+  const colors = LEVEL_COLORS[level] || LEVEL_COLORS.Beginner;
 
   return (
     <div
       role="button"
       tabIndex={0}
       onClick={onClick}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.(); } }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick?.();
+        }
+      }}
       aria-label={`Read ${book.title} by ${book.author}`}
-      className="bg-white rounded-lg shadow-md hover:shadow-lg transition-smooth cursor-pointer overflow-hidden focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-300"
+      className="group bg-[#FFFCF3] rounded-2xl border-[3px] border-[#E8DEC8] overflow-hidden cursor-pointer
+        shadow-[4px_4px_12px_rgba(61,46,30,0.08),inset_-2px_-2px_6px_rgba(255,255,255,0.6)]
+        hover:shadow-[6px_6px_20px_rgba(61,46,30,0.14),inset_-2px_-2px_6px_rgba(255,255,255,0.6)]
+        hover:-translate-y-1.5 transition-all duration-200 ease-out
+        focus:outline-none focus-visible:ring-4 focus-visible:ring-[#81C784]/50"
     >
-      <div className="bg-gray-100 p-6 flex items-center justify-center min-h-[200px]">
-        <div className="text-6xl text-center" role="img" aria-label={`${book.title} cover`}>{book.cover}</div>
-      </div>
+      {/* ── Cover Illustration ─────────────────────────── */}
+      <BookCoverIllustration
+        book={book}
+        className="h-44 w-full"
+      />
 
+      {/* ── Content ────────────────────────────────────── */}
       <div className="p-4">
-        <h3 className="font-bold text-gray-800 text-lg mb-1 line-clamp-2">
+        <h3 className="font-extrabold text-[#3D2E1E] text-base mb-1 line-clamp-2 leading-snug">
           {book.title}
         </h3>
-        <p className="text-gray-600 text-sm mb-3">{book.author}</p>
+        <p className="text-[#6B5744] text-sm font-semibold mb-3">{book.author}</p>
 
-        <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 mb-3">
           <span
-            className="px-3 py-1 rounded-full text-white text-xs font-semibold"
-            style={{ backgroundColor: LEVEL_COLORS[book.level] }}
+            className="px-3 py-1 rounded-full text-xs font-bold border-2"
+            style={{
+              backgroundColor: colors.bg,
+              color: colors.text,
+              borderColor: colors.border,
+            }}
           >
-            {book.level}
+            {level}
           </span>
-          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+          <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#EDE5D4] text-[#6B5744]">
             {book.genre}
           </span>
         </div>
 
-        <p className="text-gray-600 text-xs mt-3 line-clamp-2">
+        <p className="text-[#9B8777] text-xs mb-4 line-clamp-2 font-medium leading-relaxed">
           {book.description}
         </p>
       </div>
 
+      {/* ── CTA Button ─────────────────────────────────── */}
       <div className="px-4 pb-4">
-        <button className="w-full py-2 px-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-smooth text-sm font-semibold">
-          Read Now
+        <button
+          className="w-full py-2.5 bg-[#5C8B5C] text-white rounded-xl font-bold text-sm
+            border-2 border-[#4A7C59]
+            shadow-[0_3px_0_#3D6B3D]
+            group-hover:bg-[#4A7C59] group-hover:shadow-[0_2px_0_#2C5A2C]
+            group-hover:translate-y-[1px]
+            transition-all duration-150 ease-out"
+        >
+          Start Reading
         </button>
       </div>
     </div>
