@@ -23,6 +23,7 @@ import { getAliceResponse, generateSessionFeedback } from '../alice/engine.js';
 import { extractVocabulary } from '../alice/vocabularyExtractor.js';
 import { calculateGrammarScore } from '../alice/levelDetector.js';
 import { checkAndAwardAchievements } from '../lib/achievements.js';
+import { getCrossBookContext } from '../alice/crossBookMemory.js';
 
 const router = express.Router();
 
@@ -55,7 +56,7 @@ function optionalAuth(req, res, next) {
  * @returns {Object} stageMap e.g. { title: { grammar, fluency, vocabulary, responseCount, avgWords } }
  */
 function computeStageBreakdown(dialogues, level) {
-  const stages = ['title', 'introduction', 'body', 'conclusion'];
+  const stages = ['warm_connection', 'title', 'introduction', 'body', 'conclusion', 'cross_book'];
   const stageMap = {};
 
   stages.forEach((stage) => {
@@ -200,7 +201,7 @@ router.post('/start', optionalAuth, async (req, res) => {
       .insert({
         student_id: studentId,
         book_id: bookId,
-        stage: 'title',
+        stage: 'warm_connection',
         started_at: new Date().toISOString(),
         is_complete: false,
       })
@@ -211,16 +212,20 @@ router.post('/start', optionalAuth, async (req, res) => {
       return res.status(500).json({ error: sessionError.message });
     }
 
+    // Fetch cross-book context for prompt enrichment
+    const { crossBookContext } = await getCrossBookContext(studentId, bookId);
+
     // Get HiAlice's opening question — pass full book object for context-aware prompt
     const aliceResponse = await getAliceResponse({
       bookTitle: book.title,
       studentName: student.name,
       level: student.level,
-      stage: 'title',
+      stage: 'warm_connection',
       turn: 1,
       studentMessage: null,
       conversationHistory: [],
       book,
+      crossBookContext,
     });
 
     const grammarScore = calculateGrammarScore('', student.level);
@@ -230,7 +235,7 @@ router.post('/start', optionalAuth, async (req, res) => {
       .from('dialogues')
       .insert({
         session_id: session.id,
-        stage: 'title',
+        stage: 'warm_connection',
         turn: 1,
         speaker: 'alice',
         content: aliceResponse.content,
@@ -336,6 +341,8 @@ router.post('/:id/message', optionalAuth, async (req, res) => {
       console.error('Student dialogue error:', studentDialogueError);
     }
 
+    const { crossBookContext } = await getCrossBookContext(session.student_id, session.book_id);
+
     // Get Alice's response — pass full book object for context-aware, emotion-eliciting prompt
     const aliceResponse = await getAliceResponse({
       bookTitle: book.title,
@@ -346,6 +353,7 @@ router.post('/:id/message', optionalAuth, async (req, res) => {
       studentMessage: content,
       conversationHistory: dialogues || [],
       book,
+      crossBookContext,
     });
 
     // Score the student's response
@@ -393,7 +401,7 @@ router.post('/:id/message', optionalAuth, async (req, res) => {
 
     // Determine whether the current stage should advance.
     // Body requires 3 student turns; all other stages advance after 2+.
-    const stages = ['title', 'introduction', 'body', 'conclusion'];
+    const stages = ['warm_connection', 'title', 'introduction', 'body', 'conclusion', 'cross_book'];
     const stageIndex = stages.indexOf(stage);
 
     let shouldAdvance = false;
@@ -495,7 +503,7 @@ router.post('/:id/complete', optionalAuth, async (req, res) => {
     const stagesWithResponses = new Set(
       studentDialogues.map((d) => d.stage)
     );
-    const levelScore = Math.round((stagesWithResponses.size / 4) * 100);
+    const levelScore = Math.round((stagesWithResponses.size / 6) * 100);
 
     // --- Per-stage score breakdown ---
     const stageBreakdown = computeStageBreakdown(allDialogues || [], studentLevel);

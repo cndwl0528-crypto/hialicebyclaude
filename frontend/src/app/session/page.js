@@ -9,11 +9,16 @@ import { pauseSession as apiPauseSession } from '@/services/api';
 import ConfettiCelebration from '@/components/ConfettiCelebration';
 import AchievementUnlock from '@/components/AchievementUnlock';
 
-const STAGES = ['Title', 'Introduction', 'Body', 'Conclusion'];
-const STAGE_EMOJIS = ['📖', '👤', '💭', '⭐'];
+const STAGES = ['Warm Connection', 'Title', 'Introduction', 'Body', 'Conclusion', 'Cross Book'];
+const STAGE_EMOJIS = ['🌟', '📖', '👤', '💭', '⭐', '🔗'];
 const MAX_TURNS_PER_STAGE = 3;
 
 const MOCK_AI_RESPONSES = {
+  'Warm Connection': [
+    "Before we dive in, tell me — what was the last really good book you read? What made it so special?",
+    "What kind of stories do you like the most — funny, scary, adventure, or something else?",
+    "When you first saw the cover of this book, what did you think it would be about?",
+  ],
   Title: [
     "What do you think the title means? Why did the author choose this title?",
     "That's interesting! Can you tell me more about why you feel that way?",
@@ -34,23 +39,32 @@ const MOCK_AI_RESPONSES = {
     "Would you recommend this book to a friend? Why or why not?",
     "If you could change one thing in the story, what would it be?",
   ],
+  'Cross Book': [
+    "Does this book remind you of any other book you have read? How are they similar?",
+    "If the main character from this book met a character from another book you love, what do you think they would talk about?",
+    "You have read so many stories now! What kind of reader do you think you are becoming?",
+  ],
 };
 
 const WORKSHEET_ROWS = [
+  { stage: 'Warm Connection', label: 'Warm Connection', color: '#FF6B6B', icon: '🌟', question: 'What kind of stories do you enjoy?', example: 'e.g. I really love adventure stories because they are so exciting.' },
   { stage: 'Title', label: 'Title', color: '#5C8B5C', icon: '📖', question: 'What is this book about?', example: 'e.g. This book is about a caterpillar that becomes a butterfly.' },
   { stage: 'Introduction', label: 'Introduction', color: '#87CEDB', icon: '👤', question: 'Who is your favorite character? Why?', example: 'e.g. I would choose the caterpillar because it is brave.' },
   { stage: 'Body', label: 'Body ①', color: '#D4A843', icon: '💭', question: 'What is the most important part of the story? Why?', example: 'e.g. The most important part is when the caterpillar eats all the food.', bodyIndex: 0 },
   { stage: 'Body', label: 'Body ②', color: '#D4A843', icon: '💭', question: 'What would you change about the story? Why?', example: 'e.g. I would add more animals because it would be more fun.', bodyIndex: 1 },
   { stage: 'Body', label: 'Body ③', color: '#D4A843', icon: '💭', question: 'What did you learn from this story?', example: 'e.g. Moreover, I learned that change can be beautiful.', bodyIndex: 2 },
   { stage: 'Conclusion', label: 'Conclusion', color: '#7AC87A', icon: '⭐', question: 'How do you feel about this book?', example: 'e.g. Reading this book was really fun and I learned a lot.' },
+  { stage: 'Cross Book', label: 'Cross Book', color: '#9B59B6', icon: '🔗', question: 'Does this book remind you of another book?', example: 'e.g. This book reminds me of Charlotte\'s Web because both have animal friends.' },
 ];
 
 function getWorksheetRowIndex(stageIndex, bodyReasonCount) {
   const stage = STAGES[stageIndex];
-  if (stage === 'Title') return 0;
-  if (stage === 'Introduction') return 1;
-  if (stage === 'Body') return 2 + Math.min(bodyReasonCount, 2);
-  if (stage === 'Conclusion') return 5;
+  if (stage === 'Warm Connection') return 0;
+  if (stage === 'Title') return 1;
+  if (stage === 'Introduction') return 2;
+  if (stage === 'Body') return 3 + Math.min(bodyReasonCount, 2);
+  if (stage === 'Conclusion') return 6;
+  if (stage === 'Cross Book') return 7;
   return 0;
 }
 
@@ -221,13 +235,13 @@ export default function SessionPage() {
       const initialMessage = {
         id: 0,
         speaker: 'alice',
-        content: `Hello! I'm so excited to talk about "${bookTitle}"! Let's start with the title. What do you think the title means?`,
+        content: `Hello! I'm so excited to talk about "${bookTitle}"! Before we dive in, tell me — what was the last really good book you read? What made it special?`,
         timestamp: new Date(),
-        stage: 'Title',
+        stage: 'Warm Connection',
       };
       setMessages([initialMessage]);
       speak(
-        `Hello! I'm so excited to talk about ${bookTitle}! Let's start with the title. What do you think the title means?`
+        `Hello! I'm so excited to talk about ${bookTitle}! Before we dive in, tell me — what was the last really good book you read? What made it special?`
       );
       setShowSkipButton(true);
     } catch (error) {
@@ -237,9 +251,9 @@ export default function SessionPage() {
       const fallbackMessage = {
         id: 0,
         speaker: 'alice',
-        content: `Hello! I'm so excited to talk about "${bookTitle}"! Let's start with the title. What do you think the title means?`,
+        content: `Hello! I'm so excited to talk about "${bookTitle}"! Before we dive in, tell me — what was the last really good book you read? What made it special?`,
         timestamp: new Date(),
-        stage: 'Title',
+        stage: 'Warm Connection',
       };
       setMessages([fallbackMessage]);
     }

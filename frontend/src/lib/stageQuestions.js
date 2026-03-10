@@ -7,6 +7,14 @@
  */
 
 export const STAGE_GUIDE = {
+  warm_connection: {
+    label: 'Warm Connection',
+    guideQuestion: 'What kind of stories do you enjoy?',
+    description: 'Let\'s warm up and get ready to talk about books!',
+    example: 'e.g. I really love adventure stories because they are so exciting.',
+    icon: '🌟',
+    color: '#FF6B6B',
+  },
   title: {
     label: 'Title',
     guideQuestion: 'What is this book about?',
@@ -54,6 +62,14 @@ export const STAGE_GUIDE = {
     example: 'e.g. Reading this book was really fun and I learned a lot.',
     icon: '⭐',
     color: '#27AE60',
+  },
+  cross_book: {
+    label: 'Cross Book',
+    guideQuestion: 'Does this book remind you of another book you have read?',
+    description: 'Connect this story to other books you know and love',
+    example: 'e.g. This book reminds me of Charlotte\'s Web because both stories have animal friends.',
+    icon: '🔗',
+    color: '#9B59B6',
   },
 };
 

@@ -180,37 +180,130 @@ function truncateStrings(obj, maxLen = 1000) {
 // ============================================================================
 
 /**
- * Minimal blocklist.
- * This is a last-resort safety net; primary content moderation happens inside
- * the AI system prompt (prompts.js) which instructs HiAlice to stay on-topic
- * and age-appropriate.  A dedicated library (e.g. `bad-words`) should replace
- * this list before production.
+ * Words that are ALWAYS blocked regardless of context.
+ * These have no legitimate use in a children's book discussion.
  */
-const BLOCKED_WORDS = [
-  'stupid', 'idiot', 'hate', 'kill', 'die',
+const ALWAYS_BLOCKED = [
+  'fuck', 'shit', 'bitch', 'ass', 'damn', 'bastard', 'crap',
+  'nigger', 'faggot', 'retard',
 ];
 
 /**
- * Scan `req.body.content` for blocked words.
- * When found, the middleware does NOT block the request — instead it:
- *   1. Sets `req.body._hasProfanity = true` so downstream handlers can log/flag.
- *   2. Replaces each blocked word with asterisks of the same length.
+ * Words that are blocked ONLY when used with violent/harmful INTENT,
+ * but allowed in literary discussion context.
+ * Each entry has the word and patterns that indicate harmful vs literary use.
+ */
+const CONTEXT_SENSITIVE_WORDS = [
+  {
+    word: 'kill',
+    allowedPatterns: [
+      /the (character|hero|villain|protagonist|antagonist|knight|prince|princess|king|queen|witch|monster|dragon|wolf|bear|giant|pirate|captain|soldier|warrior).*kill/i,
+      /kill.*the (character|hero|villain|protagonist|antagonist|dragon|monster|wolf|bear|giant|witch|pirate)/i,
+      /killed?\s+(the|a|an|that|this|his|her|their|its)/i,
+      /got\s+killed/i,
+      /was\s+killed/i,
+      /almost\s+killed/i,
+      /tried\s+to\s+kill/i,
+      /want(ed|s)?\s+to\s+kill\s+(the|a|an|that|this|him|her|it|them)/i,
+    ],
+    blockedPatterns: [
+      /i\s+(will|want\s+to|wanna|gonna|am\s+going\s+to)\s+kill\s+(you|my|someone|everybody|everyone|people|myself)/i,
+      /kill\s+(you|your|myself|themselves|ourselves)/i,
+    ]
+  },
+  {
+    word: 'die',
+    allowedPatterns: [
+      /the (character|hero|villain|protagonist|antagonist).*die/i,
+      /(did|didn't|does|doesn't)\s+(he|she|it|they|the)\s+die/i,
+      /die[ds]?\s+(in|at|from|because|when|before|after|during)/i,
+      /almost\s+died/i,
+      /going\s+to\s+die/i,
+      /afraid\s+(to|of)\s+die/i,
+      /didn't\s+(want\s+to\s+)?die/i,
+    ],
+    blockedPatterns: [
+      /i\s+(want\s+to|wanna|gonna|wish\s+i\s+could)\s+die/i,
+      /(go\s+)?die\s+already/i,
+      /you\s+should\s+die/i,
+    ]
+  },
+  {
+    word: 'hate',
+    allowedPatterns: [
+      /hate[ds]?\s+(the|that|this|reading|books?|school|homework|test)/i,
+      /hate[ds]?\s+(it|him|her|them|the\s+(book|story|character|ending|part))/i,
+    ],
+    blockedPatterns: [
+      /i\s+hate\s+(you|myself|my\s+(life|self)|everyone|everything|this\s+app)/i,
+    ]
+  },
+  {
+    word: 'stupid',
+    allowedPatterns: [
+      /stupid\s+(idea|plan|decision|choice|thing|mistake|question)/i,
+      /(that|it|the\s+\w+)\s+(is|was|seems?)\s+stupid/i,
+    ],
+    blockedPatterns: [
+      /(i\s+am|i'm|you\s+are|you're|she\s+is|he\s+is)\s+stupid/i,
+    ]
+  },
+];
+
+/**
+ * Context-aware profanity filter for children's book discussions.
  *
- * Keeping the message (sanitised) rather than rejecting it avoids frustrating
- * young users who may trigger false positives on common words.
+ * Strategy:
+ * 1. ALWAYS block words with no literary value (slurs, explicit language)
+ * 2. For context-sensitive words (kill, die, hate, stupid):
+ *    - If matches a BLOCKED pattern -> censor it (harmful intent detected)
+ *    - If matches an ALLOWED pattern -> let it through (literary discussion)
+ *    - If matches neither -> censor it (err on the side of caution)
+ * 3. Flag but don't block, to avoid frustrating young users
  */
 export function profanityFilter(req, res, next) {
-  if (req.body?.content && typeof req.body.content === 'string') {
-    const lower = req.body.content.toLowerCase();
-    const hasBlocked = BLOCKED_WORDS.some(word => lower.includes(word));
+  if (!req.body?.content || typeof req.body.content !== 'string') {
+    return next();
+  }
 
-    if (hasBlocked) {
-      req.body._hasProfanity = true;
-      req.body.content = BLOCKED_WORDS.reduce(
-        (text, word) => text.replace(new RegExp(word, 'gi'), '*'.repeat(word.length)),
-        req.body.content
-      );
+  let content = req.body.content;
+  let hasProfanity = false;
+
+  // Step 1: Always-blocked words
+  for (const word of ALWAYS_BLOCKED) {
+    const regex = new RegExp(`\\b${word}\\b`, 'gi');
+    if (regex.test(content)) {
+      hasProfanity = true;
+      content = content.replace(regex, '*'.repeat(word.length));
     }
   }
+
+  // Step 2: Context-sensitive words
+  for (const { word, allowedPatterns, blockedPatterns } of CONTEXT_SENSITIVE_WORDS) {
+    const wordRegex = new RegExp(`\\b${word}[a-z]*\\b`, 'gi');
+    if (!wordRegex.test(content)) continue;
+
+    // Check blocked patterns first (harmful intent)
+    const isBlocked = blockedPatterns.some(pattern => pattern.test(content));
+    if (isBlocked) {
+      hasProfanity = true;
+      content = content.replace(wordRegex, match => '*'.repeat(match.length));
+      continue;
+    }
+
+    // Check allowed patterns (literary context)
+    const isAllowed = allowedPatterns.some(pattern => pattern.test(content));
+    if (isAllowed) {
+      // Literary context — let it through
+      continue;
+    }
+
+    // Neither explicitly blocked nor allowed — censor (err on caution)
+    hasProfanity = true;
+    content = content.replace(wordRegex, match => '*'.repeat(match.length));
+  }
+
+  req.body._hasProfanity = hasProfanity;
+  req.body.content = content;
   next();
 }
