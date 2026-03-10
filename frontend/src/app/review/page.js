@@ -7,33 +7,6 @@ import LoadingCard from '@/components/LoadingCard';
 import PrintableWorksheet from '@/components/PrintableWorksheet';
 import BookRecommendation from '@/components/BookRecommendation';
 
-const MOCK_REVIEW_DATA = {
-  sessionId: 'session-001',
-  bookTitle: 'The Very Hungry Caterpillar',
-  studentName: 'Alice',
-  completedAt: new Date().toISOString(),
-  duration: 1200,
-  turns: 8,
-  levelScore: 78,
-  grammarScore: 82,
-  vocabulary: [
-    { id: 1, word: 'caterpillar', pos: 'noun', contextSentence: 'The caterpillar ate leaves all day.', synonyms: ['larva', 'grub', 'worm'], antonyms: [], masteryLevel: 5, useCount: 5 },
-    { id: 2, word: 'metamorphosis', pos: 'noun', contextSentence: 'The caterpillar went through metamorphosis.', synonyms: ['transformation', 'change', 'evolution'], antonyms: [], masteryLevel: 3, useCount: 2 },
-    { id: 3, word: 'journey', pos: 'noun', contextSentence: 'It was a long and interesting journey.', synonyms: ['trip', 'voyage', 'adventure', 'expedition'], antonyms: [], masteryLevel: 4, useCount: 3 },
-    { id: 4, word: 'transform', pos: 'verb', contextSentence: 'The butterfly transformed into a beautiful creature.', synonyms: ['change', 'convert', 'alter', 'modify'], antonyms: ['remain', 'stay', 'preserve'], masteryLevel: 4, useCount: 2 },
-    { id: 5, word: 'beautiful', pos: 'adjective', contextSentence: 'The butterfly was beautiful and colorful.', synonyms: ['lovely', 'pretty', 'gorgeous', 'stunning'], antonyms: ['ugly', 'plain'], masteryLevel: 5, useCount: 4 },
-    { id: 6, word: 'hungry', pos: 'adjective', contextSentence: 'The very hungry caterpillar wanted to eat everything.', synonyms: ['famished', 'ravenous', 'starving'], antonyms: ['full', 'satisfied'], masteryLevel: 5, useCount: 6 },
-    { id: 7, word: 'devour', pos: 'verb', contextSentence: 'He devoured all the food in the forest.', synonyms: ['eat', 'consume', 'gobble'], antonyms: [], masteryLevel: 2, useCount: 1 },
-    { id: 8, word: 'cocoon', pos: 'noun', contextSentence: 'The caterpillar built a cocoon to rest.', synonyms: ['chrysalis', 'silk case'], antonyms: [], masteryLevel: 3, useCount: 2 },
-  ],
-};
-
-const MOCK_STAGE_BREAKDOWN = [
-  { stage: 'Title', completed: true, wordCount: 1, grammarScore: 85, duration: 60 },
-  { stage: 'Introduction', completed: true, wordCount: 2, grammarScore: 80, duration: 120 },
-  { stage: 'Body', completed: true, wordCount: 3, grammarScore: 82, duration: 180 },
-  { stage: 'Conclusion', completed: true, wordCount: 2, grammarScore: 85, duration: 90 },
-];
 
 const POS_COLORS = {
   noun: { bg: 'bg-[#E8F0E8]', text: 'text-[#3D6B3D]', label: 'Noun' },
@@ -49,7 +22,6 @@ export default function ReviewPage() {
   const [expandedWord, setExpandedWord] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [usingFallback, setUsingFallback] = useState(false);
   const [conversation, setConversation] = useState([]);
   const [showConversation, setShowConversation] = useState(false);
   const [highlightedWord, setHighlightedWord] = useState(null);
@@ -62,30 +34,18 @@ export default function ReviewPage() {
     const fetchReview = async () => {
       try {
         setLoading(true);
-        setUsingFallback(false);
 
-        const sessionId = sessionStorage.getItem('sessionId');
-        const bookTitle = sessionStorage.getItem('bookTitle');
-        const studentName = sessionStorage.getItem('studentName');
-        const conversationStr = sessionStorage.getItem('lastConversation');
-        const sessionDataStr = sessionStorage.getItem('lastSessionData');
+        // Read sessionId from URL search params — no sessionStorage dependency
+        const params = new URLSearchParams(window.location.search);
+        const sessionId = params.get('sessionId');
 
         if (!sessionId) {
-          setError('No session found. Please complete a reading session first.');
+          setError('No session ID found. Please complete a reading session first.');
           setLoading(false);
           return;
         }
 
-        // Restore conversation from sessionStorage
-        if (conversationStr) {
-          try {
-            setConversation(JSON.parse(conversationStr));
-          } catch (e) {
-            console.warn('Failed to parse conversation:', e);
-          }
-        }
-
-        // Fetch review data and stage scores in parallel
+        // Fetch review data and stage scores in parallel — API is the sole data source
         let reviewData = null;
         let stageScoresData = null;
 
@@ -95,62 +55,45 @@ export default function ReviewPage() {
             getSessionStageScores(sessionId),
           ]);
         } catch (apiErr) {
-          console.warn('API fetch failed, falling back to sessionStorage:', apiErr);
-          setUsingFallback(true);
+          console.error('API fetch failed:', apiErr);
+          setError('Could not load your review. Please check your connection and try again.');
+          setLoading(false);
+          return;
         }
 
-        // Phase 2B: Restore ai_feedback from sessionStorage as early fallback
-        if (sessionDataStr) {
-          try {
-            const sessionData = JSON.parse(sessionDataStr);
-            const storedFeedback = sessionData.ai_feedback || sessionData.aiFeedback || null;
-            if (storedFeedback) {
-              setAiFeedback(storedFeedback);
-            }
-          } catch (e) {
-            console.warn('Failed to parse ai_feedback from sessionStorage:', e);
-          }
-        }
-
-        // Process review data
+        // Process review data — no fallback to mock/sessionStorage
         if (reviewData && reviewData.review) {
           const apiReview = reviewData.review;
-          setReview({
-            ...apiReview,
-            bookTitle: apiReview.bookTitle || bookTitle || MOCK_REVIEW_DATA.bookTitle,
-            studentName: apiReview.studentName || studentName || MOCK_REVIEW_DATA.studentName,
-          });
+          setReview(apiReview);
 
-          // Phase 2B: ai_feedback from API response takes priority over sessionStorage
+          // ai_feedback from API response
           const apiFeedback = apiReview.ai_feedback || apiReview.aiFeedback || null;
           if (apiFeedback) {
             setAiFeedback(apiFeedback);
           }
 
-          // Vocabulary from API takes priority
+          // Vocabulary from API
           const vocabList = apiReview.vocabulary || [];
-          setVocabulary(vocabList.length > 0 ? vocabList : buildVocabFromSessionStorage(sessionDataStr));
+          setVocabulary(vocabList);
 
-          // Check for achievements from API
+          // Conversation messages from API if available
+          const msgs = apiReview.messages || apiReview.conversation || [];
+          if (msgs.length > 0) {
+            setConversation(msgs);
+          }
+
+          // Achievements from API
           if (apiReview.achievements && apiReview.achievements.length > 0) {
             setAchievementsEarned(apiReview.achievements);
             setShowAchievements(true);
           }
         } else {
-          // Fallback to sessionStorage data
-          setUsingFallback(true);
-          const sessionVocab = buildVocabFromSessionStorage(sessionDataStr);
-          const fallbackReview = {
-            ...MOCK_REVIEW_DATA,
-            bookTitle: bookTitle || MOCK_REVIEW_DATA.bookTitle,
-            studentName: studentName || MOCK_REVIEW_DATA.studentName,
-            vocabulary: sessionVocab.length > 0 ? sessionVocab : MOCK_REVIEW_DATA.vocabulary,
-          };
-          setReview(fallbackReview);
-          setVocabulary(fallbackReview.vocabulary);
+          setError('Review data not found for this session. Please try again.');
+          setLoading(false);
+          return;
         }
 
-        // Process stage scores
+        // Process stage scores from API
         if (stageScoresData && stageScoresData.stageScores && stageScoresData.stageScores.length > 0) {
           const apiStages = stageScoresData.stageScores.map((s) => ({
             stage: s.stage || s.stageName || 'Stage',
@@ -160,43 +103,10 @@ export default function ReviewPage() {
             duration: s.duration || s.durationSeconds || 0,
           }));
           setStageBreakdown(apiStages);
-        } else {
-          // Build stage breakdown from sessionStorage as fallback
-          try {
-            const sessionData = sessionDataStr ? JSON.parse(sessionDataStr) : null;
-            if (sessionData && sessionData.stageBreakdown) {
-              setStageBreakdown(sessionData.stageBreakdown);
-            } else {
-              setStageBreakdown(MOCK_STAGE_BREAKDOWN);
-            }
-          } catch (e) {
-            setStageBreakdown(MOCK_STAGE_BREAKDOWN);
-          }
-        }
-
-        // Persist a backup of review data to sessionStorage
-        if (reviewData && reviewData.review) {
-          try {
-            sessionStorage.setItem('lastReviewData', JSON.stringify(reviewData.review));
-          } catch (e) {
-            console.warn('Failed to cache review data:', e);
-          }
         }
       } catch (err) {
         console.error('Unexpected error loading review:', err);
-        setError('Oops! Something went wrong loading your review. Using saved data instead.');
-        setUsingFallback(true);
-
-        const bookTitle = sessionStorage.getItem('bookTitle');
-        const studentName = sessionStorage.getItem('studentName');
-        const mockData = {
-          ...MOCK_REVIEW_DATA,
-          bookTitle: bookTitle || MOCK_REVIEW_DATA.bookTitle,
-          studentName: studentName || MOCK_REVIEW_DATA.studentName,
-        };
-        setReview(mockData);
-        setVocabulary(mockData.vocabulary);
-        setStageBreakdown(MOCK_STAGE_BREAKDOWN);
+        setError('Oops! Something went wrong loading your review. Please try again.');
       } finally {
         setLoading(false);
       }
@@ -204,16 +114,6 @@ export default function ReviewPage() {
 
     fetchReview();
   }, []);
-
-  function buildVocabFromSessionStorage(sessionDataStr) {
-    if (!sessionDataStr) return [];
-    try {
-      const sessionData = JSON.parse(sessionDataStr);
-      return sessionData.vocabulary || sessionData.words || [];
-    } catch (e) {
-      return [];
-    }
-  }
 
   const renderStars = (level) => {
     return Array.from({ length: 5 }).map((_, i) => (
@@ -301,21 +201,6 @@ export default function ReviewPage() {
 
   return (
     <div className="py-8">
-      {/* Fallback notice banner */}
-      {usingFallback && !error && (
-        <div className="mb-6 px-4 py-3 bg-[#FFF8E8] border-l-4 border-[#D4A843] rounded-xl">
-          <p className="text-sm font-bold text-[#A8822E]">
-            Showing your saved session data. Connect to the internet to sync your latest results.
-          </p>
-        </div>
-      )}
-
-      {/* Error notice (non-blocking) */}
-      {error && usingFallback && (
-        <div className="mb-6 px-4 py-3 bg-[#FFF8E8] border-l-4 border-[#D4A843] rounded-xl">
-          <p className="text-sm font-bold text-[#A8822E]">{error}</p>
-        </div>
-      )}
 
       {/* Achievements Banner */}
       {showAchievements && achievementsEarned.length > 0 && (
@@ -671,7 +556,7 @@ export default function ReviewPage() {
       <div className="mb-6">
         <PrintableWorksheet
           sessionData={review}
-          studentName={sessionStorage.getItem('studentName') || review?.studentName || 'Student'}
+          studentName={review?.studentName || 'Student'}
           bookTitle={review?.bookTitle || review?.book_title || 'My Book'}
         />
       </div>
@@ -679,8 +564,8 @@ export default function ReviewPage() {
       {/* Book Recommendations */}
       <div className="mb-6">
         <BookRecommendation
-          studentLevel={sessionStorage.getItem('studentLevel') || 'intermediate'}
-          studentId={sessionStorage.getItem('studentId') || null}
+          studentLevel={review?.studentLevel || review?.level || 'intermediate'}
+          studentId={review?.studentId || null}
           currentBook={{ title: review?.bookTitle || review?.book_title }}
           onSelectBook={() => router.push('/books')}
         />

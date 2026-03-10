@@ -313,7 +313,114 @@ function estimateSyllables(word) {
   return Math.max(1, syllables);
 }
 
+// ============================================================================
+// ANSWER DEPTH CLASSIFICATION
+// ============================================================================
+
+/**
+ * Classify the cognitive depth of a student's response.
+ * Returns one of: 'surface', 'developing', 'analytical', 'deep'
+ *
+ * @param {string} response - Student's response text
+ * @param {string} level - 'beginner' | 'intermediate' | 'advanced'
+ * @returns {object} { depth, score, indicators }
+ */
+export function classifyAnswerDepth(response, level = 'intermediate') {
+  if (!response || typeof response !== 'string' || response.trim().length === 0) {
+    return { depth: 'surface', score: 0, indicators: [] };
+  }
+
+  const text = response.trim();
+  const words = text.split(/\s+/);
+  const wordCount = words.length;
+  const indicators = [];
+  let score = 0;
+
+  // --- Word count baseline (adjusted by level) ---
+  const lengthThresholds = {
+    beginner:     { developing: 5,  analytical: 12, deep: 20 },
+    intermediate: { developing: 10, analytical: 20, deep: 35 },
+    advanced:     { developing: 15, analytical: 30, deep: 50 }
+  };
+  const thresholds = lengthThresholds[level] || lengthThresholds.intermediate;
+
+  if (wordCount >= thresholds.deep) { score += 15; indicators.push('extended_response'); }
+  else if (wordCount >= thresholds.analytical) { score += 10; indicators.push('moderate_response'); }
+  else if (wordCount >= thresholds.developing) { score += 5; indicators.push('brief_response'); }
+
+  // --- Causal reasoning ---
+  const causalPatterns = /\b(because|since|so that|therefore|that's why|the reason|due to)\b/i;
+  if (causalPatterns.test(text)) { score += 20; indicators.push('causal_reasoning'); }
+
+  // --- Contrastive thinking ---
+  const contrastPatterns = /\b(but|however|although|even though|on the other hand|instead|unlike)\b/i;
+  if (contrastPatterns.test(text)) { score += 15; indicators.push('contrastive_thinking'); }
+
+  // --- Personal connection ---
+  const personalPatterns = /\b(I think|I feel|I believe|I remember|in my life|when I|I would|me too|I also)\b/i;
+  if (personalPatterns.test(text)) { score += 10; indicators.push('personal_connection'); }
+
+  // --- Evidence from text ---
+  const evidencePatterns = /\b(in the (book|story)|the (character|author)|for example|like when|the part where)\b/i;
+  if (evidencePatterns.test(text)) { score += 15; indicators.push('text_evidence'); }
+
+  // --- Evaluative language ---
+  const evaluativePatterns = /\b(important|best|worst|should|shouldn't|fair|unfair|right|wrong|agree|disagree)\b/i;
+  if (evaluativePatterns.test(text)) { score += 10; indicators.push('evaluative_language'); }
+
+  // --- Creative/hypothetical thinking ---
+  const creativePatterns = /\b(what if|imagine|I wonder|maybe|could be|might|would have|if I were)\b/i;
+  if (creativePatterns.test(text)) { score += 15; indicators.push('creative_thinking'); }
+
+  // --- Emotional vocabulary ---
+  const emotionPatterns = /\b(happy|sad|scared|angry|excited|surprised|worried|proud|lonely|brave|curious|confused|nervous|grateful)\b/i;
+  if (emotionPatterns.test(text)) { score += 5; indicators.push('emotional_expression'); }
+
+  // --- Classify depth ---
+  let depth;
+  if (score >= 55) depth = 'deep';
+  else if (score >= 35) depth = 'analytical';
+  else if (score >= 15) depth = 'developing';
+  else depth = 'surface';
+
+  return { depth, score: Math.min(score, 100), indicators };
+}
+
+/**
+ * Calculate "thinking momentum" — whether a student's responses are
+ * getting deeper within a single session.
+ *
+ * A positive momentum means the student is engaging more deeply over time.
+ * Score 0-100: 50 = neutral, >50 = improving, <50 = declining.
+ *
+ * @param {Array} studentTurns - Array of { content, stage } objects (student utterances only)
+ * @returns {number} Momentum score 0-100
+ */
+export function calculateThinkingMomentum(studentTurns) {
+  if (!Array.isArray(studentTurns) || studentTurns.length < 2) return 50;
+
+  const depths = studentTurns.map(turn => {
+    const result = classifyAnswerDepth(turn.content);
+    return result.score;
+  });
+
+  // Calculate linear regression slope
+  const n = depths.length;
+  const sumX = (n * (n - 1)) / 2;
+  const sumY = depths.reduce((a, b) => a + b, 0);
+  const sumXY = depths.reduce((sum, y, x) => sum + x * y, 0);
+  const sumX2 = depths.reduce((sum, _, x) => sum + x * x, 0);
+
+  const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+
+  // Normalize: slope of 0 = 50, positive = >50, negative = <50
+  // Clamp to 0-100 range
+  return Math.round(Math.min(100, Math.max(0, 50 + slope * 5)));
+}
+
 export default {
   analyzeStudentLevel,
-  calculateGrammarScore
+  calculateGrammarScore,
+  classifyAnswerDepth,
+  calculateThinkingMomentum
 };

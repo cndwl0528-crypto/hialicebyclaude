@@ -452,28 +452,6 @@ export default function SessionPage() {
       }
     }
 
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem(
-        'lastSessionData',
-        JSON.stringify({
-          sessionId,
-          bookId,
-          bookTitle,
-          studentId,
-          studentName,
-          messages: messages.filter((m) => m.speaker !== undefined),
-          vocabulary: sessionVocabulary,
-          stageScores,
-          duration,
-          completedAt: new Date().toISOString(),
-          studentMessageCount: messages.filter((m) => m.speaker === 'student').length,
-          totalTurns: messages.length,
-          worksheetAnswers,
-          ai_feedback: capturedAiFeedback,
-        })
-      );
-    }
-
     // Show AI feedback card before transitioning to the completion screen
     if (capturedAiFeedback) {
       setAiFeedback(capturedAiFeedback);
@@ -576,6 +554,7 @@ export default function SessionPage() {
             onClick={() => {
               setShowAiFeedbackCard(false);
               setSessionComplete(true);
+              setShowConfetti(true);
             }}
             className="w-full py-3 px-6 bg-[#5C8B5C] text-white rounded-2xl hover:bg-[#3D6B3D] transition-colors font-bold hover:-translate-y-0.5 shadow-[0_4px_12px_rgba(92,139,92,0.3)]"
           >
@@ -598,7 +577,7 @@ export default function SessionPage() {
             <span className="font-bold text-[#3D6B3D]">&quot;{bookTitle}&quot;</span>. Let&apos;s review what you learned!
           </p>
           <button
-            onClick={() => router.push('/review')}
+            onClick={() => router.push(sessionId ? `/review?sessionId=${sessionId}` : '/review')}
             className="w-full py-3 px-6 bg-[#5C8B5C] text-white rounded-2xl hover:bg-[#3D6B3D] transition-colors font-bold hover:-translate-y-0.5 shadow-[0_4px_12px_rgba(92,139,92,0.3)]"
           >
             View Word Review
