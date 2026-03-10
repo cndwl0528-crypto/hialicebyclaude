@@ -2,12 +2,25 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import useSpeech from '@/hooks/useSpeech';
 import VoiceButton from '@/components/VoiceButton';
 import { STAGE_GUIDE, getCurrentGuideQuestion } from '@/lib/stageQuestions';
 import { pauseSession as apiPauseSession } from '@/services/api';
-import ConfettiCelebration from '@/components/ConfettiCelebration';
-import AchievementUnlock from '@/components/AchievementUnlock';
+import CelebrationOverlay from '@/components/CelebrationOverlay';
+
+// ConfettiCelebration and AchievementUnlock are celebration-only components that
+// fire after a session ends. Lazy-loading them keeps the initial session bundle
+// smaller and avoids loading canvas/animation code until it is actually needed.
+const ConfettiCelebration = dynamic(
+  () => import('@/components/ConfettiCelebration'),
+  { ssr: false }
+);
+
+const AchievementUnlock = dynamic(
+  () => import('@/components/AchievementUnlock'),
+  { ssr: false }
+);
 
 const STAGES = ['Warm-Up', 'Title', 'Introduction', 'Body', 'Conclusion', 'Reflection'];
 const STAGE_EMOJIS = ['🌟', '📖', '👤', '💭', '⭐', '🧠'];
@@ -120,6 +133,9 @@ export default function SessionPage() {
   const [showConfetti, setShowConfetti] = useState(false);
   const [pendingAchievements, setPendingAchievements] = useState([]);
   const [showAchievements, setShowAchievements] = useState(false);
+
+  // CelebrationOverlay state — shown immediately when the session completes
+  const [showCelebrationOverlay, setShowCelebrationOverlay] = useState(false);
 
   const { isListening, transcript, speak, startListening, stopListening, supported } = useSpeech();
   const messagesEndRef = useRef(null);
@@ -541,10 +557,12 @@ export default function SessionPage() {
         setShowAiFeedbackCard(false);
         setSessionComplete(true);
         setShowConfetti(true);
+        setShowCelebrationOverlay(true);
       }, 6000);
     } else {
       setSessionComplete(true);
       setShowConfetti(true);
+      setShowCelebrationOverlay(true);
     }
   };
 
@@ -634,6 +652,8 @@ export default function SessionPage() {
             onClick={() => {
               setShowAiFeedbackCard(false);
               setSessionComplete(true);
+              setShowConfetti(true);
+              setShowCelebrationOverlay(true);
             }}
             className="w-full py-3 px-6 bg-[#5C8B5C] text-white rounded-2xl hover:bg-[#3D6B3D] transition-colors font-bold hover:-translate-y-0.5 shadow-[0_4px_12px_rgba(92,139,92,0.3)]"
           >
@@ -646,23 +666,68 @@ export default function SessionPage() {
   }
 
   if (sessionComplete) {
+    // Compute scores to pass to the overlay
+    const avgGrammarScore = (() => {
+      const vals = Object.values(stageScores).filter((v) => typeof v === 'number');
+      if (vals.length === 0) return null;
+      const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+      return avg <= 1 ? Math.round(avg * 100) : Math.round(avg);
+    })();
+
+    const studentTurns = messages.filter((m) => m.speaker === 'student').length;
+
     return (
-      <div className="min-h-[calc(100vh-120px)] flex items-center justify-center py-12 bg-[#F5F0E8]">
-        <div className="ghibli-card p-8 max-w-md text-center">
-          <div className="text-6xl mb-4 float-animation inline-block">🎉</div>
-          <h2 className="text-2xl font-extrabold text-[#3D2E1E] mb-2">Great Job!</h2>
-          <p className="text-[#6B5744] font-semibold mb-6">
-            You completed the reading session for{' '}
-            <span className="font-bold text-[#3D6B3D]">&quot;{bookTitle}&quot;</span>. Let&apos;s review what you learned!
-          </p>
-          <button
-            onClick={() => router.push('/review')}
-            className="w-full py-3 px-6 bg-[#5C8B5C] text-white rounded-2xl hover:bg-[#3D6B3D] transition-colors font-bold hover:-translate-y-0.5 shadow-[0_4px_12px_rgba(92,139,92,0.3)]"
-          >
-            View Word Review
-          </button>
+      <>
+        {/* Underlay: static fallback card shown after overlay is dismissed */}
+        <div className="min-h-[calc(100vh-120px)] flex items-center justify-center py-12 bg-[#F5F0E8]">
+          <div className="ghibli-card p-8 max-w-md text-center animate-fade-in">
+            <div className="text-6xl mb-4 float-animation inline-block">🎉</div>
+            <h2 className="text-2xl font-extrabold text-[#3D2E1E] mb-2">Great Job!</h2>
+            <p className="text-[#6B5744] font-semibold mb-6">
+              You completed the reading session for{' '}
+              <span className="font-bold text-[#3D6B3D]">&quot;{bookTitle}&quot;</span>. Let&apos;s review what you learned!
+            </p>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => router.push('/vocabulary')}
+                className="w-full py-3 px-6 bg-[#F39C12] text-white rounded-2xl hover:bg-[#D68910] transition-colors font-bold hover:-translate-y-0.5 shadow-[0_4px_12px_rgba(243,156,18,0.3)]"
+              >
+                View My Words 📖
+              </button>
+              <button
+                onClick={() => router.push('/review')}
+                className="w-full py-3 px-6 bg-[#5C8B5C] text-white rounded-2xl hover:bg-[#3D6B3D] transition-colors font-bold hover:-translate-y-0.5 shadow-[0_4px_12px_rgba(92,139,92,0.3)]"
+              >
+                View Word Review
+              </button>
+              <button
+                onClick={() => router.push('/books')}
+                className="w-full py-3 px-6 bg-[#4A90D9] text-white rounded-2xl hover:bg-[#2E5AA6] transition-colors font-bold hover:-translate-y-0.5 shadow-[0_4px_12px_rgba(74,144,217,0.3)]"
+              >
+                Back to Books 📚
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
+
+        {/* CelebrationOverlay — sits on top, auto-dismisses after 8 s */}
+        <CelebrationOverlay
+          visible={showCelebrationOverlay}
+          studentName={studentName || 'Explorer'}
+          duration={elapsedSeconds}
+          turns={studentTurns}
+          levelScore={null}
+          grammarScore={avgGrammarScore}
+          onViewWords={() => {
+            setShowCelebrationOverlay(false);
+            router.push('/vocabulary');
+          }}
+          onBackToBooks={() => {
+            setShowCelebrationOverlay(false);
+            router.push('/books');
+          }}
+        />
+      </>
     );
   }
 

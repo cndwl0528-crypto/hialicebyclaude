@@ -21,6 +21,25 @@ import { authRateLimiter } from '../middleware/sanitize.js';
 
 const router = express.Router();
 
+// ---------------------------------------------------------------------------
+// Cookie configuration
+// ---------------------------------------------------------------------------
+
+/**
+ * Options for the httpOnly JWT cookie.
+ * The cookie is only transmitted over HTTPS in production; in development it
+ * is also sent over plain HTTP so that local testing is not blocked.
+ */
+function cookieOptions() {
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours in milliseconds
+    path: '/',
+  };
+}
+
 // ============================================================================
 // POST /parent-login
 // ============================================================================
@@ -77,6 +96,10 @@ router.post('/parent-login', authRateLimiter, async (req, res) => {
       email: parentData.email,
       type: 'parent',
     });
+
+    // Set the JWT as an httpOnly cookie in addition to returning it in the
+    // JSON body so existing clients that read the body continue to work.
+    res.cookie('hialice_token', token, cookieOptions());
 
     return res.status(200).json({
       token,
@@ -140,6 +163,9 @@ router.post('/child-select', authMiddleware, async (req, res) => {
       type: 'student',
     });
 
+    // Replace the parent cookie with a student-scoped cookie for the session.
+    res.cookie('hialice_token', token, cookieOptions());
+
     return res.status(200).json({
       token,
       student: {
@@ -164,20 +190,32 @@ router.post('/child-select', authMiddleware, async (req, res) => {
 
 /**
  * Log out the current user.
- * Calls Supabase Auth signOut to invalidate the remote session.
- * Our own JWTs are stateless — the client should discard the token.
+ *
+ * - Clears the httpOnly `hialice_token` cookie unconditionally so that clients
+ *   which authenticate via cookie are always logged out regardless of whether
+ *   they also carry a Bearer token.
+ * - Calls Supabase Auth signOut as a best-effort remote session invalidation.
+ * - Our own JWTs are stateless, so Bearer-only clients must also discard the
+ *   token on their side.
+ *
+ * No authMiddleware guard is applied so that a client with only a cookie (and
+ * no stored Bearer token) can still reach this endpoint to clear the cookie.
  *
  * Returns: { success: true }
  */
-router.post('/logout', authMiddleware, async (req, res) => {
+router.post('/logout', async (req, res) => {
   try {
-    // Sign out from Supabase Auth to invalidate any active Supabase sessions.
-    // This is a best-effort call; our JWTs are stateless so the client must
-    // also clear its stored token.
-    const { error } = await supabase.auth.signOut();
+    // Clear the httpOnly cookie by sending it with maxAge 0.
+    res.clearCookie('hialice_token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+    });
 
+    // Best-effort Supabase Auth session invalidation.
+    const { error } = await supabase.auth.signOut();
     if (error) {
-      // Log but do not surface to client — the signOut is best-effort
       console.warn('Supabase signOut error (non-fatal):', error.message);
     }
 

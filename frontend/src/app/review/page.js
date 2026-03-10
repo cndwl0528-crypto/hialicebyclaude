@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSessionReview, getSessionStageScores } from '@/services/api';
 import LoadingCard from '@/components/LoadingCard';
-import PrintableWorksheet from '@/components/PrintableWorksheet';
+import WorksheetPrint from '@/components/WorksheetPrint';
 import BookRecommendation from '@/components/BookRecommendation';
 
 const MOCK_REVIEW_DATA = {
@@ -42,6 +42,43 @@ const POS_COLORS = {
   adverb: { bg: 'bg-[#FFF0D8]', text: 'text-[#A8822E]', label: 'Adverb' },
 };
 
+/**
+ * Compact "Print Worksheet" button for the action bar.
+ * Dispatches a custom event that WorksheetPrint listens to, so the
+ * already-mounted panel handles the window.open + print() flow without
+ * duplicating the document-building logic.
+ */
+function PrintWorksheetButton() {
+  const handleClick = () => {
+    window.dispatchEvent(new CustomEvent('hialice:printWorksheet'));
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      className="flex items-center gap-2 px-6 py-3 bg-[#4A7C59] text-white rounded-2xl hover:bg-[#2C5A3A] transition-all font-bold hover:-translate-y-0.5 shadow-[0_4px_12px_rgba(74,124,89,0.3)]"
+      aria-label="Print reading worksheet as PDF"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        className="w-4 h-4 flex-shrink-0"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2.2}
+        aria-hidden="true"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4"
+        />
+      </svg>
+      Print Worksheet
+    </button>
+  );
+}
+
 export default function ReviewPage() {
   const router = useRouter();
   const [review, setReview] = useState(null);
@@ -57,6 +94,7 @@ export default function ReviewPage() {
   const [achievementsEarned, setAchievementsEarned] = useState([]);
   const [showAchievements, setShowAchievements] = useState(false);
   const [aiFeedback, setAiFeedback] = useState(null);
+  const [worksheetAnswers, setWorksheetAnswers] = useState({});
 
   useEffect(() => {
     const fetchReview = async () => {
@@ -82,6 +120,18 @@ export default function ReviewPage() {
             setConversation(JSON.parse(conversationStr));
           } catch (e) {
             console.warn('Failed to parse conversation:', e);
+          }
+        }
+
+        // Restore worksheetAnswers from sessionStorage
+        if (sessionDataStr) {
+          try {
+            const sessionData = JSON.parse(sessionDataStr);
+            if (sessionData.worksheetAnswers && typeof sessionData.worksheetAnswers === 'object') {
+              setWorksheetAnswers(sessionData.worksheetAnswers);
+            }
+          } catch (e) {
+            console.warn('Failed to parse worksheetAnswers:', e);
           }
         }
 
@@ -685,12 +735,15 @@ export default function ReviewPage() {
         </div>
       </div>
 
-      {/* Printable Worksheet */}
+      {/* Printable Worksheet — full 8-row worksheet with native print-to-PDF */}
       <div className="mb-6">
-        <PrintableWorksheet
-          sessionData={review}
+        <WorksheetPrint
           studentName={sessionStorage.getItem('studentName') || review?.studentName || 'Student'}
           bookTitle={review?.bookTitle || review?.book_title || 'My Book'}
+          worksheetAnswers={worksheetAnswers}
+          grammarScore={review?.grammarScore ?? null}
+          levelScore={review?.levelScore ?? null}
+          completedAt={review?.completedAt ?? null}
         />
       </div>
 
@@ -718,6 +771,7 @@ export default function ReviewPage() {
         >
           Read Another Book
         </button>
+        <PrintWorksheetButton />
         <button
           onClick={() => router.push('/profile')}
           className="px-8 py-3 bg-[#EDE5D4] text-[#6B5744] rounded-2xl hover:bg-[#D6C9A8] transition-all font-bold hover:-translate-y-0.5"

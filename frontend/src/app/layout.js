@@ -84,8 +84,17 @@ export default function RootLayout({ children }) {
         <meta name="apple-mobile-web-app-icon" content="/icon-192.png" />
         <link rel="manifest" href="/manifest.json" />
         <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect fill='%235C8B5C' width='64' height='64'/><text x='50%' y='50%' font-size='40' dominant-baseline='middle' text-anchor='middle' fill='white'>🌿</text></svg>" />
+        {/* Font optimisation: preconnect + preload the stylesheet as a high-priority resource.
+            next/font/google would be ideal here but requires a Server Component root layout;
+            the current layout is 'use client' so we optimise the Google Fonts request instead. */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* Preload the font CSS so the browser fetches it before layout paint */}
+        <link
+          rel="preload"
+          as="style"
+          href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Quicksand:wght@400;500;600;700&display=swap"
+        />
         <link
           href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Quicksand:wght@400;500;600;700&display=swap"
           rel="stylesheet"

@@ -285,3 +285,46 @@ a:focus-visible {
   white-space: nowrap;
   border-width: 0;
 }
+
+/* ===== Print Media — Worksheet PDF fallback ===================== */
+/*
+ * When the user's browser blocks pop-ups and we fall back to in-page
+ * printing, these rules hide all chrome and expose only the worksheet
+ * panel rendered by WorksheetPrint.
+ *
+ * The worksheet panel carries the class `worksheet-print-panel`.
+ * All other page elements (nav, footer, unrelated cards) are hidden.
+ */
+@media print {
+  /* Hide app chrome */
+  nav,
+  footer,
+  .offline-banner,
+  .ghibli-bg {
+    display: none !important;
+  }
+
+  /* Reset page padding so the worksheet fills the sheet */
+  body {
+    background: #FFFFFF !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Hide everything on the review page except the worksheet panel */
+  body > * {
+    display: none !important;
+  }
+
+  /* Only show the worksheet panel */
+  .worksheet-print-panel,
+  .worksheet-print-panel * {
+    display: revert !important;
+  }
+
+  /* Page setup */
+  @page {
+    size: A4 portrait;
+    margin: 15mm 12mm 18mm 12mm;
+  }
+}

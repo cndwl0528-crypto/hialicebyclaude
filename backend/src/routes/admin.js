@@ -901,27 +901,39 @@ router.get('/reports/overview', optionalAdminAuth, async (req, res) => {
 
 /**
  * GET /reports/export
- * Export all data as JSON
- * Returns: { students, books, sessions, vocabulary }
+ * Export all data as JSON or CSV.
+ * Query: ?format=csv&table=students  (csv exports one table at a time)
+ *        ?format=json                (default — exports everything)
+ * Returns: JSON object or text/csv download
  */
 router.get('/reports/export', optionalAdminAuth, async (req, res) => {
   try {
-    const { data: students } = await supabase
-      .from('students')
-      .select('*');
+    const { format = 'json', table } = req.query;
 
-    const { data: books } = await supabase
-      .from('books')
-      .select('*');
+    const { data: students } = await supabase.from('students').select('*');
+    const { data: books } = await supabase.from('books').select('*');
+    const { data: sessions } = await supabase.from('sessions').select('*');
+    const { data: vocabulary } = await supabase.from('vocabulary').select('*');
 
-    const { data: sessions } = await supabase
-      .from('sessions')
-      .select('*');
+    const tables = {
+      students: students || [],
+      books: books || [],
+      sessions: sessions || [],
+      vocabulary: vocabulary || [],
+    };
 
-    const { data: vocabulary } = await supabase
-      .from('vocabulary')
-      .select('*');
+    // ── CSV format ────────────────────────────────────────────────
+    if (format === 'csv') {
+      const tableName = table && tables[table] ? table : 'students';
+      const rows = tables[tableName];
+      const csv = arrayToCsv(rows);
 
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="hialice-${tableName}-${Date.now()}.csv"`);
+      return res.status(200).send(csv);
+    }
+
+    // ── JSON format (default) ─────────────────────────────────────
     return res.status(200).json({
       success: true,
       data: {
@@ -1316,5 +1328,198 @@ router.post('/prompts/test', optionalAdminAuth, async (req, res) => {
     return res.status(500).json({ error: 'Failed to test prompt' });
   }
 });
+
+// ============================================================================
+// EMAIL NOTIFICATION ENDPOINTS
+// ============================================================================
+
+/**
+ * POST /notifications/session-complete
+ * Send a session completion summary email to the parent.
+ *
+ * Body: { studentId, sessionId }
+ * Returns: { success, message }
+ *
+ * This is a stub implementation that logs the email content.
+ * Replace `sendEmail()` with a real transport (nodemailer, SendGrid, etc.)
+ * when SMTP credentials are configured.
+ */
+router.post('/notifications/session-complete', optionalAdminAuth, async (req, res) => {
+  try {
+    const { studentId, sessionId } = req.body;
+
+    if (!studentId || !sessionId) {
+      return res.status(400).json({ error: 'studentId and sessionId are required' });
+    }
+
+    // Fetch student + parent email
+    const { data: student } = await supabase
+      .from('students')
+      .select('name, level, parent_id, parents!inner(email, name)')
+      .eq('id', studentId)
+      .single();
+
+    if (!student) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+
+    // Fetch session summary
+    const { data: session } = await supabase
+      .from('sessions')
+      .select('id, grammar_score, level_score, completed_at, books!inner(title)')
+      .eq('id', sessionId)
+      .single();
+
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    const parentEmail = student.parents?.email;
+    const parentName = student.parents?.name || 'Parent';
+
+    if (!parentEmail) {
+      return res.status(400).json({ error: 'Parent email not found' });
+    }
+
+    const emailContent = {
+      to: parentEmail,
+      subject: `[HiAlice] ${student.name} completed a reading session!`,
+      html: buildSessionEmailHtml({
+        parentName,
+        studentName: student.name,
+        bookTitle: session.books?.title || 'Unknown Book',
+        grammarScore: session.grammar_score,
+        levelScore: session.level_score,
+        completedAt: session.completed_at,
+      }),
+    };
+
+    // Stub: log instead of sending
+    const sent = await sendEmail(emailContent);
+
+    return res.status(200).json({
+      success: true,
+      message: sent ? 'Email sent successfully' : 'Email logged (SMTP not configured)',
+      preview: sent ? undefined : emailContent,
+    });
+  } catch (err) {
+    console.error('Notification error:', err);
+    return res.status(500).json({ error: 'Failed to send notification' });
+  }
+});
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+/**
+ * Converts an array of objects to a CSV string.
+ * Handles nested objects by JSON-stringifying them.
+ *
+ * @param {Array<Object>} rows
+ * @returns {string}
+ */
+function arrayToCsv(rows) {
+  if (!rows || rows.length === 0) return '';
+
+  const headers = Object.keys(rows[0]);
+  const csvLines = [headers.join(',')];
+
+  for (const row of rows) {
+    const values = headers.map((h) => {
+      const val = row[h];
+      if (val === null || val === undefined) return '';
+      if (typeof val === 'object') return `"${JSON.stringify(val).replace(/"/g, '""')}"`;
+      const str = String(val);
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    });
+    csvLines.push(values.join(','));
+  }
+
+  return csvLines.join('\n');
+}
+
+/**
+ * Builds a simple HTML email for session completion notification.
+ */
+function buildSessionEmailHtml({ parentName, studentName, bookTitle, grammarScore, levelScore, completedAt }) {
+  const date = completedAt ? new Date(completedAt).toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+  }) : 'Today';
+
+  return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="font-family: Arial, sans-serif; background: #F5F0E8; padding: 20px;">
+  <div style="max-width: 500px; margin: 0 auto; background: white; border-radius: 16px; padding: 32px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+    <div style="text-align: center; margin-bottom: 24px;">
+      <h1 style="color: #4A7C59; font-size: 24px; margin: 0;">HiAlice</h1>
+      <p style="color: #6B8B6B; font-size: 12px; margin: 4px 0 0;">AI English Reading Companion</p>
+    </div>
+    <p style="color: #3D2E1E; font-size: 16px;">Hi ${parentName},</p>
+    <p style="color: #3D2E1E; font-size: 14px; line-height: 1.6;">
+      Great news! <strong>${studentName}</strong> just completed a reading session for
+      <strong>"${bookTitle}"</strong> on ${date}.
+    </p>
+    <div style="background: #F5F0E8; border-radius: 12px; padding: 16px; margin: 20px 0;">
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 8px; text-align: center;">
+            <div style="font-size: 24px; font-weight: bold; color: #4A7C59;">${grammarScore ?? '—'}</div>
+            <div style="font-size: 11px; color: #6B5744;">Grammar Score</div>
+          </td>
+          <td style="padding: 8px; text-align: center;">
+            <div style="font-size: 24px; font-weight: bold; color: #4A7C59;">${levelScore ?? '—'}</div>
+            <div style="font-size: 11px; color: #6B5744;">Level Score</div>
+          </td>
+        </tr>
+      </table>
+    </div>
+    <p style="color: #6B5744; font-size: 13px; line-height: 1.5;">
+      Visit the <strong>Parent Dashboard</strong> to see detailed progress, vocabulary growth, and achievements.
+    </p>
+    <div style="text-align: center; margin-top: 24px; padding-top: 16px; border-top: 1px solid #E8DEC8;">
+      <p style="color: #9B8777; font-size: 11px; margin: 0;">HiAlice — AI English Reading App for Ages 6-13</p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+/**
+ * Email transport stub. Logs the email content to console.
+ * Replace with nodemailer or SendGrid when SMTP is configured.
+ *
+ * @param {{ to: string, subject: string, html: string }} email
+ * @returns {Promise<boolean>} true if actually sent, false if just logged
+ */
+async function sendEmail(email) {
+  const smtpHost = process.env.SMTP_HOST;
+
+  if (!smtpHost) {
+    console.log('📧 [Email Stub] Would send to:', email.to);
+    console.log('📧 [Email Stub] Subject:', email.subject);
+    console.log('📧 [Email Stub] (Configure SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS to enable real sending)');
+    return false;
+  }
+
+  // Real implementation placeholder — uncomment when nodemailer is added:
+  // const nodemailer = await import('nodemailer');
+  // const transporter = nodemailer.createTransport({
+  //   host: smtpHost,
+  //   port: parseInt(process.env.SMTP_PORT || '587'),
+  //   secure: false,
+  //   auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+  // });
+  // await transporter.sendMail({ from: '"HiAlice" <noreply@hialice.com>', ...email });
+  // return true;
+
+  console.log('📧 SMTP configured but nodemailer not installed. Run: npm install nodemailer');
+  return false;
+}
 
 export default router;

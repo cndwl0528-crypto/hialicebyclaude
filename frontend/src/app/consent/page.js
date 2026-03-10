@@ -1,8 +1,8 @@
 'use client';
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-export default function ConsentPage() {
+function ConsentForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const parentEmail = searchParams.get('email') || '';
@@ -159,5 +159,13 @@ export default function ConsentPage() {
         </a>
       </div>
     </div>
+  );
+}
+
+export default function ConsentPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#F5F0E8] flex items-center justify-center"><p className="text-[#6B7280]">Loading...</p></div>}>
+      <ConsentForm />
+    </Suspense>
   );
 }

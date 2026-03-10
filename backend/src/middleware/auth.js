@@ -2,13 +2,17 @@ import crypto from 'crypto';
 import { config } from '../lib/config.js';
 
 export function authMiddleware(req, res, next) {
-  const authHeader = req.headers.authorization;
-  
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'No token provided' });
-  }
+  // Prefer the httpOnly cookie; fall back to the Authorization Bearer header
+  // so existing clients that send the header continue to work.
+  let token = req.cookies?.hialice_token ?? null;
 
-  const token = authHeader.split(' ')[1];
+  if (!token) {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+    token = authHeader.split(' ')[1];
+  }
 
   try {
     // Simple JWT-like token verification

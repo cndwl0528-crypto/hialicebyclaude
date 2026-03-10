@@ -1,8 +1,10 @@
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import { errorHandler } from './middleware/errorHandler.js';
 import { sanitizeBody, sanitizeQuery, rateLimiter, inputLengthLimiter, profanityFilter } from './middleware/sanitize.js';
 import { validateEnv } from './lib/config.js';
+import { initSentry } from './lib/sentry.js';
 import authRouter from './routes/auth.js';
 import booksRouter from './routes/books.js';
 import sessionsRouter from './routes/sessions.js';
@@ -16,6 +18,11 @@ validateEnv();
 
 const app = express();
 
+// Sentry must be initialised before any other middleware so that every request
+// is wrapped in a transaction and all errors are captured with full context.
+// initSentry is a no-op when SENTRY_DSN is not set.
+const { errorHandler: sentryErrorHandler } = initSentry(app);
+
 // Restrict CORS to explicitly allowed origins only (no wildcard)
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
@@ -27,6 +34,7 @@ app.use(cors({
 }));
 
 app.use(express.json({ limit: '1mb' })); // Limit raw payload size
+app.use(cookieParser());               // Parse cookies (required for httpOnly JWT cookie)
 app.use(rateLimiter);          // Per-IP rate limiting
 app.use(inputLengthLimiter);   // Reject/truncate oversized request bodies
 app.use(sanitizeBody);         // Strip HTML/XSS from all body strings
@@ -66,7 +74,11 @@ app.use('/api/vocabulary', vocabularyRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/tts', ttsRouter);
 
-// Error handler
+// Sentry error handler must come BEFORE the custom error handler so that
+// Sentry can capture unhandled errors with full request context attached.
+app.use(sentryErrorHandler);
+
+// Custom application error handler (formats error responses for clients)
 app.use(errorHandler);
 
 export default app;
