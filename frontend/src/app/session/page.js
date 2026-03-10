@@ -9,11 +9,16 @@ import { pauseSession as apiPauseSession } from '@/services/api';
 import ConfettiCelebration from '@/components/ConfettiCelebration';
 import AchievementUnlock from '@/components/AchievementUnlock';
 
-const STAGES = ['Title', 'Introduction', 'Body', 'Conclusion'];
-const STAGE_EMOJIS = ['📖', '👤', '💭', '⭐'];
+const STAGES = ['Warm-Up', 'Title', 'Introduction', 'Body', 'Conclusion', 'Reflection'];
+const STAGE_EMOJIS = ['🌟', '📖', '👤', '💭', '⭐', '🧠'];
+const STAGE_API_NAMES = ['warmup', 'title', 'introduction', 'body', 'conclusion', 'reflection'];
 const MAX_TURNS_PER_STAGE = 3;
 
 const MOCK_AI_RESPONSES = {
+  'Warm-Up': [
+    "Hi there! Before we talk about the book, tell me — what kind of stories do YOU like best?",
+    "Awesome! I think you'll love this book. Let's dive in!",
+  ],
   Title: [
     "What do you think the title means? Why did the author choose this title?",
     "That's interesting! Can you tell me more about why you feel that way?",
@@ -34,23 +39,31 @@ const MOCK_AI_RESPONSES = {
     "Would you recommend this book to a friend? Why or why not?",
     "If you could change one thing in the story, what would it be?",
   ],
+  Reflection: [
+    "You shared so many great ideas! What helped you come up with your answers — remembering, imagining, or connecting to your own life?",
+    "If another kid was about to read this book, what advice would you give them? You're not just a great reader — you're a great THINKER!",
+  ],
 };
 
 const WORKSHEET_ROWS = [
+  { stage: 'Warm-Up', label: 'Warm-Up', color: '#E8A87C', icon: '🌟', question: 'What kind of stories do you like?', example: 'e.g. I like adventure stories because they are exciting!' },
   { stage: 'Title', label: 'Title', color: '#5C8B5C', icon: '📖', question: 'What is this book about?', example: 'e.g. This book is about a caterpillar that becomes a butterfly.' },
   { stage: 'Introduction', label: 'Introduction', color: '#87CEDB', icon: '👤', question: 'Who is your favorite character? Why?', example: 'e.g. I would choose the caterpillar because it is brave.' },
   { stage: 'Body', label: 'Body ①', color: '#D4A843', icon: '💭', question: 'What is the most important part of the story? Why?', example: 'e.g. The most important part is when the caterpillar eats all the food.', bodyIndex: 0 },
   { stage: 'Body', label: 'Body ②', color: '#D4A843', icon: '💭', question: 'What would you change about the story? Why?', example: 'e.g. I would add more animals because it would be more fun.', bodyIndex: 1 },
   { stage: 'Body', label: 'Body ③', color: '#D4A843', icon: '💭', question: 'What did you learn from this story?', example: 'e.g. Moreover, I learned that change can be beautiful.', bodyIndex: 2 },
   { stage: 'Conclusion', label: 'Conclusion', color: '#7AC87A', icon: '⭐', question: 'How do you feel about this book?', example: 'e.g. Reading this book was really fun and I learned a lot.' },
+  { stage: 'Reflection', label: 'Reflection', color: '#9B59B6', icon: '🧠', question: 'What helped you think about this book?', example: 'e.g. I think using my imagination helped me the most.' },
 ];
 
 function getWorksheetRowIndex(stageIndex, bodyReasonCount) {
   const stage = STAGES[stageIndex];
-  if (stage === 'Title') return 0;
-  if (stage === 'Introduction') return 1;
-  if (stage === 'Body') return 2 + Math.min(bodyReasonCount, 2);
-  if (stage === 'Conclusion') return 5;
+  if (stage === 'Warm-Up') return 0;
+  if (stage === 'Title') return 1;
+  if (stage === 'Introduction') return 2;
+  if (stage === 'Body') return 3 + Math.min(bodyReasonCount, 2);
+  if (stage === 'Conclusion') return 6;
+  if (stage === 'Reflection') return 7;
   return 0;
 }
 
@@ -87,6 +100,7 @@ export default function SessionPage() {
   const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
   const [aiFeedback, setAiFeedback] = useState(null);
   const [showAiFeedbackCard, setShowAiFeedbackCard] = useState(false);
+  const [cognitiveTags, setCognitiveTags] = useState([]);
   const timerRef = useRef(null);
 
   // Level-based UI: determine mode from sessionStorage once (stable across renders)
@@ -277,7 +291,7 @@ export default function SessionPage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               content: text,
-              stage: STAGES[currentStage],
+              stage: STAGE_API_NAMES[currentStage],
             }),
           });
 
@@ -340,10 +354,15 @@ export default function SessionPage() {
       }));
     }
 
+    // Track cognitive depth tags from AI engine (Bloom's taxonomy)
+    if (data.cognitiveTag) {
+      setCognitiveTags((prev) => [...prev, { stage: STAGES[currentStage], turn: data.turn, ...data.cognitiveTag }]);
+    }
+
     if (data.shouldAdvance && data.nextStage) {
-      const nextStageIndex = STAGES.indexOf(data.nextStage);
+      const nextStageIndex = STAGE_API_NAMES.indexOf(data.nextStage);
       if (nextStageIndex > currentStage) {
-        showStageTransitionAnimation(data.nextStage, nextStageIndex);
+        showStageTransitionAnimation(STAGES[nextStageIndex], nextStageIndex);
       }
     } else {
       if (STAGES[currentStage] === 'Body') {
@@ -373,6 +392,8 @@ export default function SessionPage() {
     if (STAGES[currentStage] === 'Body') {
       shouldAdvance = reasonCount >= 3;
       setBodyReasonCount(reasonCount);
+    } else if (STAGES[currentStage] === 'Warm-Up' || STAGES[currentStage] === 'Reflection') {
+      shouldAdvance = nextTurn >= 2;
     } else {
       shouldAdvance = nextTurn >= MAX_TURNS_PER_STAGE;
     }
@@ -423,6 +444,7 @@ export default function SessionPage() {
     clearInterval(timerRef.current);
 
     let capturedAiFeedback = null;
+    let apiStageBreakdown = null;
 
     if (apiAvailable && sessionId) {
       try {
@@ -438,10 +460,29 @@ export default function SessionPage() {
 
         if (completeRes.ok) {
           const completeData = await completeRes.json();
-          // Capture ai_feedback if returned by the backend
-          capturedAiFeedback = completeData.ai_feedback || completeData.aiFeedback || null;
+          // Capture ai_feedback from summary (backend returns it under summary.aiFeedback)
+          capturedAiFeedback =
+            completeData.summary?.aiFeedback ||
+            completeData.ai_feedback ||
+            completeData.aiFeedback ||
+            null;
+          // Capture stage breakdown from API (convert object to array format)
+          const rawBreakdown = completeData.summary?.stageBreakdown;
+          if (rawBreakdown && typeof rawBreakdown === 'object' && !Array.isArray(rawBreakdown)) {
+            apiStageBreakdown = Object.entries(rawBreakdown)
+              .filter(([, v]) => v !== null)
+              .map(([stage, scores]) => ({
+                stage: stage.charAt(0).toUpperCase() + stage.slice(1),
+                completed: true,
+                wordCount: scores.vocabulary || 0,
+                grammarScore: scores.grammar || 0,
+                duration: 0,
+              }));
+          } else if (Array.isArray(rawBreakdown)) {
+            apiStageBreakdown = rawBreakdown;
+          }
           // Capture achievements if returned
-          const achievementsEarned = completeData.achievements || completeData.achievementsEarned || [];
+          const achievementsEarned = completeData.newAchievements || completeData.achievements || [];
           if (achievementsEarned.length > 0) {
             setPendingAchievements(achievementsEarned);
             setShowAchievements(true);
@@ -452,7 +493,22 @@ export default function SessionPage() {
       }
     }
 
+    // Build local stage breakdown from collected stageScores for sessionStorage fallback
+    const localStageBreakdown = STAGES.map((stage) => ({
+      stage,
+      completed: stageScores[stage] !== undefined || currentStage >= STAGES.indexOf(stage),
+      wordCount: sessionVocabulary.filter((v) => v.stage === stage).length,
+      grammarScore: stageScores[stage] || 0,
+      duration: 0,
+    }));
+
     if (typeof window !== 'undefined') {
+      // Store conversation for review page replay
+      sessionStorage.setItem(
+        'lastConversation',
+        JSON.stringify(messages.filter((m) => m.speaker !== undefined))
+      );
+
       sessionStorage.setItem(
         'lastSessionData',
         JSON.stringify({
@@ -464,12 +520,14 @@ export default function SessionPage() {
           messages: messages.filter((m) => m.speaker !== undefined),
           vocabulary: sessionVocabulary,
           stageScores,
+          stageBreakdown: apiStageBreakdown || localStageBreakdown,
           duration,
           completedAt: new Date().toISOString(),
           studentMessageCount: messages.filter((m) => m.speaker === 'student').length,
           totalTurns: messages.length,
           worksheetAnswers,
           ai_feedback: capturedAiFeedback,
+          cognitiveTags,
         })
       );
     }

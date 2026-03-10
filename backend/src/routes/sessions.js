@@ -55,7 +55,7 @@ function optionalAuth(req, res, next) {
  * @returns {Object} stageMap e.g. { title: { grammar, fluency, vocabulary, responseCount, avgWords } }
  */
 function computeStageBreakdown(dialogues, level) {
-  const stages = ['title', 'introduction', 'body', 'conclusion'];
+  const stages = ['warmup', 'title', 'introduction', 'body', 'conclusion', 'reflection'];
   const stageMap = {};
 
   stages.forEach((stage) => {
@@ -194,13 +194,13 @@ router.post('/start', optionalAuth, async (req, res) => {
       return res.status(404).json({ error: 'Book not found' });
     }
 
-    // Create the new session record
+    // Create the new session record — start at 'warmup' stage
     const { data: session, error: sessionError } = await supabase
       .from('sessions')
       .insert({
         student_id: studentId,
         book_id: bookId,
-        stage: 'title',
+        stage: 'warmup',
         started_at: new Date().toISOString(),
         is_complete: false,
       })
@@ -211,12 +211,12 @@ router.post('/start', optionalAuth, async (req, res) => {
       return res.status(500).json({ error: sessionError.message });
     }
 
-    // Get HiAlice's opening question — pass full book object for context-aware prompt
+    // Get HiAlice's opening question — starts with warm-up stage
     const aliceResponse = await getAliceResponse({
       bookTitle: book.title,
       studentName: student.name,
       level: student.level,
-      stage: 'title',
+      stage: 'warmup',
       turn: 1,
       studentMessage: null,
       conversationHistory: [],
@@ -230,7 +230,7 @@ router.post('/start', optionalAuth, async (req, res) => {
       .from('dialogues')
       .insert({
         session_id: session.id,
-        stage: 'title',
+        stage: 'warmup',
         turn: 1,
         speaker: 'alice',
         content: aliceResponse.content,
@@ -292,11 +292,12 @@ router.post('/:id/message', optionalAuth, async (req, res) => {
       return res.status(404).json({ error: 'Session not found' });
     }
 
-    // Fetch student, book, and conversation history in parallel (N+1 avoidance)
+    // Fetch student, book, conversation history, and prior vocabulary in parallel
     const [
       { data: student },
       { data: book },
       { data: dialogues },
+      { data: priorVocabRows },
     ] = await Promise.all([
       supabase
         .from('students')
@@ -313,7 +314,23 @@ router.post('/:id/message', optionalAuth, async (req, res) => {
         .select('speaker, content, turn, stage')
         .eq('session_id', sessionId)
         .order('created_at', { ascending: true }),
+      // Cross-Book Memory: fetch vocabulary from PRIOR sessions (not this one)
+      supabase
+        .from('vocabulary')
+        .select('word, context_sentence, pos, session_id, sessions(books(title))')
+        .eq('student_id', session.student_id)
+        .neq('session_id', sessionId)
+        .order('first_used', { ascending: false })
+        .limit(15),
     ]);
+
+    // Build prior vocabulary list with book titles for cross-book memory
+    const priorVocabulary = (priorVocabRows || []).map((v) => ({
+      word: v.word,
+      context: v.context_sentence,
+      pos: v.pos,
+      bookTitle: v.sessions?.books?.title || null,
+    }));
 
     // Count only student messages in this stage to derive turn number
     const studentTurnsInStage = dialogues?.filter(
@@ -336,7 +353,7 @@ router.post('/:id/message', optionalAuth, async (req, res) => {
       console.error('Student dialogue error:', studentDialogueError);
     }
 
-    // Get Alice's response — pass full book object for context-aware, emotion-eliciting prompt
+    // Get Alice's response — pass full book object + cross-book vocabulary for context-aware prompt
     const aliceResponse = await getAliceResponse({
       bookTitle: book.title,
       studentName: student.name,
@@ -346,6 +363,7 @@ router.post('/:id/message', optionalAuth, async (req, res) => {
       studentMessage: content,
       conversationHistory: dialogues || [],
       book,
+      priorVocabulary,
     });
 
     // Score the student's response
@@ -392,13 +410,15 @@ router.post('/:id/message', optionalAuth, async (req, res) => {
     const vocabulary = vocabResults.map((r) => r.data?.[0]).filter(Boolean);
 
     // Determine whether the current stage should advance.
-    // Body requires 3 student turns; all other stages advance after 2+.
-    const stages = ['title', 'introduction', 'body', 'conclusion'];
+    // Body requires 3 student turns; warmup/reflection require 2; other stages advance after 2+.
+    const stages = ['warmup', 'title', 'introduction', 'body', 'conclusion', 'reflection'];
     const stageIndex = stages.indexOf(stage);
 
     let shouldAdvance = false;
     if (stage === 'body') {
       shouldAdvance = currentTurn >= 3;
+    } else if (stage === 'warmup' || stage === 'reflection') {
+      shouldAdvance = currentTurn >= 2;
     } else {
       shouldAdvance = currentTurn >= 2;
     }
@@ -419,6 +439,7 @@ router.post('/:id/message', optionalAuth, async (req, res) => {
       shouldAdvance,
       nextStage,
       grammarScore,
+      cognitiveTag: aliceResponse.cognitiveTag || null,
     });
   } catch (err) {
     console.error('Message error:', err);
@@ -495,7 +516,7 @@ router.post('/:id/complete', optionalAuth, async (req, res) => {
     const stagesWithResponses = new Set(
       studentDialogues.map((d) => d.stage)
     );
-    const levelScore = Math.round((stagesWithResponses.size / 4) * 100);
+    const levelScore = Math.round((stagesWithResponses.size / 6) * 100);
 
     // --- Per-stage score breakdown ---
     const stageBreakdown = computeStageBreakdown(allDialogues || [], studentLevel);

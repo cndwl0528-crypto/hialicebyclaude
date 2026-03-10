@@ -7,6 +7,22 @@
  */
 
 export const STAGE_GUIDE = {
+  warmup: {
+    label: 'Warm-Up',
+    guideQuestion: 'What kind of stories do you like?',
+    description: 'Tell me about your reading preferences',
+    example: 'e.g. I like adventure stories because they are exciting!',
+    icon: '🌟',
+    color: '#E8A87C',
+  },
+  'warm-up': {
+    label: 'Warm-Up',
+    guideQuestion: 'What kind of stories do you like?',
+    description: 'Tell me about your reading preferences',
+    example: 'e.g. I like adventure stories because they are exciting!',
+    icon: '🌟',
+    color: '#E8A87C',
+  },
   title: {
     label: 'Title',
     guideQuestion: 'What is this book about?',
@@ -54,6 +70,14 @@ export const STAGE_GUIDE = {
     example: 'e.g. Reading this book was really fun and I learned a lot.',
     icon: '⭐',
     color: '#27AE60',
+  },
+  reflection: {
+    label: 'Reflection',
+    guideQuestion: 'What helped you think about this book?',
+    description: 'Think about HOW you think',
+    example: 'e.g. I think using my imagination helped me the most.',
+    icon: '🧠',
+    color: '#9B59B6',
   },
 };
 

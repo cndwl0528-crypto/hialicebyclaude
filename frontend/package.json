@@ -4,10 +4,14 @@
   "private": true,
   "description": "HiAlice AI English Reading App - Frontend",
   "scripts": {
-    "dev": "next dev -p 5173",
+    "dev": "next dev -p 3001",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:e2e": "npx playwright test",
+    "test:e2e:ui": "npx playwright test --ui",
+    "test:e2e:headed": "HEADED=1 npx playwright test",
+    "test:e2e:report": "npx playwright show-report"
   },
   "dependencies": {
     "next": "^14.1.0",

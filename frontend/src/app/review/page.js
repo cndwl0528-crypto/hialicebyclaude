@@ -165,7 +165,25 @@ export default function ReviewPage() {
           try {
             const sessionData = sessionDataStr ? JSON.parse(sessionDataStr) : null;
             if (sessionData && sessionData.stageBreakdown) {
-              setStageBreakdown(sessionData.stageBreakdown);
+              // Normalize: may be an array or an object keyed by stage name
+              const raw = sessionData.stageBreakdown;
+              if (Array.isArray(raw)) {
+                setStageBreakdown(raw);
+              } else if (typeof raw === 'object') {
+                setStageBreakdown(
+                  Object.entries(raw)
+                    .filter(([, v]) => v !== null)
+                    .map(([stage, scores]) => ({
+                      stage: stage.charAt(0).toUpperCase() + stage.slice(1),
+                      completed: true,
+                      wordCount: scores.vocabulary || 0,
+                      grammarScore: scores.grammar || 0,
+                      duration: 0,
+                    }))
+                );
+              } else {
+                setStageBreakdown(MOCK_STAGE_BREAKDOWN);
+              }
             } else {
               setStageBreakdown(MOCK_STAGE_BREAKDOWN);
             }

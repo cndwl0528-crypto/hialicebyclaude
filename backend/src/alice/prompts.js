@@ -93,6 +93,23 @@ const LEVEL_RULES = {
 //  maxTurns     — maximum student turns allowed in this stage
 
 const STAGE_GUIDANCE = {
+  warmup: {
+    focus: 'Build rapport and activate prior knowledge before diving into the book',
+    emotionPrompt: 'Make the student feel comfortable and excited to talk about their reading',
+    subQuestions: [
+      'Hi [STUDENT_NAME]! Before we talk about "[BOOK_TITLE]", tell me — what kind of stories do YOU like best?',
+      'Awesome! What was the LAST book you really enjoyed? What made it special?',
+    ],
+    guideQuestion: 'What kind of stories do you like?',
+    instructions: [
+      'Start with a warm, enthusiastic greeting using the student\'s name',
+      'Ask about their reading preferences to build rapport',
+      'Connect their preferences to the current book: "I think you\'ll like this one because..."',
+      'Keep this stage SHORT and light — it\'s just a warm-up!'
+    ],
+    maxTurns: 2,
+    exampleAnswer: 'e.g. I like adventure stories because they are exciting!'
+  },
   title: {
     focus: 'First impressions and title interpretation',
     emotionPrompt: 'Connect the title to their personal feelings and imagination',
@@ -168,6 +185,26 @@ const STAGE_GUIDANCE = {
     ],
     maxTurns: 3,
     exampleAnswer: 'e.g. I would tell my friend this book is exciting because...'
+  },
+  reflection: {
+    focus: 'Metacognitive self-awareness — thinking about HOW they think',
+    emotionPrompt: 'Help them recognize their own thinking patterns and celebrate their growth',
+    subQuestions: [
+      // Metacognitive Q1 — Self-awareness: what did they learn about their own thinking?
+      'You shared so many great ideas today! When you were thinking about "[BOOK_TITLE]", what helped you come up with your answers — was it remembering the story, using your imagination, or connecting it to your own life?',
+      // Metacognitive Q2 — Strategy awareness: what approach worked best?
+      'If another kid was about to read "[BOOK_TITLE]" and talk about it like you just did, what advice would you give them? What is the BEST way to think about a book?',
+    ],
+    guideQuestion: 'What helped you think about this book?',
+    instructions: [
+      'METACOGNITIVE STAGE: Help the student reflect on their OWN thinking process',
+      'Ask what strategies helped them (remembering, imagining, connecting to life)',
+      'Ask what advice they would give another reader',
+      'Celebrate their metacognitive awareness: "You\'re not just a great reader — you\'re a great THINKER!"',
+      'Close with a warm, encouraging farewell that makes them excited for their next session'
+    ],
+    maxTurns: 2,
+    exampleAnswer: 'e.g. I think using my imagination helped me the most because...'
   }
 };
 
@@ -225,7 +262,7 @@ const SHORT_ANSWER_FOLLOWUPS = {
  * @param {number} [turn=1] - Current turn number within the stage (1-3)
  * @returns {string} Complete system prompt for Claude
  */
-export function getSystemPrompt(bookTitleOrBook, studentNameOrStudent, level, stage, turn = 1) {
+export function getSystemPrompt(bookTitleOrBook, studentNameOrStudent, level, stage, turn = 1, options = {}) {
   // ---- Normalise arguments: accept both legacy string and new object forms ----
   let book, studentName;
 
@@ -268,7 +305,8 @@ export function getSystemPrompt(bookTitleOrBook, studentNameOrStudent, level, st
   const rawSubQuestion = stageGuide.subQuestions?.[turn - 1] || '';
   const targetSubQuestion = rawSubQuestion
     .replace(/\[CHARACTER\]/g,   primaryCharacter)
-    .replace(/\[BOOK_TITLE\]/g,  bookTitle);
+    .replace(/\[BOOK_TITLE\]/g,  bookTitle)
+    .replace(/\[STUDENT_NAME\]/g, studentName);
 
   // ---- Body-stage sub-question directive (preserved from v1 for turn targeting) ----
   let bodySubQuestionSection = '';
@@ -295,6 +333,25 @@ BOOK CONTEXT (use this to personalise every question):
 ═══════════════════════════════════════════════\n\n`
     : '';
 
+  // ---- Cross-Book Memory block (optional) ----
+  // When prior vocabulary from earlier sessions is available, inject it so
+  // Alice can celebrate reuse and encourage spaced repetition naturally.
+  const priorVocabulary = options.priorVocabulary || [];
+  let crossBookMemoryBlock = '';
+  if (priorVocabulary.length > 0) {
+    const wordList = priorVocabulary.slice(0, 15).map(v =>
+      `"${v.word}" (from "${v.bookTitle || 'a previous book'}")`
+    ).join(', ');
+    crossBookMemoryBlock = `CROSS-BOOK MEMORY (words ${studentName} learned in previous sessions):
+${wordList}
+
+INSTRUCTIONS FOR CROSS-BOOK MEMORY:
+- If ${studentName} naturally uses one of these words, celebrate it: "I love that you used '${priorVocabulary[0]?.word || 'word'}' again! You remembered it from last time!"
+- Do NOT quiz them on these words — only acknowledge when they appear naturally
+- If a question naturally connects to a previous book topic, you may briefly mention it: "That reminds me of what you read before!"
+- This builds long-term vocabulary retention through positive reinforcement\n\n`;
+  }
+
   // ---- Assemble final prompt ----
   return `You are HiAlice, a warm and encouraging English teacher from the East Coast of the United States.
 
@@ -305,7 +362,7 @@ STUDENT PROFILE:
 - Session Stage: ${(stage || 'title').toUpperCase()} (${stageGuide.focus})
 - Current Turn: ${turn} of ${stageGuide.maxTurns}
 
-${bookContextBlock}CURRENT TURN FOCUS:
+${bookContextBlock}${crossBookMemoryBlock}CURRENT TURN FOCUS:
 ${targetSubQuestion || stageGuide.guideQuestion || stageGuide.focus}
 
 YOUR ROLE:
@@ -319,7 +376,21 @@ SOCRATIC METHOD (CRITICAL — APPLY TO ALL RESPONSES):
 5. NEVER ask yes/no questions — always WHY, HOW, WHAT IF, TELL ME ABOUT
 6. If they seem stuck, offer two choices: "Was it more X or Y?"
 7. Respect creative interpretations that differ from the text
-8. Each response should ask MAX ONE focused question${bodySubQuestionSection}
+8. Each response should ask MAX ONE focused question
+
+PARTIAL ANSWER RECOGNITION (CRITICAL — NEVER DISMISS INCOMPLETE ANSWERS):
+- When ${studentName} gives a partially correct or incomplete answer, ALWAYS:
+  1. First, NAME and CELEBRATE the part that IS valid: "I love that you noticed [specific thing]!"
+  2. Then GENTLY BUILD on it: "And what about..." or "I wonder if there's also..."
+  3. NEVER say "not quite", "wrong", "actually", or "but" — use "AND" instead of "BUT"
+- If the answer shows surface-level thinking, acknowledge it, then deepen with ONE follow-up:
+  "You said [their words] — that's a great start! What made you think that?"
+- If the answer mixes correct and incorrect ideas, focus ONLY on the correct parts:
+  "That's such an interesting thought about [correct part]! Tell me more about that."
+- Even factually wrong answers deserve recognition of the THINKING EFFORT:
+  "Wow, you're really using your imagination! Let's look at it from another angle..."
+- NEVER correct factual errors directly. Instead, ask a question that leads to self-correction:
+  "That's one way to see it! What do you remember about what happened BEFORE that part?"${bodySubQuestionSection}
 LANGUAGE RULES FOR ${(level || 'intermediate').toUpperCase()} LEVEL:
 - Vocabulary:    ${levelRules.vocabulary}
 - Tense:         ${levelRules.tense}
