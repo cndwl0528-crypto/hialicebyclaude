@@ -4,7 +4,7 @@ export default function StageProgress({ currentStage = 0, stages = [] }) {
   if (stages.length === 0) return null;
 
   return (
-    <div className="w-full py-6">
+    <div className="w-full py-6" role="progressbar" aria-valuenow={currentStage + 1} aria-valuemin={1} aria-valuemax={stages.length} aria-label={`Progress: Stage ${currentStage + 1} of ${stages.length}`}>
       <div className="flex items-center justify-between">
         {stages.map((stage, index) => (
           <div key={index} className="flex items-center flex-1">
@@ -16,8 +16,9 @@ export default function StageProgress({ currentStage = 0, stages = [] }) {
                     ? 'bg-green-500'
                     : index === currentStage
                     ? 'bg-blue-500 ring-4 ring-blue-200'
-                    : 'bg-gray-300'
+                    : 'bg-gray-400 text-white'
                 }`}
+                aria-label={`Stage ${index + 1}: ${stages[index]}${index < currentStage ? ' (completed)' : index === currentStage ? ' (current)' : ''}`}
               >
                 {index < currentStage ? (
                   <span>✓</span>
@@ -33,6 +34,7 @@ export default function StageProgress({ currentStage = 0, stages = [] }) {
                 className={`flex-1 h-1 mx-2 transition-smooth ${
                   index < currentStage ? 'bg-green-500' : 'bg-gray-300'
                 }`}
+                aria-hidden="true"
               ></div>
             )}
           </div>

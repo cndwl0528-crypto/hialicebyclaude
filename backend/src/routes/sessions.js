@@ -21,7 +21,7 @@ import { supabase } from '../lib/supabase.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { getAliceResponse, generateSessionFeedback } from '../alice/engine.js';
 import { extractVocabulary } from '../alice/vocabularyExtractor.js';
-import { calculateGrammarScore } from '../alice/levelDetector.js';
+import { calculateGrammarScore, classifyAnswerDepth, calculateThinkingMomentum } from '../alice/levelDetector.js';
 import { checkAndAwardAchievements } from '../lib/achievements.js';
 import { getCrossBookContext } from '../alice/crossBookMemory.js';
 
@@ -154,6 +154,68 @@ async function buildAchievementStats(studentId) {
       : 0;
 
   return { totalBooks, totalWords, streak, avgGrammar };
+}
+
+/**
+ * Asynchronously tag dialogues with Bloom's cognitive levels and calculate
+ * thinking momentum. This runs after session completion and failures are
+ * non-fatal — they do not affect the completion response.
+ *
+ * @param {string} sessionId
+ * @param {Array} studentDialogues - Student dialogue rows with .content
+ * @param {string} level - Student level
+ */
+async function tagCognitiveData(sessionId, studentDialogues, level) {
+  try {
+    // 1. Classify each student response and insert cognitive tags
+    const tagInserts = studentDialogues
+      .filter(d => d.content && d.content.trim().length > 0)
+      .map(d => {
+        const depth = classifyAnswerDepth(d.content, level);
+        // Map answer depth to Bloom's level
+        const bloomLevel = mapDepthToBloom(depth.depth);
+        return supabase.from('dialogue_cognitive_tags').insert({
+          dialogue_id: d.id,
+          bloom_level: bloomLevel,
+          evidence_text: d.content.substring(0, 200),
+          confidence: depth.score,
+          tagged_by: 'classifyAnswerDepth-v1',
+        });
+      });
+
+    await Promise.all(tagInserts);
+
+    // 2. Calculate thinking momentum
+    const depthScores = studentDialogues
+      .filter(d => d.content && d.content.trim().length > 0)
+      .map(d => d.content);
+    const momentum = calculateThinkingMomentum(depthScores);
+
+    // 3. Update session with thinking momentum
+    await supabase
+      .from('sessions')
+      .update({ thinking_momentum: momentum })
+      .eq('id', sessionId);
+
+  } catch (err) {
+    // Non-fatal: cognitive tagging failure should never block session completion
+    console.error('[Sessions] Cognitive tagging error (non-fatal):', err.message);
+  }
+}
+
+/**
+ * Map answer depth classification to Bloom's taxonomy level.
+ * @param {'surface'|'developing'|'analytical'|'deep'} depth
+ * @returns {'remember'|'understand'|'apply'|'analyze'|'evaluate'|'create'}
+ */
+function mapDepthToBloom(depth) {
+  switch (depth) {
+    case 'deep': return 'create';
+    case 'analytical': return 'analyze';
+    case 'developing': return 'understand';
+    case 'surface':
+    default: return 'remember';
+  }
 }
 
 // ============================================================================
@@ -641,6 +703,24 @@ router.post('/:id/complete', optionalAuth, async (req, res) => {
       );
       await Promise.all(achievementNotifications);
     }
+
+    // --- Async cognitive tagging (non-blocking) ---
+    // Fire-and-forget: tag dialogues with Bloom's levels and calculate thinking momentum.
+    // We need dialogue IDs, so re-fetch with IDs included.
+    supabase
+      .from('dialogues')
+      .select('id, content, stage, speaker')
+      .eq('session_id', sessionId)
+      .eq('speaker', 'student')
+      .order('created_at', { ascending: true })
+      .then(({ data: tagDialogues }) => {
+        if (tagDialogues && tagDialogues.length > 0) {
+          tagCognitiveData(sessionId, tagDialogues, studentLevel);
+        }
+      })
+      .catch(err => {
+        console.error('[Sessions] Failed to fetch dialogues for tagging:', err.message);
+      });
 
     return res.status(200).json({
       session: {

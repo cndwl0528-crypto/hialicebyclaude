@@ -2,18 +2,22 @@
 
 export default function BookCard({ book, onClick }) {
   const LEVEL_COLORS = {
-    Beginner: '#FF6B9D',
-    Intermediate: '#4A90D9',
-    Advanced: '#27AE60',
+    Beginner: '#D94878',
+    Intermediate: '#2E6BBF',
+    Advanced: '#1E8449',
   };
 
   return (
     <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      className="bg-white rounded-lg shadow-md hover:shadow-lg transition-smooth cursor-pointer overflow-hidden"
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.(); } }}
+      aria-label={`Read ${book.title} by ${book.author}`}
+      className="bg-white rounded-lg shadow-md hover:shadow-lg transition-smooth cursor-pointer overflow-hidden focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-300"
     >
       <div className="bg-gray-100 p-6 flex items-center justify-center min-h-[200px]">
-        <div className="text-6xl text-center">{book.cover}</div>
+        <div className="text-6xl text-center" role="img" aria-label={`${book.title} cover`}>{book.cover}</div>
       </div>
 
       <div className="p-4">
