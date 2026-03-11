@@ -19,7 +19,7 @@ const STAGE_LABELS = {
 const STAGE_COLORS = {
   title: '#3B82F6',
   introduction: '#10B981',
-  body: '#F59E0B',
+  body: '#D4A843',
   conclusion: '#EC4899',
 };
 
@@ -44,7 +44,7 @@ function buildPrintDocument(innerHtml, bookTitle) {
           body {
             font-family: 'Comic Sans MS', 'Chalkboard SE', 'Arial Rounded MT Bold', sans-serif;
             padding: 24px 32px;
-            color: #2C4A2E;
+            color: #3D2E1E;
             font-size: 13px;
             line-height: 1.6;
           }
@@ -52,18 +52,18 @@ function buildPrintDocument(innerHtml, bookTitle) {
           /* ── Header ────────────────────────────────────────────── */
           .ws-header {
             text-align: center;
-            border-bottom: 3px solid #4A7C59;
+            border-bottom: 3px solid #5C8B5C;
             padding-bottom: 16px;
             margin-bottom: 24px;
           }
           .ws-header h1 { font-size: 22px; margin-bottom: 6px; }
-          .ws-header p  { font-size: 13px; color: #4A7C59; }
-          .ws-header .ws-date { font-size: 11px; color: #9CA3AF; margin-top: 4px; }
+          .ws-header p  { font-size: 13px; color: #5C8B5C; }
+          .ws-header .ws-date { font-size: 11px; color: #6B5744; margin-top: 4px; }
 
           /* ── Stage blocks ──────────────────────────────────────── */
           .ws-stage {
             margin-bottom: 20px;
-            border: 2px solid #4A7C59;
+            border: 2px solid #5C8B5C;
             border-radius: 12px;
             overflow: hidden;
             page-break-inside: avoid;
@@ -78,14 +78,14 @@ function buildPrintDocument(innerHtml, bookTitle) {
 
           .ws-question {
             font-size: 12px;
-            color: #6B7280;
+            color: #6B5744;
             font-style: italic;
             margin-bottom: 8px;
           }
 
           /* Filled answer box */
           .ws-answer {
-            border: 1.5px dashed #9CA3AF;
+            border: 1.5px dashed #6B5744;
             border-radius: 8px;
             padding: 10px 12px;
             margin-bottom: 8px;
@@ -106,8 +106,8 @@ function buildPrintDocument(innerHtml, bookTitle) {
             text-align: center;
             margin-top: 32px;
             font-size: 11px;
-            color: #9CA3AF;
-            border-top: 1px solid #E5E7EB;
+            color: #6B5744;
+            border-top: 1px solid #D6C9A8;
             padding-top: 12px;
           }
 
@@ -184,7 +184,7 @@ export default function PrintableWorksheet({ sessionData = null, studentName = '
       {/* ── Print Trigger Button ─────────────────────────────────── */}
       <button
         onClick={handlePrint}
-        className="w-full bg-white/80 backdrop-blur-sm rounded-2xl border-2 border-[#4A7C59]/30 p-4 flex items-center justify-center gap-3 text-[#4A7C59] font-bold hover:shadow-md hover:border-[#4A7C59]/60 active:scale-95 transition-all min-h-[52px]"
+        className="w-full bg-white/80 backdrop-blur-sm rounded-2xl border-2 border-[#5C8B5C]/30 p-4 flex items-center justify-center gap-3 text-[#5C8B5C] font-bold hover:shadow-md hover:border-[#5C8B5C]/60 active:scale-95 transition-all min-h-[52px]"
         aria-label="Print reading worksheet"
       >
         <span role="img" aria-label="printer" className="text-xl">🖨️</span>

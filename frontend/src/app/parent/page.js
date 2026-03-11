@@ -132,8 +132,8 @@ export default function ParentDashboard() {
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-[#2C4A2E]">Parent Dashboard</h1>
-          <p className="text-sm text-[#6B7280]">Track your child's reading journey</p>
+          <h1 className="text-2xl font-bold text-[#3D2E1E]">Parent Dashboard</h1>
+          <p className="text-sm text-[#6B5744]">Track your child's reading journey</p>
         </div>
         {unreadCount > 0 && (
           <div className="relative">
@@ -154,8 +154,8 @@ export default function ParentDashboard() {
               onClick={() => setSelectedChild(child)}
               className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                 selectedChild?.id === child.id
-                  ? 'bg-[#4A7C59] text-white'
-                  : 'bg-white text-[#4A7C59] border border-[#4A7C59]'
+                  ? 'bg-[#5C8B5C] text-white'
+                  : 'bg-white text-[#5C8B5C] border border-[#5C8B5C]'
               }`}
             >
               {child.name}
@@ -180,8 +180,8 @@ export default function ParentDashboard() {
                 {studentProfile.avatarEmoji || '📚'}
               </span>
               <div>
-                <h2 className="text-lg font-bold text-[#2C4A2E]">{studentProfile.name}</h2>
-                <p className="text-sm text-[#6B7280] capitalize">
+                <h2 className="text-lg font-bold text-[#3D2E1E]">{studentProfile.name}</h2>
+                <p className="text-sm text-[#6B5744] capitalize">
                   {studentProfile.level} level &bull; Age {studentProfile.age}
                 </p>
               </div>
@@ -197,8 +197,8 @@ export default function ParentDashboard() {
                   className="bg-[#F5F0E8] rounded-xl p-3 text-center"
                 >
                   <div className="text-2xl mb-1" aria-hidden="true">{stat.icon}</div>
-                  <div className="text-xl font-bold text-[#2C4A2E]">{stat.value}</div>
-                  <div className="text-xs text-[#6B7280]">{stat.label}</div>
+                  <div className="text-xl font-bold text-[#3D2E1E]">{stat.value}</div>
+                  <div className="text-xs text-[#6B5744]">{stat.label}</div>
                 </div>
               ))}
             </div>
@@ -206,7 +206,7 @@ export default function ParentDashboard() {
 
           {/* Recent sessions */}
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-md border border-[#E8DEC8] p-5">
-            <h3 className="font-bold text-[#2C4A2E] mb-3">Recent Sessions</h3>
+            <h3 className="font-bold text-[#3D2E1E] mb-3">Recent Sessions</h3>
             <div className="space-y-2">
               {recentSessions.slice(0, 5).map((session, i) => (
                 <div
@@ -215,25 +215,25 @@ export default function ParentDashboard() {
                 >
                   <span className="text-2xl" aria-hidden="true">📚</span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-[#2C4A2E] truncate">
+                    <p className="text-sm font-medium text-[#3D2E1E] truncate">
                       {session.bookTitle || 'Book Session'}
                     </p>
-                    <p className="text-xs text-[#9CA3AF]">
+                    <p className="text-xs text-[#6B5744]">
                       {session.completedAt
                         ? new Date(session.completedAt).toLocaleDateString()
                         : 'In progress'}
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <div className="text-sm font-bold text-[#4A7C59]">
+                    <div className="text-sm font-bold text-[#5C8B5C]">
                       {session.grammarScore != null ? `${session.grammarScore}/10` : '—'}
                     </div>
-                    <div className="text-xs text-[#9CA3AF]">grammar</div>
+                    <div className="text-xs text-[#6B5744]">grammar</div>
                   </div>
                 </div>
               ))}
               {recentSessions.length === 0 && (
-                <p className="text-sm text-[#9CA3AF] text-center py-4">
+                <p className="text-sm text-[#6B5744] text-center py-4">
                   No sessions yet — time to start reading!
                 </p>
               )}
@@ -242,11 +242,11 @@ export default function ParentDashboard() {
 
           {/* Latest HiAlice AI feedback */}
           {recentSessions[0]?.ai_feedback && (
-            <div className="bg-gradient-to-br from-[#FEF3C7] to-[#FDE68A] border border-[#F59E0B]/30 rounded-2xl shadow-md p-5">
-              <h3 className="font-bold text-[#92400E] mb-2 flex items-center gap-2">
+            <div className="bg-gradient-to-br from-[#FFF8E0] to-[#F5E8A8] border border-[#D4A843]/30 rounded-2xl shadow-md p-5">
+              <h3 className="font-bold text-[#6B5744] mb-2 flex items-center gap-2">
                 <span aria-hidden="true">🤖</span> HiAlice&apos;s Latest Feedback
               </h3>
-              <p className="text-sm text-[#78350F] italic">
+              <p className="text-sm text-[#3D2E1E] italic">
                 &ldquo;{recentSessions[0].ai_feedback}&rdquo;
               </p>
             </div>
@@ -255,7 +255,7 @@ export default function ParentDashboard() {
           {/* Notifications */}
           {notifications.length > 0 && (
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-md border border-[#E8DEC8] p-5">
-              <h3 className="font-bold text-[#2C4A2E] mb-3">Notifications</h3>
+              <h3 className="font-bold text-[#3D2E1E] mb-3">Notifications</h3>
               <div className="space-y-2">
                 {notifications.slice(0, 5).map((notif) => (
                   <div
@@ -272,7 +272,7 @@ export default function ParentDashboard() {
                     className={`flex items-start gap-3 p-3 rounded-xl transition-colors ${
                       notif.is_read
                         ? 'bg-[#F9FAFB] cursor-default'
-                        : 'bg-[#EEF5F0] border border-[#4A7C59]/20 cursor-pointer hover:bg-[#E0EDE6]'
+                        : 'bg-[#EEF5F0] border border-[#5C8B5C]/20 cursor-pointer hover:bg-[#E0EDE6]'
                     }`}
                   >
                     <span className="text-xl flex-shrink-0" aria-hidden="true">
@@ -283,13 +283,13 @@ export default function ParentDashboard() {
                         : '📊'}
                     </span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-[#2C4A2E]">
+                      <p className="text-sm font-medium text-[#3D2E1E]">
                         {notif.title || 'New Update'}
                       </p>
-                      <p className="text-xs text-[#6B7280]">{notif.message}</p>
+                      <p className="text-xs text-[#6B5744]">{notif.message}</p>
                     </div>
                     {!notif.is_read && (
-                      <span className="w-2 h-2 bg-[#4A7C59] rounded-full flex-shrink-0 mt-1" />
+                      <span className="w-2 h-2 bg-[#5C8B5C] rounded-full flex-shrink-0 mt-1" />
                     )}
                   </div>
                 ))}
@@ -301,8 +301,8 @@ export default function ParentDashboard() {
         /* Empty state — no children linked */
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-md border border-[#E8DEC8] p-8 text-center">
           <div className="text-5xl mb-3" aria-hidden="true">👨‍👩‍👧</div>
-          <p className="text-[#2C4A2E] font-medium">No children registered yet</p>
-          <p className="text-sm text-[#9CA3AF] mt-1">
+          <p className="text-[#3D2E1E] font-medium">No children registered yet</p>
+          <p className="text-sm text-[#6B5744] mt-1">
             Ask your admin to link your children&apos;s accounts
           </p>
         </div>
@@ -312,7 +312,7 @@ export default function ParentDashboard() {
       <div className="flex gap-3 mt-6">
         <button
           onClick={() => router.push('/')}
-          className="flex-1 bg-[#4A7C59] text-white rounded-2xl py-3 font-bold hover:bg-[#2C4A2E] transition-colors"
+          className="flex-1 bg-[#5C8B5C] text-white rounded-2xl py-3 font-bold hover:bg-[#3D2E1E] transition-colors"
           style={{ minHeight: '48px' }}
         >
           Home

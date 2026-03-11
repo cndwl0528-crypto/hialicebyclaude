@@ -111,7 +111,7 @@ export default function AchievementUnlock({ achievements = [], onClose }) {
           animation: achievement-pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
         }
         .shine-text {
-          background: linear-gradient(90deg, #B45309, #D97706, #B45309, #D97706);
+          background: linear-gradient(90deg, #6B5744, #D97706, #6B5744, #D97706);
           background-size: 200% auto;
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
@@ -146,7 +146,7 @@ export default function AchievementUnlock({ achievements = [], onClose }) {
         {/* Achievement name */}
         <h3
           id="achievement-title"
-          className="text-xl font-bold text-[#2C4A2E] mb-2"
+          className="text-xl font-bold text-[#3D2E1E] mb-2"
         >
           {name}
         </h3>
@@ -154,7 +154,7 @@ export default function AchievementUnlock({ achievements = [], onClose }) {
         {/* Achievement description */}
         <p
           id="achievement-description"
-          className="text-sm text-[#6B7280] leading-relaxed mb-2"
+          className="text-sm text-[#6B5744] leading-relaxed mb-2"
         >
           {description}
         </p>
@@ -166,7 +166,7 @@ export default function AchievementUnlock({ achievements = [], onClose }) {
               <div
                 key={i}
                 className={`w-2 h-2 rounded-full transition-colors ${
-                  i === currentIndex ? 'bg-[#4A7C59]' : i < currentIndex ? 'bg-[#A7C5B2]' : 'bg-[#E5E7EB]'
+                  i === currentIndex ? 'bg-[#5C8B5C]' : i < currentIndex ? 'bg-[#A7C5B2]' : 'bg-[#D6C9A8]'
                 }`}
               />
             ))}
@@ -177,7 +177,7 @@ export default function AchievementUnlock({ achievements = [], onClose }) {
         <button
           ref={buttonRef}
           onClick={handleAdvance}
-          className="mt-2 w-full bg-[#4A7C59] text-white rounded-2xl py-3 font-bold text-sm hover:bg-[#3D6B4F] active:scale-95 transition-all min-h-[48px]"
+          className="mt-2 w-full bg-[#5C8B5C] text-white rounded-2xl py-3 font-bold text-sm hover:bg-[#3D6B4F] active:scale-95 transition-all min-h-[48px]"
           aria-label={isLast ? 'Close achievements' : 'View next achievement'}
         >
           {isLast ? 'Awesome! ⭐' : 'Next 🎉'}

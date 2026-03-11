@@ -55,6 +55,67 @@ async function apiFetch(endpoint, options = {}) {
 }
 
 /**
+ * Parent registration
+ * POST /auth/register
+ */
+export async function parentRegister(email, password, displayName) {
+  try {
+    const response = await apiFetch('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ email, password, displayName }),
+    });
+    return response;
+  } catch (error) {
+    console.error('Parent register failed:', error);
+    if (process.env.NODE_ENV === 'development') {
+      return {
+        success: true,
+        parent: {
+          id: 'parent-' + Date.now(),
+          email,
+          display_name: displayName,
+        },
+        token: 'mock-token-' + Date.now(),
+        children: [],
+      };
+    }
+    throw error;
+  }
+}
+
+/**
+ * Add a child to the parent account
+ * POST /auth/children
+ */
+export async function addChild(name, age, avatarEmoji) {
+  try {
+    const response = await apiFetch('/auth/children', {
+      method: 'POST',
+      body: JSON.stringify({ name, age, avatarEmoji }),
+    });
+    return response;
+  } catch (error) {
+    console.error('Add child failed:', error);
+    if (process.env.NODE_ENV === 'development') {
+      let level = 'beginner';
+      if (age >= 12) level = 'advanced';
+      else if (age >= 9) level = 'intermediate';
+      return {
+        success: true,
+        student: {
+          id: 'student-' + Date.now(),
+          name,
+          age,
+          level,
+          avatarEmoji: avatarEmoji || '🧒',
+        },
+      };
+    }
+    throw error;
+  }
+}
+
+/**
  * Parent authentication
  * POST /auth/parent-login
  */
@@ -881,6 +942,8 @@ export async function requestRephrase(sessionId, originalQuestion, stage) {
 }
 
 export default {
+  parentRegister,
+  addChild,
   parentLogin,
   childSelect,
   getBooks,

@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState, useRef, useCallback } from 'react';
 
-const COLORS = ['#4A7C59', '#F59E0B', '#EC4899', '#3B82F6', '#10B981', '#F97316', '#A78BFA'];
+const COLORS = ['#5C8B5C', '#D4A843', '#EC4899', '#3B82F6', '#10B981', '#F97316', '#A78BFA'];
 const SHAPES = ['circle', 'square', 'triangle'];
 
 /**
@@ -133,8 +133,8 @@ export default function ConfettiCelebration({ active = false, duration = 3000, o
             🎉
           </div>
           <div className="bg-white/90 backdrop-blur-sm rounded-3xl px-8 py-4 shadow-xl">
-            <p className="text-2xl font-bold text-[#2C4A2E]">Amazing Job!</p>
-            <p className="text-[#4A7C59]">You finished the book review! ⭐</p>
+            <p className="text-2xl font-bold text-[#3D2E1E]">Amazing Job!</p>
+            <p className="text-[#5C8B5C]">You finished the book review! ⭐</p>
           </div>
         </div>
       </div>

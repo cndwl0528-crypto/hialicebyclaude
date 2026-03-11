@@ -23,6 +23,143 @@ import logger from '../lib/logger.js';
 const router = express.Router();
 
 // ============================================================================
+// POST /register
+// ============================================================================
+
+/**
+ * Register a new parent account via Supabase Auth.
+ * Body: { email, password, displayName }
+ * Returns: { token, parent: { id, email, display_name } }
+ */
+router.post('/register', authRateLimiter, async (req, res) => {
+  try {
+    const { email, password, displayName } = req.body;
+
+    if (!email || !password || !displayName) {
+      return res.status(400).json({ error: 'email, password, and displayName are required' });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+
+    // Create user in Supabase Auth
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    const { user } = data;
+
+    // Insert parent record into our database
+    const { data: parentData, error: parentError } = await supabase
+      .from('parents')
+      .insert({
+        auth_id: user.id,
+        email,
+        display_name: displayName,
+        created_at: new Date().toISOString(),
+      })
+      .select('id, email, display_name')
+      .single();
+
+    if (parentError) {
+      logger.error({ err: parentError }, 'Failed to insert parent record');
+      return res.status(500).json({ error: 'Account created but profile setup failed. Please try logging in.' });
+    }
+
+    // Generate JWT token
+    const token = generateToken({
+      parentId: parentData.id,
+      email: parentData.email,
+      type: 'parent',
+    });
+
+    res.cookie(COOKIE_NAME, token, COOKIE_OPTIONS);
+
+    return res.status(201).json({
+      token,
+      parent: parentData,
+      children: [],
+    });
+  } catch (err) {
+    logger.error({ err }, 'Register error');
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ============================================================================
+// POST /children
+// ============================================================================
+
+/**
+ * Add a child to the authenticated parent's account.
+ * Requires: Parent Bearer token
+ * Body: { name, age, avatarEmoji }
+ * Returns: { student: { id, name, age, level, avatarEmoji } }
+ */
+router.post('/children', authMiddleware, async (req, res) => {
+  try {
+    if (!req.user || req.user.type !== 'parent') {
+      return res.status(403).json({ error: 'Parent authentication required' });
+    }
+
+    const { name, age, avatarEmoji } = req.body;
+
+    if (!name || !age) {
+      return res.status(400).json({ error: 'name and age are required' });
+    }
+
+    const ageNum = parseInt(age, 10);
+    if (isNaN(ageNum) || ageNum < 4 || ageNum > 18) {
+      return res.status(400).json({ error: 'age must be between 4 and 18' });
+    }
+
+    // Auto-assign level based on age
+    let level = 'beginner';
+    if (ageNum >= 12) level = 'advanced';
+    else if (ageNum >= 9) level = 'intermediate';
+
+    const parentId = req.user.parentId;
+
+    const { data: student, error } = await supabase
+      .from('students')
+      .insert({
+        parent_id: parentId,
+        name,
+        age: ageNum,
+        level,
+        avatar_emoji: avatarEmoji || '🧒',
+        created_at: new Date().toISOString(),
+      })
+      .select('id, name, age, level, avatar_emoji')
+      .single();
+
+    if (error) {
+      logger.error({ err: error }, 'Failed to insert student');
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.status(201).json({
+      student: {
+        id: student.id,
+        name: student.name,
+        age: student.age,
+        level: student.level,
+        avatarEmoji: student.avatar_emoji,
+      },
+    });
+  } catch (err) {
+    logger.error({ err }, 'Add child error');
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ============================================================================
 // POST /parent-login
 // ============================================================================
 

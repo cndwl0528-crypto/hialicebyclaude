@@ -190,7 +190,7 @@ export default function SessionPage() {
   }, [elapsedSeconds]);
 
   // Derived turn count within the current stage (1-indexed for display)
-  const turnCount = currentStage === 2 /* Body */
+  const turnCount = currentStage === 3 /* Body */
     ? bodyReasonCount + 1
     : currentTurn + 1;
   const maxTurns = MAX_TURNS_PER_STAGE;
@@ -320,7 +320,7 @@ export default function SessionPage() {
     setLoading(true);
 
     const studentMessage = {
-      id: messages.length,
+      id: Date.now(),
       speaker: 'student',
       content: text,
       timestamp: new Date(),
@@ -392,7 +392,7 @@ export default function SessionPage() {
 
   const processApiResponse = async (data) => {
     const aliceMessage = {
-      id: messages.length + 1,
+      id: Date.now() + 1,
       speaker: 'alice',
       content: data.reply?.content || data.content || data.message,
       timestamp: new Date(),
@@ -430,7 +430,7 @@ export default function SessionPage() {
 
   const processMockResponse = async (content, reasonCount = 0) => {
     const aliceMessage = {
-      id: messages.length + 1,
+      id: Date.now() + 2,
       speaker: 'alice',
       content,
       timestamp: new Date(),
@@ -504,12 +504,12 @@ export default function SessionPage() {
         return updated;
       });
 
-      // Speak the transition message immediately; speak the first question
-      // after a short delay so the two TTS utterances don't overlap.
-      speak(`Great! Now let's move to the ${stageName} section. I have some new questions for you.`);
-      if (firstQuestion) {
-        setTimeout(() => speak(firstQuestion), 2000);
-      }
+      // Speak transition + first question as a single utterance to prevent
+      // voice changes or overlap between two separate speak() calls.
+      const fullText = firstQuestion
+        ? `Great! Now let's move to the ${stageName} section. ${firstQuestion}`
+        : `Great! Now let's move to the ${stageName} section. I have some new questions for you.`;
+      speak(fullText);
     }, 1500);
   };
 
@@ -599,11 +599,21 @@ export default function SessionPage() {
     router.push('/books');
   }, [sessionId, router]);
 
+  // Use a ref to read the latest transcript synchronously — avoids the race
+  // condition where React state `transcript` hasn't updated yet when
+  // stopListening fires its callback in the same tick.
+  const latestTranscriptRef = useRef('');
+  useEffect(() => {
+    latestTranscriptRef.current = transcript;
+  }, [transcript]);
+
   const handleVoiceInput = () => {
     if (isListening) {
       stopListening();
-      if (transcript && transcript.trim()) {
-        handleSendMessage(transcript);
+      // Read from ref to get the most recent value
+      const finalText = latestTranscriptRef.current;
+      if (finalText && finalText.trim()) {
+        handleSendMessage(finalText);
       }
     } else {
       startListening();
@@ -643,9 +653,9 @@ export default function SessionPage() {
       <div className="min-h-[calc(100vh-120px)] flex items-center justify-center py-12 bg-[#F5F0E8]">
         <div className="ghibli-card p-8 max-w-md text-center animate-fade-in">
           <div className="text-5xl mb-4">🤖</div>
-          <h2 className="text-xl font-extrabold text-[#92400E] mb-3">A Message from HiAlice</h2>
-          <div className="bg-gradient-to-br from-[#FEF3C7] to-[#FDE68A] border-2 border-[#F59E0B]/30 rounded-2xl p-5 mb-6 text-left">
-            <p className="text-[#78350F] text-sm leading-relaxed italic">
+          <h2 className="text-xl font-extrabold text-[#6B5744] mb-3">A Message from HiAlice</h2>
+          <div className="bg-gradient-to-br from-[#FFF8E0] to-[#F5E8A8] border-2 border-[#D4A843]/30 rounded-2xl p-5 mb-6 text-left">
+            <p className="text-[#3D2E1E] text-sm leading-relaxed italic">
               &quot;{aiFeedback}&quot;
             </p>
           </div>
@@ -659,7 +669,7 @@ export default function SessionPage() {
           >
             See My Review
           </button>
-          <p className="text-xs text-[#9CA3AF] mt-3">This screen closes automatically in a few seconds</p>
+          <p className="text-xs text-[#6B5744] mt-3">This screen closes automatically in a few seconds</p>
         </div>
       </div>
     );
@@ -670,16 +680,16 @@ export default function SessionPage() {
       <div className="min-h-[calc(100vh-120px)] flex items-center justify-center py-12 bg-[#F5F0E8]">
         <div className="ghibli-card p-8 max-w-md text-center">
           <div className="text-6xl mb-4 float-animation inline-block">🎉</div>
-          <h2 className="text-2xl font-extrabold text-[#3D2E1E] mb-2">Great Job!</h2>
+          <h2 className="text-2xl font-extrabold text-[#3D2E1E] mb-2">Great job! Your worksheet is ready!</h2>
           <p className="text-[#6B5744] font-semibold mb-6">
-            You completed the reading session for{' '}
-            <span className="font-bold text-[#3D6B3D]">&quot;{bookTitle}&quot;</span>. Let&apos;s review what you learned!
+            You completed the review session for{' '}
+            <span className="font-bold text-[#3D6B3D]">&quot;{bookTitle}&quot;</span>.
           </p>
           <button
             onClick={() => router.push(sessionId ? `/review?sessionId=${sessionId}` : '/review')}
             className="w-full py-3 px-6 bg-[#5C8B5C] text-white rounded-2xl hover:bg-[#3D6B3D] transition-colors font-bold hover:-translate-y-0.5 shadow-[0_4px_12px_rgba(92,139,92,0.3)]"
           >
-            View Word Review
+            View My Worksheet
           </button>
         </div>
       </div>
@@ -706,21 +716,21 @@ export default function SessionPage() {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="ghibli-card p-6 max-w-sm mx-4 text-center">
             <div className="text-4xl mb-3">💤</div>
-            <h3 className="text-lg font-bold text-[#2C4A2E] mb-2">Need a break?</h3>
-            <p className="text-sm text-[#4B5563] mb-4">
+            <h3 className="text-lg font-bold text-[#3D2E1E] mb-2">Need a break?</h3>
+            <p className="text-sm text-[#6B5744] mb-4">
               You&apos;ve been reading for 30 minutes! Great job! Want to save and come back later?
             </p>
             <div className="flex gap-3">
               <button
                 onClick={handlePauseSession}
-                className="flex-1 bg-[#F59E0B] text-white rounded-xl py-2 text-sm font-medium min-h-[48px]"
+                className="flex-1 bg-[#D4A843] text-white rounded-xl py-2 text-sm font-medium min-h-[48px]"
                 aria-label="Save your progress and exit"
               >
                 Save &amp; Exit 💾
               </button>
               <button
                 onClick={() => setShowTimeoutWarning(false)}
-                className="flex-1 bg-[#4A7C59] text-white rounded-xl py-2 text-sm font-medium min-h-[48px]"
+                className="flex-1 bg-[#5C8B5C] text-white rounded-xl py-2 text-sm font-medium min-h-[48px]"
                 aria-label="Continue the session"
               >
                 Keep Going! 💪
@@ -735,7 +745,7 @@ export default function SessionPage() {
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-40 animate-fade-in">
           <div className={`rounded-2xl px-6 py-3 shadow-lg border-2 flex items-center gap-3 max-w-sm ${
             timeMilestone === 'great-job'
-              ? 'bg-[#FEF9C3] border-[#FDE047] text-[#854D0E]'
+              ? 'bg-[#FFF8E0] border-[#FDE047] text-[#854D0E]'
               : 'bg-[#EDE9FE] border-[#C4B5FD] text-[#5B21B6]'
           }`}>
             <span className="text-2xl flex-shrink-0" aria-hidden="true">
@@ -763,13 +773,13 @@ export default function SessionPage() {
       )}
 
       {/* ===== LEFT: Worksheet Frame ===== */}
-      <div className="lg:w-80 w-full lg:h-full bg-[#FFFCF3] border-r border-[#D6C9A8] shadow-[2px_0_12px_rgba(61,46,30,0.06)] flex-shrink-0 overflow-y-auto">
+      <div className="lg:w-80 w-full max-h-[220px] lg:max-h-none lg:h-full bg-[#FFFCF3] border-r border-[#D6C9A8] shadow-[2px_0_12px_rgba(61,46,30,0.06)] flex-shrink-0 overflow-y-auto">
         {/* Worksheet Header */}
         <div className="bg-[#5C8B5C] text-white px-4 py-3 flex items-center gap-2 sticky top-0 z-10">
           <span className="text-xl" aria-hidden="true">📝</span>
           <div>
             <h2 className="font-extrabold text-sm">Reading Worksheet</h2>
-            <p className="text-xs text-green-100 truncate">{bookTitle || 'Book Title'}</p>
+            <p className="text-xs text-white/80 truncate">{bookTitle || 'Book Title'}</p>
           </div>
           {process.env.NODE_ENV === 'development' && (
             <button
@@ -841,7 +851,7 @@ export default function SessionPage() {
                         borderLeft: isActive ? '1px solid #C8E6C9' : 'none',
                       }}
                     />
-                    <p className={`font-bold ${isActive ? 'text-[#3D2E1E]' : 'text-[#9B8777]'}`}>
+                    <p className={`font-bold ${isActive ? 'text-[#3D2E1E]' : 'text-[#6B5744]'}`}>
                       {row.question}
                     </p>
                     {answer && (
@@ -852,7 +862,7 @@ export default function SessionPage() {
                       </div>
                     )}
                     {!answer && (
-                      <p className="text-[#9B8777] mt-1 italic text-xs">{row.example}</p>
+                      <p className="text-[#6B5744] mt-1 italic text-xs">{row.example}</p>
                     )}
                   </div>
                 </div>
@@ -879,20 +889,20 @@ export default function SessionPage() {
       </div>
 
       {/* ===== RIGHT: Chat Area ===== */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 pb-[4.5rem] lg:pb-0">
         {/* Session top bar: book title + timer + Save & Exit */}
         <div className="bg-[#FFFCF3] border-b border-[#D6C9A8] px-4 py-2 flex items-center justify-between flex-shrink-0">
           <p className="text-xs font-semibold text-[#6B5744] truncate max-w-[45%]">
-            {bookTitle || 'Reading Session'}
+            {bookTitle || 'Review Session'}
           </p>
           {/* P3-UX-07: Session timer displayed in the top bar */}
-          <div className="flex items-center gap-1.5 bg-[#E8F5E9] px-3 py-1 rounded-full" aria-label={`Session time: ${elapsedTime}`}>
+          <div className="flex items-center gap-1.5 bg-[#E8F5E8] px-3 py-1 rounded-full" aria-label={`Session time: ${elapsedTime}`}>
             <span className="text-sm" aria-hidden="true">⏱️</span>
-            <span className="text-xs font-bold text-[#4A7C59] tabular-nums">{elapsedTime}</span>
+            <span className="text-xs font-bold text-[#5C8B5C] tabular-nums">{elapsedTime}</span>
           </div>
           <button
             onClick={handlePauseSession}
-            className="text-xs text-[#9CA3AF] hover:text-[#4A7C59] flex items-center gap-1 px-3 py-1 rounded-lg border border-[#E5E7EB] hover:border-[#4A7C59] transition-colors min-h-[36px]"
+            className="text-xs text-[#6B5744] hover:text-[#5C8B5C] flex items-center gap-1 px-3 py-2 rounded-xl border border-[#D6C9A8] hover:border-[#5C8B5C] transition-all min-h-[44px] font-bold"
             aria-label="Save and exit session"
           >
             Save &amp; Exit
@@ -933,7 +943,7 @@ export default function SessionPage() {
                     <div className="bg-[#D6E9D6] text-[#3D2E1E] px-4 py-3 rounded-2xl rounded-tl-none max-w-xs lg:max-w-md shadow-[0_2px_8px_rgba(61,46,30,0.08)]">
                       <p className="text-sm font-semibold">{msg.content}</p>
                     </div>
-                    <p className="text-xs text-[#9B8777] mt-1 ml-1 font-medium">
+                    <p className="text-xs text-[#6B5744] mt-1 ml-1 font-medium">
                       {msg.timestamp?.toLocaleTimeString([], {
                         hour: '2-digit',
                         minute: '2-digit',
@@ -946,12 +956,12 @@ export default function SessionPage() {
               {/* Phase 2B: Emotion check-in after the last Alice message */}
               {msg.speaker === 'alice' && !msg.isTransition && i === messages.length - 1 && !loading && (
                 <div className="flex gap-2 mt-2 justify-start pl-11" role="group" aria-label="How do you feel?">
-                  <span className="text-xs text-[#6B7280] mr-1 self-center">How do you feel?</span>
+                  <span className="text-xs text-[#6B5744] mr-1 self-center">How do you feel?</span>
                   {['😊', '🤔', '😮'].map((emoji) => (
                     <button
                       key={emoji}
                       onClick={() => handleEmotionReact(emoji)}
-                      className="text-lg hover:scale-125 transition-transform cursor-pointer bg-white/60 rounded-full w-8 h-8 flex items-center justify-center shadow-sm min-w-[32px] min-h-[32px]"
+                      className="text-xl hover:scale-125 transition-transform cursor-pointer bg-white/60 rounded-full w-11 h-11 flex items-center justify-center shadow-sm min-w-[44px] min-h-[44px]"
                       aria-label={`React with ${emoji}`}
                     >
                       {emoji}
@@ -965,7 +975,7 @@ export default function SessionPage() {
                   <div className="bg-[#FFFCF3] text-[#3D2E1E] border border-[#D6C9A8] px-4 py-3 rounded-2xl rounded-tr-none max-w-xs lg:max-w-md shadow-[0_2px_8px_rgba(61,46,30,0.06)]">
                     <p className="text-sm font-semibold">{msg.content}</p>
                   </div>
-                  <p className="text-xs text-[#9B8777] mr-2 font-medium">
+                  <p className="text-xs text-[#6B5744] mr-2 font-medium">
                     {msg.timestamp?.toLocaleTimeString([], {
                       hour: '2-digit',
                       minute: '2-digit',
@@ -1011,12 +1021,12 @@ export default function SessionPage() {
         <div className="bg-[#FFFCF3] border-t border-[#D6C9A8] p-4 space-y-3 flex-shrink-0 shadow-[0_-4px_12px_rgba(61,46,30,0.06)]">
           {/* Phase 2B: Stage + Turn progress indicator */}
           <div className="flex items-center justify-between mb-2 px-1" aria-label="Session progress">
-            <span className="text-xs font-medium text-[#4A7C59] bg-[#E8F5E9] px-3 py-1 rounded-full">
+            <span className="text-xs font-medium text-[#5C8B5C] bg-[#E8F5E8] px-3 py-1 rounded-full">
               {isBeginnerMode
                 ? `${STAGE_EMOJIS[currentStage]} Stage`
                 : `${STAGES[currentStage]} Stage`}
             </span>
-            <span className="text-xs text-[#9CA3AF]">
+            <span className="text-xs text-[#6B5744]">
               Turn {Math.min(turnCount, maxTurns)}/{maxTurns} &bull; {elapsedTime}
             </span>
           </div>
@@ -1035,7 +1045,7 @@ export default function SessionPage() {
                 <span className="text-sm font-extrabold" style={{ color: WORKSHEET_ROWS[activeRowIndex].color }}>
                   {WORKSHEET_ROWS[activeRowIndex].label}
                 </span>
-                <span className="text-xs text-[#9B8777] flex-1 truncate font-medium ml-1">
+                <span className="text-xs text-[#6B5744] flex-1 truncate font-medium ml-1">
                   — {WORKSHEET_ROWS[activeRowIndex].question}
                 </span>
               </>
@@ -1087,7 +1097,7 @@ export default function SessionPage() {
                 {!isListening && !loading && (
                   <div
                     aria-hidden="true"
-                    className="absolute inset-0 rounded-full border-4 border-blue-300 animate-pulse pointer-events-none"
+                    className="absolute inset-0 rounded-full border-4 border-[#7AC87A] animate-pulse pointer-events-none"
                     style={{ width: '100px', height: '100px' }}
                   />
                 )}
@@ -1098,7 +1108,7 @@ export default function SessionPage() {
               {/* Small toggle to reveal text input for fallback */}
               <button
                 onClick={() => setShowTextInput((v) => !v)}
-                className="text-xs text-[#9CA3AF] underline hover:text-[#6B5744] transition-colors"
+                className="text-xs text-[#6B5744] underline hover:text-[#6B5744] transition-colors"
               >
                 {showTextInput ? 'Hide keyboard' : 'Type instead'}
               </button>
@@ -1159,7 +1169,7 @@ export default function SessionPage() {
                   size={48}
                   disabled={loading}
                 />
-                <p className="text-[10px] font-semibold text-[#9CA3AF]">
+                <p className="text-[10px] font-semibold text-[#6B5744]">
                   {isListening ? 'Listening' : 'Voice'}
                 </p>
               </div>
@@ -1213,7 +1223,7 @@ export default function SessionPage() {
           )}
 
           {!apiAvailable && (
-            <p className="text-xs text-[#9B8777] text-center font-medium">
+            <p className="text-xs text-[#6B5744] text-center font-medium">
               I&apos;m using my memory today! Let&apos;s keep going! 🌿
             </p>
           )}

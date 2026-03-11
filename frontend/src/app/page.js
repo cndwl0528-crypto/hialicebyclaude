@@ -1,264 +1,142 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { parentLogin, childSelect } from '@/services/api';
-
-const MOCK_CHILDREN = [
-  {
-    id: 1,
-    name: 'Alice',
-    age: 8,
-    level: 'Beginner',
-    avatar: '👧',
-    color: '#5C8B5C',
-  },
-  {
-    id: 2,
-    name: 'Bob',
-    age: 11,
-    level: 'Intermediate',
-    avatar: '👦',
-    color: '#D4A843',
-  },
-];
-
-const LEVEL_STYLES = {
-  Beginner: { bg: '#C8E6C9', text: '#2E7D32' },
-  Intermediate: { bg: '#FFE0B2', text: '#E65100' },
-  Advanced: { bg: '#E1BEE7', text: '#6A1B9A' },
-};
 
 export default function Home() {
   const router = useRouter();
-  const [showLogin, setShowLogin] = useState(false);
-  const [parentEmail, setParentEmail] = useState('');
-  const [parentPassword, setParentPassword] = useState('');
-  const [selectedChild, setSelectedChild] = useState(null);
-  const [error, setError] = useState('');
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
-  // Children list — populated from API on successful login; falls back to MOCK_CHILDREN
-  const [children, setChildren] = useState(MOCK_CHILDREN);
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    if (!parentEmail || !parentPassword) {
-      setError('Please fill in all fields');
-      return;
-    }
-
-    setIsLoggingIn(true);
-    setError('');
-
-    try {
-      // Call the real authentication API
-      const result = await parentLogin(parentEmail, parentPassword);
-
-      if (!result || !result.token) {
-        throw new Error('Invalid response from server');
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const token = sessionStorage.getItem('token');
+      if (token) {
+        router.push('/dashboard');
       }
-
-      // Persist the real token and parent data from the API
-      // Key MUST be 'token' — api.js apiFetch() reads sessionStorage.getItem('token')
-      sessionStorage.setItem('token', result.token);
-      sessionStorage.setItem('parentId', result.parent?.id || '');
-      sessionStorage.setItem('parentEmail', result.parent?.email || parentEmail);
-
-      // TODO: Replace MOCK_CHILDREN with real API call once
-      // GET /api/students?parentId=... endpoint is implemented.
-      // Example:
-      //   const studentsResult = await apiFetch(`/students?parentId=${result.parent.id}`);
-      //   if (studentsResult?.students) setChildren(studentsResult.students);
-      // For now, MOCK_CHILDREN are retained as the fallback.
-
-      setShowLogin(false);
-    } catch (err) {
-      console.error('Login error:', err);
-      setError('Oops! Something went wrong. Please try again!');
-    } finally {
-      setIsLoggingIn(false);
     }
-  };
-
-  const handleSelectChild = async (child) => {
-    setSelectedChild(child);
-
-    // Cache in sessionStorage for quick access across pages
-    sessionStorage.setItem('studentId', child.id);
-    sessionStorage.setItem('studentName', child.name);
-    sessionStorage.setItem('studentLevel', child.level);
-    sessionStorage.setItem('studentAge', child.age);
-
-    // Persist selection to backend (non-blocking — don't let API failure block navigation)
-    try {
-      await childSelect(child.id);
-    } catch (err) {
-      console.warn('childSelect API call failed (non-critical):', err);
-    }
-
-    router.push('/books');
-  };
+  }, [router]);
 
   const handleDemoMode = () => {
     sessionStorage.setItem('parentId', 'demo-parent');
     sessionStorage.setItem('token', 'demo-token');
     sessionStorage.setItem('parentEmail', 'demo@hialice.com');
-
-    const demoChild = MOCK_CHILDREN[0];
-    sessionStorage.setItem('studentId', demoChild.id);
-    sessionStorage.setItem('studentName', demoChild.name);
-    sessionStorage.setItem('studentLevel', demoChild.level);
-    sessionStorage.setItem('studentAge', demoChild.age);
-
-    router.push('/books');
+    sessionStorage.setItem('userRole', 'student');
+    sessionStorage.setItem('studentId', '1');
+    sessionStorage.setItem('studentName', 'Alice');
+    sessionStorage.setItem('studentLevel', 'Beginner');
+    sessionStorage.setItem('studentAge', '8');
+    router.push('/dashboard');
   };
 
+  const features = [
+    { icon: '🎤', label: 'Voice Learning', description: 'Practice speaking with AI' },
+    { icon: '📚', label: 'Curated Books', description: 'Level-matched reading list' },
+    { icon: '🌟', label: 'Smart Feedback', description: 'Instant grammar guidance' },
+  ];
+
   return (
-    <div className="min-h-[calc(100vh-120px)] flex flex-col items-center justify-center py-8">
-      {!showLogin && !selectedChild && (
-        <div className="w-full max-w-2xl">
-          {/* Hero Section — Sky to Earth Gradient */}
-          <div className="text-center mb-10 px-4 py-10 rounded-3xl bg-gradient-to-b from-[#A8DAEA] to-[#F5F0E8] border-b-4 border-[#C8E6C9] shadow-[0_4px_20px_rgba(61,46,30,0.08)]">
-            <div className="text-7xl mb-4 float-animation inline-block">🌿</div>
-            <h1 className="text-5xl font-extrabold text-[#3D6B3D] mb-2 drop-shadow-sm">
-              HiAlice
-            </h1>
-            <h2 className="text-xl font-bold text-[#6B5744] mb-3">
-              English Reading Adventure
-            </h2>
-            <p className="text-[#6B5744] text-base font-medium">
-              AI-powered English reading for children aged 6-13
-            </p>
+    <div className="min-h-screen bg-[#F5F0E8] flex flex-col items-center justify-center py-10 px-4">
+      <div className="w-full max-w-2xl flex flex-col items-center gap-7">
+
+        {/* Hero Section */}
+        <div
+          className="w-full text-center px-6 py-12 rounded-3xl relative overflow-hidden"
+          style={{
+            background: 'linear-gradient(160deg, #A8DAEA 0%, #C8E6C9 40%, #F5F0E8 100%)',
+            border: '1px solid #C8E6C9',
+            boxShadow: '0 8px 40px rgba(61,46,30,0.10), inset 0 1px 0 rgba(255,255,255,0.6)',
+          }}
+        >
+          {/* Decorative elements */}
+          <div
+            className="absolute top-0 right-0 w-40 h-40 rounded-full pointer-events-none"
+            style={{ background: 'radial-gradient(circle, rgba(92,139,92,0.12) 0%, transparent 70%)', transform: 'translate(25%, -25%)' }}
+            aria-hidden="true"
+          />
+          <div
+            className="absolute bottom-0 left-0 w-32 h-32 rounded-full pointer-events-none"
+            style={{ background: 'radial-gradient(circle, rgba(135,206,219,0.15) 0%, transparent 70%)', transform: 'translate(-25%, 25%)' }}
+            aria-hidden="true"
+          />
+          <div
+            className="text-7xl mb-4 inline-block relative z-10"
+            style={{ animation: 'float 3s ease-in-out infinite' }}
+            aria-hidden="true"
+          >
+            🌿
           </div>
-
-          {/* Student Selection Card */}
-          <div className="ghibli-card p-8 mb-5">
-            <h3 className="text-2xl font-extrabold text-[#3D2E1E] mb-6 text-center">
-              Who is reading today?
-            </h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-              {children.map((child) => {
-                const levelStyle = LEVEL_STYLES[child.level] || { bg: '#E8DEC8', text: '#6B5744' };
-                return (
-                  <div
-                    key={child.id}
-                    onClick={() => handleSelectChild(child)}
-                    className="p-6 border-2 border-[#E8DEC8] rounded-2xl hover:border-[#5C8B5C] hover:bg-[#E8F5E8] cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_8px_24px_rgba(92,139,92,0.15)] bg-[#FFFCF3]"
-                  >
-                    <div className="text-6xl mb-4 text-center">{child.avatar}</div>
-                    <h4 className="text-xl font-extrabold text-center text-[#3D2E1E] mb-2">
-                      {child.name}
-                    </h4>
-                    <p className="text-center text-[#6B5744] font-semibold mb-3">Age {child.age}</p>
-                    <div className="flex justify-center">
-                      <span
-                        className="px-4 py-1.5 rounded-full text-sm font-bold"
-                        style={{ backgroundColor: levelStyle.bg, color: levelStyle.text }}
-                      >
-                        {child.level}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="space-y-3">
-              <button
-                onClick={() => setShowLogin(true)}
-                className="w-full py-3 px-6 bg-[#EDE5D4] text-[#6B5744] rounded-2xl hover:bg-[#D6C9A8] transition-all font-bold hover:-translate-y-0.5"
-              >
-                Parent Login
-              </button>
-
-              <button
-                onClick={handleDemoMode}
-                className="w-full py-3 px-6 bg-[#5C8B5C] text-white rounded-2xl hover:bg-[#3D6B3D] transition-all font-bold hover:-translate-y-0.5 shadow-[0_4px_12px_rgba(92,139,92,0.3)]"
-              >
-                Demo Mode — Try as Alice
-              </button>
-            </div>
-          </div>
-
-          {/* Feature Hints */}
-          <div className="grid grid-cols-3 gap-3 text-center">
-            {[
-              { icon: '🎤', label: 'Voice Learning' },
-              { icon: '📚', label: 'Curated Books' },
-              { icon: '🌟', label: 'Smart Feedback' },
-            ].map((feat, idx) => (
-              <div key={idx} className="bg-[#FFFCF3] border border-[#E8DEC8] rounded-2xl p-3">
-                <div className="text-2xl mb-1">{feat.icon}</div>
-                <p className="text-xs font-bold text-[#6B5744]">{feat.label}</p>
-              </div>
-            ))}
-          </div>
+          <h1 className="text-5xl font-extrabold text-[#3D6B3D] mb-2 drop-shadow-sm relative z-10 tracking-tight">
+            HiAlice
+          </h1>
+          <h2 className="text-xl font-bold text-[#5C8B5C] mb-3 relative z-10">
+            English Reading Adventure
+          </h2>
+          <p className="text-[#6B5744] text-sm font-semibold relative z-10 max-w-sm mx-auto leading-relaxed">
+            AI-powered English reading for children aged 6–13.
+            Talk about books, learn new words, grow smarter.
+          </p>
         </div>
-      )}
 
-      {showLogin && (
-        <div className="w-full max-w-md">
-          <div className="ghibli-card p-8">
-            <div className="text-center mb-6">
-              <div className="text-4xl mb-2">🌿</div>
-              <h3 className="text-2xl font-extrabold text-[#3D2E1E]">Parent Login</h3>
-            </div>
-
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <label className="block text-sm font-bold text-[#6B5744] mb-2">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={parentEmail}
-                  onChange={(e) => setParentEmail(e.target.value)}
-                  className="w-full px-4 py-3 border border-[#D6C9A8] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#5C8B5C] focus:border-transparent bg-[#FFFCF3] text-[#3D2E1E] font-semibold"
-                  placeholder="parent@example.com"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-[#6B5744] mb-2">
-                  Password
-                </label>
-                <input
-                  type="password"
-                  value={parentPassword}
-                  onChange={(e) => setParentPassword(e.target.value)}
-                  className="w-full px-4 py-3 border border-[#D6C9A8] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#5C8B5C] focus:border-transparent bg-[#FFFCF3] text-[#3D2E1E] font-semibold"
-                  placeholder="••••••••"
-                />
-              </div>
-
-              {error && (
-                <p className="text-[#D4736B] text-sm font-semibold">{error}</p>
-              )}
-
-              <button
-                type="submit"
-                disabled={isLoggingIn}
-                className="w-full py-3 px-6 bg-[#5C8B5C] text-white rounded-2xl hover:bg-[#3D6B3D] transition-all font-bold hover:-translate-y-0.5 shadow-[0_4px_12px_rgba(92,139,92,0.3)] disabled:opacity-60 disabled:cursor-not-allowed"
+        {/* Feature Cards */}
+        <div className="w-full grid grid-cols-3 gap-3 sm:gap-4">
+          {features.map((feat, idx) => {
+            const bgs = ['#E8F5E8', '#E8F0FC', '#FFF8E0'];
+            return (
+              <div
+                key={idx}
+                className="rounded-2xl p-4 sm:p-5 flex flex-col items-center text-center transition-all hover:-translate-y-0.5 hover:shadow-md"
+                style={{
+                  background: bgs[idx],
+                  border: '1px solid #E8DEC8',
+                  boxShadow: '0 2px 8px rgba(61,46,30,0.06)',
+                }}
               >
-                {isLoggingIn ? 'Logging in...' : 'Login'}
-              </button>
-            </form>
-
-            <button
-              onClick={() => {
-                setShowLogin(false);
-                setError('');
-                setParentEmail('');
-                setParentPassword('');
-              }}
-              className="w-full mt-4 py-3 px-6 bg-[#EDE5D4] text-[#6B5744] rounded-2xl hover:bg-[#D6C9A8] transition-all font-bold hover:-translate-y-0.5"
-            >
-              Back
-            </button>
-          </div>
+                <div className="text-3xl mb-2" aria-hidden="true">{feat.icon}</div>
+                <p className="text-xs sm:text-sm font-extrabold text-[#3D2E1E] mb-1 leading-tight">{feat.label}</p>
+                <p className="text-xs font-medium text-[#6B5744] leading-tight hidden sm:block">{feat.description}</p>
+              </div>
+            );
+          })}
         </div>
-      )}
+
+        {/* CTA Buttons */}
+        <div className="w-full flex flex-col sm:flex-row gap-3 sm:gap-4">
+          <button
+            onClick={() => router.push('/login')}
+            className="flex-1 min-h-[56px] py-4 px-8 text-white rounded-2xl font-extrabold text-lg transition-all hover:-translate-y-0.5 active:translate-y-0 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#3D6B3D] flex items-center justify-center gap-2"
+            style={{
+              background: 'linear-gradient(135deg, #5C8B5C, #3D6B3D)',
+              boxShadow: '0 6px 20px rgba(92,139,92,0.40)',
+            }}
+          >
+            Get Started
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <line x1="5" y1="12" x2="19" y2="12" />
+              <polyline points="12 5 19 12 12 19" />
+            </svg>
+          </button>
+          <button
+            onClick={handleDemoMode}
+            className="flex-1 min-h-[56px] py-4 px-8 bg-[#FFFCF3] text-[#5C8B5C] border-2 border-[#5C8B5C] rounded-2xl font-extrabold text-lg hover:bg-[#E8F5E8] transition-all hover:-translate-y-0.5 active:translate-y-0 focus-visible:ring-2 focus-visible:ring-[#5C8B5C] flex items-center justify-center gap-2"
+            style={{ boxShadow: '0 4px 16px rgba(92,139,92,0.12)' }}
+          >
+            <span aria-hidden="true">🎮</span>
+            Try Demo
+          </button>
+        </div>
+
+        {/* Footer hint */}
+        <div className="flex items-center gap-2 text-xs text-[#6B5744] font-medium text-center">
+          <span aria-hidden="true">💡</span>
+          Demo mode: explore as Alice, age 8, Beginner level — no account needed.
+        </div>
+      </div>
+
+      <style jsx>{`
+        @keyframes float {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-10px); }
+        }
+      `}</style>
     </div>
   );
 }

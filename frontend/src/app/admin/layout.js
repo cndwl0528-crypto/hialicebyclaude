@@ -94,7 +94,7 @@ export default function AdminLayout({ children }) {
             <span className="mr-2">🌿</span>
             HiAlice Admin Panel
           </h1>
-          <span className="text-sm text-[#9B8777] font-semibold">v1.0</span>
+          <span className="text-sm text-[#6B5744] font-semibold">v1.0</span>
         </div>
 
         {/* Content Area */}

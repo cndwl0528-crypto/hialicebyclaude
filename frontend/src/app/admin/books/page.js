@@ -311,7 +311,7 @@ export default function BooksPage() {
             placeholder="Search by title, author, or genre..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-4 py-3 border border-[#D6C9A8] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D4A843] bg-[#FFFCF3] text-[#3D2E1E] placeholder-[#9B8777] font-semibold"
+            className="w-full px-4 py-3 border border-[#D6C9A8] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D4A843] bg-[#FFFCF3] text-[#3D2E1E] placeholder-[#6B5744] font-semibold"
           />
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -477,7 +477,7 @@ export default function BooksPage() {
       {/* Books Table */}
       {loading ? (
         <div className="bg-[#FFFCF3] rounded-2xl shadow-[0_4px_20px_rgba(61,46,30,0.08)] p-12 text-center border border-[#E8DEC8]">
-          <p className="text-[#9B8777] text-lg font-semibold">Loading books...</p>
+          <p className="text-[#6B5744] text-lg font-semibold">Loading books...</p>
         </div>
       ) : (
         <div className="bg-[#FFFCF3] rounded-2xl shadow-[0_4px_20px_rgba(61,46,30,0.08)] overflow-hidden border border-[#E8DEC8]">
@@ -549,7 +549,7 @@ export default function BooksPage() {
           {filteredBooks.length === 0 && (
             <div className="text-center py-12">
               <span className="text-4xl block mb-3" aria-hidden="true">📚</span>
-              <p className="text-[#9B8777] text-lg font-semibold">No books found</p>
+              <p className="text-[#6B5744] text-lg font-semibold">No books found</p>
             </div>
           )}
         </div>
@@ -557,7 +557,7 @@ export default function BooksPage() {
 
       {/* Count footer */}
       {!loading && filteredBooks.length > 0 && (
-        <p className="text-xs text-[#9B8777] text-right font-semibold">
+        <p className="text-xs text-[#6B5744] text-right font-semibold">
           Showing {filteredBooks.length} of {books.length} books
         </p>
       )}

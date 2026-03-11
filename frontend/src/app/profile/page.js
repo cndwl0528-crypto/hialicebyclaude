@@ -9,6 +9,7 @@ import {
   logout,
 } from '@/services/api';
 import LoadingCard from '@/components/LoadingCard';
+import { isParentOrAdmin } from '@/lib/constants';
 
 const MOCK_STUDENT = {
   id: 'demo-1',
@@ -321,8 +322,8 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen py-6 bg-[#F5F0E8]">
-        <div className="max-w-4xl mx-auto space-y-6">
+      <div className="py-6">
+        <div className="space-y-6">
           <LoadingCard lines={3} />
           <LoadingCard lines={4} />
           <LoadingCard lines={2} />
@@ -332,64 +333,88 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen py-6 bg-[#F5F0E8]">
-      <div className="max-w-4xl mx-auto">
+    <div className="py-4 sm:py-6">
+      <div className="w-full">
         {/* Fallback notice */}
         {usingFallback && (
-          <div className="mb-4 px-4 py-3 bg-[#FFF8E8] border-l-4 border-[#D4A843] rounded-xl">
-            <p className="text-sm font-bold text-[#A8822E]">
-              Showing example data. Sign in or connect to the internet to see your real progress.
-            </p>
+          <div
+            className="mb-4 px-4 py-3 rounded-xl border-l-4 text-sm font-bold flex items-center gap-2"
+            style={{ backgroundColor: '#FFF8E8', borderColor: '#D4A843', color: '#A8822E' }}
+            role="status"
+          >
+            <span aria-hidden="true">💡</span>
+            Showing example data. Sign in or connect to the internet to see your real progress.
           </div>
         )}
 
         {/* Student Profile Card */}
-        <div className="rounded-3xl overflow-hidden shadow-[0_4px_20px_rgba(61,46,30,0.10)] mb-6">
-          <div className="bg-gradient-to-r from-[#5C8B5C] to-[#87CEDB] p-8">
-            <div className="flex items-start justify-between mb-2">
-              <div className="flex items-center gap-6">
-                <div
-                  className="text-8xl cursor-pointer hover:scale-110 transition-transform"
+        <div className="rounded-3xl overflow-hidden shadow-[0_6px_28px_rgba(61,46,30,0.12)] mb-6">
+          {/* Gradient header — richer multi-stop */}
+          <div
+            className="p-6 sm:p-8 relative overflow-hidden"
+            style={{
+              background: 'linear-gradient(135deg, #3D6B3D 0%, #5C8B5C 45%, #87CEDB 100%)',
+            }}
+          >
+            {/* Decorative background glow */}
+            <div
+              className="absolute top-0 right-0 w-48 h-48 rounded-full pointer-events-none"
+              style={{
+                background: 'radial-gradient(circle, rgba(168,222,234,0.2) 0%, transparent 70%)',
+                transform: 'translate(20%, -20%)',
+              }}
+              aria-hidden="true"
+            />
+            <div className="flex items-start justify-between relative z-10">
+              <div className="flex items-center gap-4 sm:gap-6">
+                <button
+                  className="text-7xl sm:text-8xl cursor-pointer hover:scale-110 transition-transform focus-visible:ring-2 focus-visible:ring-white rounded-2xl flex-shrink-0"
                   onClick={() => setShowAvatarPicker(!showAvatarPicker)}
+                  aria-label="Change avatar"
+                  title="Click to change avatar"
                 >
                   {student.avatar}
-                </div>
+                </button>
                 <div>
-                  <h2 className="text-4xl font-extrabold text-white">{student.name}</h2>
+                  <h1 className="text-3xl sm:text-4xl font-extrabold text-white drop-shadow-sm">{student.name}</h1>
                   {student.age && (
-                    <p className="text-green-100 mb-3 text-base font-semibold">Age {student.age}</p>
+                    <p className="text-white/80 mt-0.5 sm:mb-3 text-sm font-semibold">Age {student.age}</p>
                   )}
-                  <span className="px-4 py-2 rounded-full bg-white bg-opacity-25 text-white font-extrabold text-sm">
-                    {student.level}
-                  </span>
+                  {isParentOrAdmin() && (
+                    <span className="inline-block mt-2 px-3 sm:px-4 py-1 sm:py-1.5 rounded-full bg-white/20 text-white font-extrabold text-xs sm:text-sm border border-white/30">
+                      {student.level}
+                    </span>
+                  )}
                 </div>
               </div>
 
               {/* Logout Button */}
               <button
                 onClick={handleLogout}
-                className="flex-shrink-0 px-4 py-2 bg-white bg-opacity-20 hover:bg-opacity-30 text-white rounded-xl font-bold text-sm transition-all hover:-translate-y-0.5"
-                title="Log out"
+                className="flex-shrink-0 px-3 sm:px-4 py-2 min-h-[40px] bg-white/15 hover:bg-white/25 border border-white/30 text-white rounded-xl font-bold text-xs sm:text-sm transition-all hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-white"
+                aria-label="Log out of HiAlice"
               >
                 Log out
               </button>
             </div>
           </div>
 
-          <div className="bg-[#FFFCF3] p-6">
+          <div className="bg-[#FFFCF3] p-4 sm:p-6">
             {showAvatarPicker && (
               <div className="mb-6 pb-6 border-b border-[#E8DEC8]">
-                <p className="text-[#6B5744] font-extrabold mb-3">Choose Your Avatar:</p>
-                <div className="flex gap-3 flex-wrap">
+                <p className="text-[#6B5744] font-extrabold mb-3 text-sm">Choose Your Avatar:</p>
+                <div className="flex gap-2 sm:gap-3 flex-wrap">
                   {AVATAR_OPTIONS.map((avatar) => (
                     <button
                       key={avatar}
                       onClick={() => handleAvatarChange(avatar)}
-                      className={`text-5xl p-2 rounded-xl transition-all hover:-translate-y-0.5 ${
+                      className={`text-4xl sm:text-5xl p-2 min-w-[52px] min-h-[52px] rounded-xl transition-all hover:-translate-y-0.5 flex items-center justify-center focus-visible:ring-2 focus-visible:ring-[#5C8B5C] ${
                         selectedAvatar === avatar
                           ? 'ring-4 ring-[#5C8B5C] bg-[#E8F5E8]'
                           : 'hover:bg-[#F5F0E8]'
                       }`}
+                      aria-label={`Select ${avatar} avatar`}
+                      aria-pressed={selectedAvatar === avatar}
                     >
                       {avatar}
                     </button>
@@ -398,19 +423,20 @@ export default function ProfilePage() {
               </div>
             )}
 
-            {/* Stats Grid */}
-            <div className="grid grid-cols-4 gap-3">
+            {/* Stats Grid — 4-col on sm+, 2-col on xs */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
               {[
-                { label: 'Books Read', value: totalBooksRead, color: GHIBLI.primary },
-                { label: 'Words Learned', value: totalWordsLearned, color: GHIBLI.success },
-                { label: 'Day Streak', value: currentStreak, color: GHIBLI.gold },
-                { label: 'Grammar Avg', value: hasSessions ? `${avgGrammarScore}%` : '—', color: GHIBLI.primary },
+                { label: 'Books Read', value: totalBooksRead, color: GHIBLI.primary, icon: '📚' },
+                { label: 'Words Learned', value: totalWordsLearned, color: GHIBLI.success, icon: '💡' },
+                { label: 'Day Streak', value: currentStreak, color: GHIBLI.gold, icon: '🔥' },
+                { label: 'Grammar Avg', value: hasSessions ? `${avgGrammarScore}%` : '—', color: GHIBLI.primary, icon: '✨' },
               ].map((stat, idx) => (
-                <div key={idx} className="text-center p-4 rounded-2xl bg-[#F5F0E8]">
-                  <div className="text-3xl font-extrabold" style={{ color: stat.color }}>
+                <div key={idx} className="text-center p-3 sm:p-4 rounded-2xl bg-[#F5F0E8]">
+                  <div className="text-lg sm:text-xl mb-1" aria-hidden="true">{stat.icon}</div>
+                  <div className="text-2xl sm:text-3xl font-extrabold leading-none" style={{ color: stat.color }}>
                     {stat.value}
                   </div>
-                  <p className="text-[#6B5744] text-xs font-bold mt-1">{stat.label}</p>
+                  <p className="text-[#6B5744] text-[10px] sm:text-xs font-bold mt-1 leading-tight">{stat.label}</p>
                 </div>
               ))}
             </div>
@@ -418,8 +444,10 @@ export default function ProfilePage() {
         </div>
 
         {/* Level Progress */}
-        <div className="ghibli-card p-6 mb-6">
-          <h3 className="text-2xl font-extrabold text-[#3D2E1E] mb-4">Level Progress</h3>
+        <div className="ghibli-card p-5 sm:p-6 mb-6">
+          <h2 className="text-xl sm:text-2xl font-extrabold text-[#3D2E1E] mb-4 flex items-center gap-2">
+            <span aria-hidden="true">⬆️</span> Level Progress
+          </h2>
           <div className="flex items-center gap-6">
             <div className="flex-1">
               <div className="w-full bg-[#EDE5D4] rounded-full h-4 overflow-hidden">
@@ -444,23 +472,25 @@ export default function ProfilePage() {
 
         {/* Achievement Badges */}
         <div className="ghibli-card p-5 mb-6">
-          <h3 className="font-bold text-[#2C4A2E] mb-3 flex items-center gap-2 text-2xl">
+          <h2 className="font-extrabold text-[#3D2E1E] mb-4 flex items-center gap-2 text-xl sm:text-2xl">
+            <span aria-hidden="true">🏆</span>
             Your Badges
-            <span className="text-xs text-[#9CA3AF] font-normal ml-auto">
+            <span className="text-xs text-[#6B5744] font-normal ml-auto">
               {earnedBadges.length + serverAchievements.length} earned
             </span>
-          </h3>
+          </h2>
 
           {/* Compact grid of earned badges — merges local BADGES + server achievements */}
-          <div className="grid grid-cols-4 gap-3 mb-5">
+          <div className="grid grid-cols-3 xs:grid-cols-4 sm:grid-cols-5 gap-2 sm:gap-3 mb-5">
             {earnedBadges.map((badge) => (
               <div
                 key={badge.id}
-                className="flex flex-col items-center gap-1 p-2 rounded-xl bg-[#F5F0E8]"
+                className="flex flex-col items-center gap-1 p-2 sm:p-3 rounded-xl bg-[#E8F5E8] border border-[#C8E6C9]"
                 title={badge.label}
+                aria-label={`${badge.label} badge earned`}
               >
-                <span className="text-2xl">{badge.emoji}</span>
-                <span className="text-[10px] text-center text-[#6B7280] leading-tight">{badge.label}</span>
+                <span className="text-2xl sm:text-3xl" aria-hidden="true">{badge.emoji}</span>
+                <span className="text-[10px] text-center text-[#3D6B3D] font-bold leading-tight">{badge.label}</span>
               </div>
             ))}
             {serverAchievements.map((achievement, idx) => {
@@ -468,19 +498,20 @@ export default function ProfilePage() {
               return (
                 <div
                   key={`server-${idx}`}
-                  className="flex flex-col items-center gap-1 p-2 rounded-xl bg-[#F5F0E8]"
+                  className="flex flex-col items-center gap-1 p-2 sm:p-3 rounded-xl bg-[#E8F5E8] border border-[#C8E6C9]"
                   title={meta.label || achievement.label || achievement.name || 'Achievement'}
                 >
-                  <span className="text-2xl">{meta.icon || achievement.emoji || '🏅'}</span>
-                  <span className="text-[10px] text-center text-[#6B7280] leading-tight">
+                  <span className="text-2xl sm:text-3xl" aria-hidden="true">{meta.icon || achievement.emoji || '🏅'}</span>
+                  <span className="text-[10px] text-center text-[#3D6B3D] font-bold leading-tight">
                     {meta.label || achievement.label || achievement.name || 'Achievement'}
                   </span>
                 </div>
               );
             })}
             {earnedBadges.length === 0 && serverAchievements.length === 0 && (
-              <div className="col-span-4 text-center py-4 text-sm text-[#9CA3AF]">
-                Complete sessions to earn badges!
+              <div className="col-span-full text-center py-6">
+                <div className="text-4xl mb-2" aria-hidden="true">🌱</div>
+                <p className="text-sm font-semibold text-[#6B5744]">Complete sessions to earn badges!</p>
               </div>
             )}
           </div>
@@ -489,14 +520,15 @@ export default function ProfilePage() {
           {unearnedBadges.length > 0 && (
             <div>
               <p className="text-[#6B5744] text-xs font-extrabold mb-2 uppercase tracking-wide">In Progress</p>
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-3 xs:grid-cols-4 sm:grid-cols-5 gap-2 sm:gap-3">
                 {unearnedBadges.map((badge) => (
                   <div
                     key={badge.id}
-                    className="flex flex-col items-center gap-1 p-2 rounded-xl opacity-40 bg-[#EDE5D4]"
+                    className="flex flex-col items-center gap-1 p-2 sm:p-3 rounded-xl opacity-40 bg-[#EDE5D4] border border-[#D6C9A8]"
                     title={badge.label}
+                    aria-label={`${badge.label} badge — not yet earned`}
                   >
-                    <span className="text-2xl grayscale">{badge.emoji}</span>
+                    <span className="text-2xl grayscale" aria-hidden="true">{badge.emoji}</span>
                     <span className="text-[10px] text-center text-[#6B5744] leading-tight">{badge.label}</span>
                   </div>
                 ))}
@@ -525,7 +557,7 @@ export default function ProfilePage() {
                       />
                     </div>
                     <span className="text-sm font-extrabold text-[#6B5744]">{count}</span>
-                    <span className="text-xs text-[#9B8777] font-medium">W{idx + 1}</span>
+                    <span className="text-xs text-[#6B5744] font-medium">W{idx + 1}</span>
                   </div>
                 ))}
               </div>
@@ -554,7 +586,7 @@ export default function ProfilePage() {
                   </>
                 )}
               </svg>
-              <p className="text-xs text-[#9B8777] text-center font-semibold">Last 5 sessions</p>
+              <p className="text-xs text-[#6B5744] text-center font-semibold">Last 5 sessions</p>
             </div>
 
             {/* Vocabulary Growth */}
@@ -584,7 +616,7 @@ export default function ProfilePage() {
                   </>
                 )}
               </svg>
-              <p className="text-xs text-[#9B8777] text-center font-semibold">Cumulative words over sessions</p>
+              <p className="text-xs text-[#6B5744] text-center font-semibold">Cumulative words over sessions</p>
             </div>
 
             {/* Summary */}
@@ -615,19 +647,22 @@ export default function ProfilePage() {
 
         {/* Session History */}
         <div className="ghibli-card overflow-hidden mb-6">
-          <div className="px-6 py-4 border-b border-[#E8DEC8] bg-[#F5F0E8]">
-            <h3 className="text-2xl font-extrabold text-[#3D2E1E]">Reading History</h3>
+          <div className="px-5 sm:px-6 py-4 border-b border-[#E8DEC8] bg-[#F5F0E8]">
+            <h2 className="text-xl sm:text-2xl font-extrabold text-[#3D2E1E] flex items-center gap-2">
+              <span aria-hidden="true">📋</span> Review History
+            </h2>
           </div>
 
           {!hasSessions ? (
-            <div className="px-6 py-12 text-center text-[#9B8777]">
-              <div className="text-5xl mb-4">📚</div>
-              <p className="text-lg font-semibold mb-2">No reading sessions yet.</p>
+            <div className="px-6 py-12 text-center text-[#6B5744]">
+              <div className="text-5xl mb-4 float-animation inline-block" aria-hidden="true">📚</div>
+              <p className="text-lg font-bold mb-2 text-[#6B5744]">No reading sessions yet.</p>
               <p className="text-sm font-medium mb-6">Start your first book to see your history here!</p>
               <button
                 onClick={() => router.push('/books')}
-                className="px-6 py-3 bg-[#5C8B5C] text-white rounded-2xl font-bold hover:-translate-y-0.5 transition-all"
+                className="min-h-[48px] px-6 py-3 bg-[#5C8B5C] text-white rounded-2xl font-bold hover:-translate-y-0.5 transition-all shadow-sm focus-visible:ring-2 focus-visible:ring-[#3D6B3D] inline-flex items-center gap-2"
               >
+                <span aria-hidden="true">📚</span>
                 Choose a Book
               </button>
             </div>
@@ -641,7 +676,7 @@ export default function ProfilePage() {
                   >
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="font-extrabold text-[#3D2E1E] text-base">{session.bookTitle}</h4>
-                      <span className="text-[#9B8777] text-sm font-semibold">
+                      <span className="text-[#6B5744] text-sm font-semibold">
                         {new Date(session.date).toLocaleDateString('en-US', {
                           month: 'short',
                           day: 'numeric',
@@ -711,24 +746,26 @@ export default function ProfilePage() {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-4 justify-center mb-8 flex-wrap">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 sm:justify-center mb-8">
           <button
             onClick={() => router.push('/books')}
-            className="px-8 py-4 text-white rounded-2xl font-extrabold text-base hover:-translate-y-0.5 transition-all shadow-[0_4px_12px_rgba(92,139,92,0.3)]"
+            className="flex-1 sm:flex-initial min-h-[52px] px-8 py-3 text-white rounded-2xl font-extrabold text-base hover:-translate-y-0.5 transition-all shadow-[0_4px_12px_rgba(92,139,92,0.3)] focus-visible:ring-2 focus-visible:ring-[#3D6B3D] flex items-center justify-center gap-2"
             style={{ backgroundColor: GHIBLI.primary }}
           >
-            Read a Book
+            <span aria-hidden="true">📚</span>
+            Go to Library
           </button>
           <button
             onClick={() => router.push('/')}
-            className="px-8 py-4 rounded-2xl font-extrabold text-base border-2 hover:-translate-y-0.5 transition-all"
+            className="flex-1 sm:flex-initial min-h-[52px] px-8 py-3 rounded-2xl font-extrabold text-base border-2 hover:-translate-y-0.5 transition-all focus-visible:ring-2 focus-visible:ring-[#5C8B5C] flex items-center justify-center gap-2"
             style={{ backgroundColor: GHIBLI.bg, borderColor: GHIBLI.primary, color: GHIBLI.primary }}
           >
+            <span aria-hidden="true">🏠</span>
             Home
           </button>
           <button
             onClick={handleLogout}
-            className="px-8 py-4 rounded-2xl font-extrabold text-base border-2 hover:-translate-y-0.5 transition-all"
+            className="flex-1 sm:flex-initial min-h-[52px] px-8 py-3 rounded-2xl font-extrabold text-base border-2 hover:-translate-y-0.5 transition-all focus-visible:ring-2 focus-visible:ring-[#D4736B] flex items-center justify-center gap-2"
             style={{ backgroundColor: GHIBLI.bg, borderColor: '#D4736B', color: '#D4736B' }}
           >
             Log out

@@ -270,7 +270,7 @@ export default function AdminDashboard() {
                   title={`${item.sessions} sessions`}
                 />
                 <span className="text-xs font-bold text-[#6B5744]">{item.day}</span>
-                <span className="text-xs text-[#9B8777]">{item.sessions}</span>
+                <span className="text-xs text-[#6B5744]">{item.sessions}</span>
               </div>
             ))}
           </div>
@@ -395,7 +395,7 @@ export default function AdminDashboard() {
                       {session.status === 'completed' ? 'Done' : 'Active'}
                     </span>
                   </td>
-                  <td className="py-3 px-4 text-[#9B8777] text-xs">
+                  <td className="py-3 px-4 text-[#6B5744] text-xs">
                     {formatTime(session.timestamp)}
                   </td>
                 </tr>

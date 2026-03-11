@@ -181,6 +181,15 @@ export const isLastStage = (stageId) => {
   return stages[stages.length - 1].id === stageId;
 };
 
+/**
+ * Check if current user is a parent or admin (level info should be visible)
+ */
+export function isParentOrAdmin() {
+  if (typeof window === 'undefined') return false;
+  const role = sessionStorage.getItem('userRole');
+  return ['parent', 'admin', 'super_admin'].includes(role);
+}
+
 export default {
   LEVELS,
   STAGES,

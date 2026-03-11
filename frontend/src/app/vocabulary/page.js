@@ -351,12 +351,12 @@ export default function VocabularyPage() {
         <div className="ghibli-card p-8 text-center max-w-md">
           <div className="text-4xl mb-4">🌱</div>
           <p className="text-[#6B5744] font-bold text-lg mb-2">No words to practice right now!</p>
-          <p className="text-[#9B8777] text-sm font-semibold mb-6">Complete a reading session to start practicing vocabulary.</p>
+          <p className="text-[#6B5744] text-sm font-semibold mb-6">Complete a reading session to start practicing vocabulary.</p>
           <button
             onClick={() => router.push('/books')}
             className="px-6 py-3 bg-[#5C8B5C] text-white rounded-2xl hover:bg-[#3D6B3D] transition-all font-bold hover:-translate-y-0.5"
           >
-            Read a Book
+            Go to Library
           </button>
         </div>
       </div>
@@ -646,12 +646,12 @@ export default function VocabularyPage() {
                   onKeyDown={(e) => e.key === 'Enter' && handleFillBlankSubmit()}
                   placeholder="Type the missing word..."
                   className="w-full px-4 py-3 border-2 border-[#D6C9A8] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#5C8B5C] focus:border-transparent text-lg min-h-[48px] bg-[#FFFCF3] text-[#3D2E1E] font-semibold"
-                  disabled={selectedSynonym !== null}
+                  disabled={false}
                   autoFocus
                 />
                 <button
                   onClick={handleFillBlankSubmit}
-                  disabled={!fillBlankAnswer.trim() || selectedSynonym !== null}
+                  disabled={!fillBlankAnswer.trim()}
                   className="w-full px-6 py-3 bg-[#5C8B5C] text-white rounded-2xl hover:bg-[#3D6B3D] disabled:bg-[#D6C9A8] transition-all font-extrabold min-h-[48px] hover:-translate-y-0.5"
                 >
                   Check Answer

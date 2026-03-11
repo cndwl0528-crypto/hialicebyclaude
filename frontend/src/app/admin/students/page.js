@@ -261,7 +261,7 @@ export default function AdminStudentsPage() {
             placeholder="Search by name..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-4 py-3 border border-[#D6C9A8] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#5C8B5C] bg-[#FFFCF3] text-[#3D2E1E] placeholder-[#9B8777] font-semibold"
+            className="w-full px-4 py-3 border border-[#D6C9A8] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#5C8B5C] bg-[#FFFCF3] text-[#3D2E1E] placeholder-[#6B5744] font-semibold"
           />
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -360,7 +360,7 @@ export default function AdminStudentsPage() {
                 <div>
                   <label className="block text-sm font-bold text-[#6B5744] mb-2">
                     Parent Email{' '}
-                    <span className="font-normal text-[#9B8777]">(optional — links to existing account)</span>
+                    <span className="font-normal text-[#6B5744]">(optional — links to existing account)</span>
                   </label>
                   <input
                     type="email"
@@ -462,10 +462,10 @@ export default function AdminStudentsPage() {
                               {grammarScore}/10
                             </span>
                           ) : (
-                            <span className="text-[#9CA3AF] text-xs">—</span>
+                            <span className="text-[#6B5744] text-xs">—</span>
                           )}
                         </td>
-                        <td className="py-4 px-4 text-[#9B8777] text-xs font-semibold">
+                        <td className="py-4 px-4 text-[#6B5744] text-xs font-semibold">
                           {formatRelativeTime(student.lastActive || student.last_session_date)}
                         </td>
                         <td className="py-4 px-4">
@@ -545,7 +545,7 @@ export default function AdminStudentsPage() {
           {filteredStudents.length === 0 && (
             <div className="text-center py-12">
               <span className="text-4xl block mb-3" aria-hidden="true">🌿</span>
-              <p className="text-[#9B8777] text-lg font-semibold">No students found</p>
+              <p className="text-[#6B5744] text-lg font-semibold">No students found</p>
             </div>
           )}
         </div>
@@ -553,7 +553,7 @@ export default function AdminStudentsPage() {
 
       {/* Count footer */}
       {!loading && filteredStudents.length > 0 && (
-        <p className="text-xs text-[#9B8777] text-right font-semibold">
+        <p className="text-xs text-[#6B5744] text-right font-semibold">
           Showing {filteredStudents.length} of {students.length} students
         </p>
       )}

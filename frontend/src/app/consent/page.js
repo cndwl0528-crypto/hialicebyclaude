@@ -47,8 +47,8 @@ function ConsentForm() {
         {/* Header */}
         <div className="text-center">
           <div className="text-6xl mb-3">🔒</div>
-          <h1 className="text-2xl font-bold text-[#2C4A2E]">Parent Consent Required</h1>
-          <p className="text-sm text-[#6B7280] mt-1">
+          <h1 className="text-2xl font-bold text-[#3D2E1E]">Parent Consent Required</h1>
+          <p className="text-sm text-[#6B5744] mt-1">
             Under COPPA (Children&apos;s Online Privacy Protection Act), we need your consent
             before your child can use HiAlice.
           </p>
@@ -56,8 +56,8 @@ function ConsentForm() {
 
         {/* What we collect */}
         <div className="bg-white/80 rounded-2xl border border-[#D4C5A9] p-5 shadow-sm">
-          <h2 className="font-bold text-[#2C4A2E] mb-3">What We Collect</h2>
-          <ul className="space-y-2 text-sm text-[#4B5563]">
+          <h2 className="font-bold text-[#3D2E1E] mb-3">What We Collect</h2>
+          <ul className="space-y-2 text-sm text-[#6B5744]">
             <li className="flex gap-2">
               <span className="text-green-500 flex-shrink-0">✓</span>
               <span>Reading session conversation data (to generate AI feedback)</span>
@@ -83,7 +83,7 @@ function ConsentForm() {
 
         {/* Parent name */}
         <div className="bg-white/80 rounded-2xl border border-[#D4C5A9] p-5 shadow-sm">
-          <label className="block text-sm font-medium text-[#2C4A2E] mb-2">
+          <label className="block text-sm font-medium text-[#3D2E1E] mb-2">
             Your Full Name (Legal Guardian)
           </label>
           <input
@@ -91,7 +91,7 @@ function ConsentForm() {
             value={parentName}
             onChange={e => setParentName(e.target.value)}
             placeholder="Enter your full legal name"
-            className="w-full border border-[#D4C5A9] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A7C59]/30"
+            className="w-full border border-[#D4C5A9] rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#5C8B5C]/30"
           />
         </div>
 
@@ -125,9 +125,9 @@ function ConsentForm() {
                 type="checkbox"
                 checked={item.state}
                 onChange={e => item.setter(e.target.checked)}
-                className="w-5 h-5 mt-0.5 accent-[#4A7C59] cursor-pointer flex-shrink-0"
+                className="w-5 h-5 mt-0.5 accent-[#5C8B5C] cursor-pointer flex-shrink-0"
               />
-              <span className="text-sm text-[#4B5563]">
+              <span className="text-sm text-[#6B5744]">
                 {item.label}
                 {item.required && <span className="text-red-400 ml-1">*</span>}
               </span>
@@ -144,17 +144,17 @@ function ConsentForm() {
         <button
           onClick={handleSubmit}
           disabled={!allAgreed || submitting}
-          className="w-full bg-[#4A7C59] text-white rounded-2xl py-4 font-bold text-base disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+          className="w-full bg-[#5C8B5C] text-white rounded-2xl py-4 font-bold text-base disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
         >
           {submitting ? 'Recording consent...' : 'I Give My Consent'}
         </button>
 
-        <p className="text-center text-xs text-[#9CA3AF]">
+        <p className="text-center text-xs text-[#6B5744]">
           By clicking above, you electronically sign this consent form.
           You can withdraw consent at any time by contacting us at privacy@hialice.com
         </p>
 
-        <a href="/privacy-policy" className="block text-center text-xs text-[#4A7C59] underline">
+        <a href="/privacy-policy" className="block text-center text-xs text-[#5C8B5C] underline">
           Read our full Privacy Policy
         </a>
       </div>
@@ -166,7 +166,7 @@ export default function ConsentPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-[#F5F0E8] flex items-center justify-center">
-        <p className="text-[#6B7280]">Loading...</p>
+        <p className="text-[#6B5744]">Loading...</p>
       </div>
     }>
       <ConsentForm />

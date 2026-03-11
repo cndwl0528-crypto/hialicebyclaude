@@ -13,6 +13,7 @@ export default function RootLayout({ children }) {
   const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userRole, setUserRole] = useState(null);
+  const [userName, setUserName] = useState('');
 
   // Register service worker for PWA/offline support — production only.
   // Skipping in development prevents the SW from caching webpack hot-update
@@ -40,6 +41,7 @@ export default function RootLayout({ children }) {
       const token = sessionStorage.getItem('token');
       setIsLoggedIn(!!token);
       setUserRole(sessionStorage.getItem('userRole'));
+      setUserName(sessionStorage.getItem('studentName') || sessionStorage.getItem('parentEmail') || '');
     }
   }, [pathname]);
 
@@ -60,8 +62,11 @@ export default function RootLayout({ children }) {
     userRole === 'super_admin';
 
   const navLinks = [
-    { href: '/', label: 'Home', icon: '🏠' },
-    { href: '/books', label: 'Books', icon: '📚' },
+    // Show Dashboard when logged in, Home when not
+    isLoggedIn
+      ? { href: '/dashboard', label: 'Dashboard', icon: '🏠' }
+      : { href: '/', label: 'Home', icon: '🏠' },
+    { href: '/books', label: 'Library', icon: '📚' },
     { href: '/review', label: 'Review', icon: '⭐' },
     { href: '/vocabulary', label: 'Words', icon: '📖' },
     { href: '/profile', label: 'Profile', icon: '👤' },
@@ -98,24 +103,25 @@ export default function RootLayout({ children }) {
           <OfflineBanner />
 
           {/* Top Navigation */}
-          <nav suppressHydrationWarning className="bg-[#D6C9A8] shadow-[0_2px_12px_rgba(61,46,30,0.10)] px-4 sm:px-6 py-3 flex items-center justify-between overflow-x-auto ghibli-bg sticky top-0 z-40">
-            <div className="flex items-center gap-4">
+          <nav suppressHydrationWarning aria-label="Primary navigation" className="bg-[#D6C9A8] shadow-[0_2px_12px_rgba(61,46,30,0.10)] px-4 sm:px-6 py-3 flex items-center justify-between ghibli-bg sticky top-0 z-40">
+            <div className="flex items-center gap-3 min-w-0">
               <Link
                 href="/"
-                className="text-xl font-extrabold text-[#3D6B3D] hover:text-[#5C8B5C] transition-colors flex-shrink-0 flex items-center gap-1"
+                className="text-xl font-extrabold text-[#3D6B3D] hover:text-[#5C8B5C] transition-colors flex-shrink-0 flex items-center gap-1.5 focus-visible:ring-2 focus-visible:ring-[#5C8B5C] rounded-lg px-1"
               >
                 <span className="leaf-sway inline-block" suppressHydrationWarning>{logoEmoji}</span>
                 <span>{logoText}</span>
               </Link>
-              <div className="hidden md:flex gap-1">
+              <div className="hidden md:flex gap-1 flex-wrap">
                 {navLinks.slice(1).map((link) => (
                   <Link
                     key={link.href}
                     href={link.href}
-                    className={`px-4 py-2 rounded-xl text-sm font-bold transition-all hover:-translate-y-0.5 ${
+                    aria-current={pathname === link.href ? 'page' : undefined}
+                    className={`px-3 py-2 rounded-xl text-sm font-bold transition-all hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-[#5C8B5C] ${
                       pathname === link.href
-                        ? 'bg-[#5C8B5C] text-white shadow-[0_2px_8px_rgba(92,139,92,0.4)]'
-                        : 'text-[#3D2E1E] hover:bg-[#C8DBC8]'
+                        ? 'bg-[#3D6B3D] text-white shadow-[0_2px_8px_rgba(61,107,61,0.5)]'
+                        : 'text-[#3D2E1E] hover:bg-[#B8CEB8]'
                     }`}
                   >
                     <span aria-hidden="true" suppressHydrationWarning>{link.icon}</span>{' '}{link.label}
@@ -123,39 +129,58 @@ export default function RootLayout({ children }) {
                 ))}
               </div>
             </div>
-            <div className="flex items-center gap-3 flex-shrink-0">
-              <span className="text-xs text-[#9B8777] font-semibold">v1.0</span>
-              {isLoggedIn && (
-                <button
-                  onClick={handleLogout}
-                  className="text-xs px-3 py-1.5 rounded-xl bg-[#C8DBC8] text-[#3D6B3D] hover:bg-[#D4736B] hover:text-white font-bold transition-all"
-                  title="Log out"
+            <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+              {isLoggedIn ? (
+                <>
+                  <div className="hidden sm:flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-[#7AC87A] flex-shrink-0" aria-hidden="true" />
+                    <span className="text-xs text-[#3D2E1E] font-bold truncate max-w-[96px]">
+                      {userName}
+                    </span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#D6E9D6] text-[#3D2E1E] font-bold border border-[#A5D6A7]">
+                      {userRole === 'parent' ? 'Parent' : 'Student'}
+                    </span>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="text-xs px-3 py-2 min-h-[36px] rounded-xl bg-[#EDE5D4] text-[#6B5744] hover:bg-[#D4736B] hover:text-white font-bold transition-all focus-visible:ring-2 focus-visible:ring-[#D4736B]"
+                    aria-label="Log out of HiAlice"
+                  >
+                    Log out
+                  </button>
+                </>
+              ) : (
+                <Link
+                  href="/login"
+                  className="text-xs px-4 py-2 min-h-[36px] rounded-xl bg-[#5C8B5C] text-white font-bold hover:bg-[#3D6B3D] transition-all focus-visible:ring-2 focus-visible:ring-[#3D6B3D] flex items-center"
                 >
-                  Log out
-                </button>
+                  Login
+                </Link>
               )}
             </div>
           </nav>
 
           {/* Mobile Bottom Navigation */}
-          <div suppressHydrationWarning className="md:hidden fixed bottom-0 left-0 right-0 bg-[#D6C9A8] border-t border-[#C4B49A] flex gap-1 px-2 py-2 z-40 shadow-[0_-4px_20px_rgba(61,46,30,0.10)]">
+          <nav suppressHydrationWarning aria-label="Mobile navigation" className="md:hidden fixed bottom-0 left-0 right-0 bg-[#D6C9A8] border-t-2 border-[#C4B49A] flex gap-0.5 px-1 pt-1.5 z-40 shadow-[0_-4px_20px_rgba(61,46,30,0.12)]" style={{ paddingBottom: 'max(0.625rem, env(safe-area-inset-bottom))' }}>
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`flex-1 px-2 py-2 text-center text-xs rounded-xl font-bold transition-all ${
+                aria-label={link.label}
+                aria-current={pathname === link.href ? 'page' : undefined}
+                className={`flex-1 min-h-[52px] flex flex-col items-center justify-center gap-0.5 px-0.5 py-1.5 rounded-xl font-bold transition-all duration-150 active:scale-95 ${
                   pathname === link.href
                     ? 'bg-[#5C8B5C] text-white shadow-[0_2px_8px_rgba(92,139,92,0.4)]'
-                    : 'text-[#3D2E1E] hover:bg-[#C8DBC8]'
+                    : 'text-[#3D2E1E] hover:bg-[#C8DBC8] active:bg-[#B8CEB8]'
                 }`}
               >
-                <div className="text-lg mb-0.5" aria-hidden="true" suppressHydrationWarning>{link.icon}</div>
-                {link.label}
+                <span className="text-lg leading-none" aria-hidden="true" suppressHydrationWarning>{link.icon}</span>
+                <span className="text-[10px] xs:text-xs leading-none font-bold tracking-tight">{link.label}</span>
               </Link>
             ))}
-          </div>
+          </nav>
 
-          <main className="max-w-4xl mx-auto px-4 py-6 pb-24 md:pb-6">
+          <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 pb-32 md:pb-8">
             {children}
           </main>
         </ErrorBoundary>

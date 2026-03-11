@@ -55,6 +55,7 @@ const config = {
         ],
         nunito: ['Nunito', 'sans-serif'],
         quicksand: ['Quicksand', 'sans-serif'],
+        serif: ['Georgia', 'Cambria', '"Times New Roman"', 'Times', 'serif'],
       },
       spacing: {
         'touch-min': '3rem', // 48px minimum touch target

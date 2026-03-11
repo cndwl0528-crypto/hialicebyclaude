@@ -5,14 +5,15 @@ import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { getSessionReview, getSessionStageScores, getBook } from '@/services/api';
 import LoadingCard from '@/components/LoadingCard';
+import { isParentOrAdmin } from '@/lib/constants';
 
 // Heavy components loaded dynamically to reduce initial bundle size
 const PrintableWorksheet = dynamic(() => import('@/components/PrintableWorksheet'), {
-  loading: () => <div className="animate-pulse h-24 bg-gray-100 rounded-lg" />,
+  loading: () => <div className="animate-pulse h-24 bg-[#EDE5D4] rounded-lg" />,
   ssr: false,
 });
 const BookRecommendation = dynamic(() => import('@/components/BookRecommendation'), {
-  loading: () => <div className="animate-pulse h-24 bg-gray-100 rounded-lg" />,
+  loading: () => <div className="animate-pulse h-24 bg-[#EDE5D4] rounded-lg" />,
 });
 const ConfettiCelebration = dynamic(() => import('@/components/ConfettiCelebration'), {
   ssr: false,
@@ -327,7 +328,7 @@ export default function ReviewPage() {
             onClick={() => router.push('/books')}
             className="px-6 py-3 bg-[#5C8B5C] text-white rounded-2xl font-bold hover:-translate-y-0.5 transition-all"
           >
-            Go Read a Book
+            Go to Library
           </button>
         </div>
       </div>
@@ -378,12 +379,12 @@ export default function ReviewPage() {
 
       {/* Phase 2B: AI Personal Feedback Card */}
       {aiFeedback && (
-        <div className="ghibli-card bg-gradient-to-br from-[#FEF3C7] to-[#FDE68A] border-2 border-[#F59E0B]/30 p-6 mb-6">
+        <div className="ghibli-card bg-gradient-to-br from-[#FFF8E0] to-[#F5E8A8] border-2 border-[#D4A843]/30 p-6 mb-6">
           <div className="flex items-start gap-3">
             <div className="text-3xl flex-shrink-0" aria-hidden="true">🤖</div>
             <div>
-              <h3 className="font-bold text-[#92400E] mb-2">Message from HiAlice</h3>
-              <p className="text-[#78350F] text-sm leading-relaxed italic">
+              <h3 className="font-bold text-[#6B5744] mb-2">Message from HiAlice</h3>
+              <p className="text-[#3D2E1E] text-sm leading-relaxed italic">
                 &quot;{aiFeedback}&quot;
               </p>
             </div>
@@ -392,16 +393,21 @@ export default function ReviewPage() {
       )}
 
       {/* Header */}
-      <div className="mb-8">
-        <h2 className="text-3xl font-extrabold text-[#3D6B3D] mb-2">Reading Session Complete!</h2>
-        <p className="text-[#6B5744] font-semibold">
-          Great job, {review.studentName}! Here&apos;s what you learned reading &quot;{review.bookTitle}&quot;
+      <div className="mb-6">
+        <div className="flex items-center gap-3 mb-2">
+          <span className="text-4xl" aria-hidden="true">🎉</span>
+          <h1 className="text-3xl font-extrabold text-[#3D6B3D] leading-tight">Review Complete!</h1>
+        </div>
+        <p className="text-[#6B5744] font-semibold text-base pl-1">
+          Great job, {review.studentName}! Here&apos;s what you learned reading <em className="not-italic font-extrabold text-[#3D2E1E]">&quot;{review.bookTitle}&quot;</em>
         </p>
       </div>
 
       {/* Summary Card */}
-      <div className="ghibli-card p-8 mb-6">
-        <h3 className="text-xl font-extrabold text-[#3D2E1E] mb-6">Session Summary</h3>
+      <div className="ghibli-card p-5 sm:p-8 mb-6">
+        <h2 className="text-xl font-extrabold text-[#3D2E1E] mb-6 flex items-center gap-2">
+          <span aria-hidden="true">📊</span> Session Summary
+        </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <div>
@@ -423,7 +429,7 @@ export default function ReviewPage() {
               </div>
             </div>
 
-            {review.levelScore !== undefined && (
+            {review.levelScore !== undefined && isParentOrAdmin() && (
               <div className="mt-4">
                 <p className="text-[#6B5744] text-sm font-bold mb-2">Level Score</p>
                 <div className="flex items-center gap-3">
@@ -439,18 +445,18 @@ export default function ReviewPage() {
             )}
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
-            <div className="text-center p-3 bg-[#F5F0E8] rounded-2xl">
-              <div className="text-3xl font-extrabold text-[#5C8B5C]">{totalWords}</div>
-              <p className="text-[#6B5744] text-xs font-bold mt-1">Total Words</p>
+          <div className="grid grid-cols-3 gap-2 sm:gap-4">
+            <div className="text-center p-3 bg-[#E8F5E8] rounded-2xl border border-[#C8E6C9]">
+              <div className="text-2xl sm:text-3xl font-extrabold text-[#5C8B5C] leading-none">{totalWords}</div>
+              <p className="text-[#6B5744] text-xs font-bold mt-1 leading-tight">Total Words</p>
             </div>
-            <div className="text-center p-3 bg-[#F5F0E8] rounded-2xl">
-              <div className="text-3xl font-extrabold text-[#D4A843]">{newWords}</div>
-              <p className="text-[#6B5744] text-xs font-bold mt-1">New Words</p>
+            <div className="text-center p-3 bg-[#FFF8E0] rounded-2xl border border-[#FFE082]">
+              <div className="text-2xl sm:text-3xl font-extrabold text-[#D4A843] leading-none">{newWords}</div>
+              <p className="text-[#6B5744] text-xs font-bold mt-1 leading-tight">New Words</p>
             </div>
-            <div className="text-center p-3 bg-[#F5F0E8] rounded-2xl">
-              <div className="text-3xl font-extrabold text-[#D4736B]">{reviewWords}</div>
-              <p className="text-[#6B5744] text-xs font-bold mt-1">To Review</p>
+            <div className="text-center p-3 bg-[#FCE8E6] rounded-2xl border border-[#F5C6C2]">
+              <div className="text-2xl sm:text-3xl font-extrabold text-[#D4736B] leading-none">{reviewWords}</div>
+              <p className="text-[#6B5744] text-xs font-bold mt-1 leading-tight">To Review</p>
             </div>
           </div>
         </div>
@@ -590,15 +596,32 @@ export default function ReviewPage() {
           {showConversation && (
             <div className="p-6 space-y-4 max-h-96 overflow-y-auto bg-[#F5F0E8]">
               {conversation.map((msg, idx) => {
-                let wordSpans = msg.content;
-                vocabulary.forEach((word) => {
-                  const regex = new RegExp(`\\b${word.word}\\b`, 'gi');
-                  wordSpans = wordSpans.replace(
-                    regex,
-                    (match) =>
-                      `<span class="bg-[#FFF0C0] font-bold cursor-pointer hover:bg-[#FFE080]" data-word-id="${word.id}">${match}</span>`
-                  );
-                });
+                // Build safe React elements instead of dangerouslySetInnerHTML
+                const renderHighlightedText = (text) => {
+                  if (!vocabulary.length) return text;
+                  // Escape regex special chars in words
+                  const escapedWords = vocabulary.map(w => ({
+                    ...w,
+                    pattern: w.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+                  }));
+                  const combinedPattern = new RegExp(`\\b(${escapedWords.map(w => w.pattern).join('|')})\\b`, 'gi');
+                  const parts = text.split(combinedPattern);
+                  return parts.map((part, i) => {
+                    const matchedWord = vocabulary.find(w => w.word.toLowerCase() === part.toLowerCase());
+                    if (matchedWord) {
+                      return (
+                        <span
+                          key={i}
+                          className="bg-[#FFF0C0] font-bold cursor-pointer hover:bg-[#FFE080]"
+                          onClick={() => setHighlightedWord(matchedWord.id)}
+                        >
+                          {part}
+                        </span>
+                      );
+                    }
+                    return part;
+                  });
+                };
 
                 return (
                   <div
@@ -612,15 +635,9 @@ export default function ReviewPage() {
                           : 'bg-[#FFFCF3] border border-[#D6C9A8] text-[#3D2E1E] rounded-tr-none'
                       }`}
                     >
-                      <div
-                        dangerouslySetInnerHTML={{ __html: wordSpans }}
-                        onClick={(e) => {
-                          if (e.target.dataset.wordId) {
-                            setHighlightedWord(parseInt(e.target.dataset.wordId));
-                          }
-                        }}
-                        className="text-sm font-semibold"
-                      />
+                      <p className="text-sm font-semibold">
+                        {renderHighlightedText(msg.content)}
+                      </p>
                     </div>
                   </div>
                 );
@@ -722,23 +739,26 @@ export default function ReviewPage() {
       </div>
 
       {/* Action Buttons */}
-      <div className="flex gap-4 justify-center flex-wrap">
+      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 sm:justify-center">
+        <button
+          onClick={() => router.push('/books')}
+          className="flex-1 sm:flex-initial min-h-[52px] px-8 py-3 bg-[#5C8B5C] text-white rounded-2xl hover:bg-[#3D6B3D] transition-all font-bold hover:-translate-y-0.5 shadow-[0_4px_12px_rgba(92,139,92,0.3)] focus-visible:ring-2 focus-visible:ring-[#3D6B3D] flex items-center justify-center gap-2"
+        >
+          <span aria-hidden="true">📚</span>
+          Review Another Book
+        </button>
         <button
           onClick={() => router.push('/vocabulary')}
-          className="px-8 py-3 bg-[#D4A843] text-white rounded-2xl hover:bg-[#A8822E] transition-all font-bold hover:-translate-y-0.5 shadow-[0_4px_12px_rgba(212,168,67,0.3)]"
+          className="flex-1 sm:flex-initial min-h-[52px] px-8 py-3 bg-[#D4A843] text-white rounded-2xl hover:bg-[#A8822E] transition-all font-bold hover:-translate-y-0.5 shadow-[0_4px_12px_rgba(212,168,67,0.3)] focus-visible:ring-2 focus-visible:ring-[#D4A843] flex items-center justify-center gap-2"
         >
+          <span aria-hidden="true">📖</span>
           Practice These Words
         </button>
         <button
-          onClick={() => router.push('/books')}
-          className="px-8 py-3 bg-[#5C8B5C] text-white rounded-2xl hover:bg-[#3D6B3D] transition-all font-bold hover:-translate-y-0.5 shadow-[0_4px_12px_rgba(92,139,92,0.3)]"
-        >
-          Read Another Book
-        </button>
-        <button
           onClick={() => router.push('/profile')}
-          className="px-8 py-3 bg-[#EDE5D4] text-[#6B5744] rounded-2xl hover:bg-[#D6C9A8] transition-all font-bold hover:-translate-y-0.5"
+          className="flex-1 sm:flex-initial min-h-[52px] px-8 py-3 bg-[#EDE5D4] text-[#6B5744] rounded-2xl hover:bg-[#D6C9A8] transition-all font-bold hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-[#6B5744] flex items-center justify-center gap-2"
         >
+          <span aria-hidden="true">👤</span>
           View Profile
         </button>
       </div>

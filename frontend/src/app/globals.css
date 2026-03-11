@@ -19,7 +19,7 @@
   --nav-bg: #D6C9A8;
   --text-dark: #3D2E1E;
   --text-mid: #6B5744;
-  --text-light: #9B8777;
+  --text-light: #9C8B74;
 }
 
 * {
@@ -77,7 +77,11 @@ body {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.ghibli-card:hover {
+/* Cards that are not interactive don't lift on hover — avoids confusion.
+   Use .hover-lift on interactive card wrappers when the lift effect is desired. */
+button.ghibli-card:hover,
+a.ghibli-card:hover,
+.ghibli-card.is-interactive:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 30px rgba(61, 46, 30, 0.10);
 }
@@ -91,6 +95,10 @@ body {
   font-weight: 700;
   transition: all 0.2s ease;
   font-family: 'Nunito', sans-serif;
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .ghibli-btn:hover {
@@ -194,20 +202,20 @@ body {
   box-shadow: 0 0 0 3px rgba(92, 139, 92, 0.15);
 }
 
-/* ===== Ghibli Badge Styles ===== */
+/* ===== Ghibli Badge Styles (contrast-fixed) ===== */
 .badge-beginner {
   background-color: #C8E6C9;
-  color: #2E7D32;
+  color: #1B5E20;
 }
 
 .badge-intermediate {
   background-color: #FFE0B2;
-  color: #E65100;
+  color: #BF360C;
 }
 
 .badge-advanced {
   background-color: #E1BEE7;
-  color: #6A1B9A;
+  color: #4A148C;
 }
 
 /* ===== Navigation Active State ===== */
@@ -273,6 +281,207 @@ a:focus-visible {
   outline-offset: 3px;
 }
 
+/* ===== 3D Book Effect ===== */
+.book-3d {
+  perspective: 800px;
+}
+
+/* FIX: Only apply 3D on hover (not permanent) to avoid GPU compositing on all cards */
+@media (hover: hover) {
+  .book-3d-inner {
+    transform-style: preserve-3d;
+    transition: transform 0.4s ease, box-shadow 0.3s ease;
+  }
+
+  .book-3d:hover .book-3d-inner {
+    transform: rotateY(-6deg);
+  }
+
+  .book-3d:active .book-3d-inner {
+    transform: rotateY(-2deg);
+  }
+}
+
+/* Touch devices: press feedback instead of hover 3D */
+@media (hover: none) {
+  .book-3d-inner {
+    transition: transform 0.15s ease;
+  }
+
+  .book-3d:active .book-3d-inner {
+    transform: scale(0.97);
+  }
+}
+
+.book-spine {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 16px;
+  background: linear-gradient(to right, rgba(0,0,0,0.25), rgba(0,0,0,0.05));
+  border-radius: 3px 0 0 3px;
+  z-index: 2;
+}
+
+.book-page-edge {
+  position: absolute;
+  right: -6px;
+  top: 4px;
+  bottom: 4px;
+  width: 6px;
+  background: repeating-linear-gradient(
+    to bottom,
+    #F5F0E8 0px,
+    #F5F0E8 1px,
+    #E8DEC8 1px,
+    #E8DEC8 2px
+  );
+  border-radius: 0 2px 2px 0;
+  box-shadow: 1px 0 2px rgba(0,0,0,0.1);
+}
+
+/* ===== Bookshelf Row ===== */
+.shelf-row {
+  position: relative;
+  padding-bottom: 24px;
+  margin-bottom: 12px;
+}
+
+.shelf-row::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: -16px;
+  right: -16px;
+  height: 20px;
+  background: linear-gradient(to bottom, #C4A97D, #A8845A);
+  border-radius: 0 0 4px 4px;
+  box-shadow:
+    0 4px 8px rgba(61,46,30,0.2),
+    inset 0 2px 4px rgba(255,255,255,0.2);
+}
+
+.shelf-row::before {
+  content: '';
+  position: absolute;
+  bottom: 18px;
+  left: -16px;
+  right: -16px;
+  height: 4px;
+  background: linear-gradient(to bottom, #D4B88C, #C4A97D);
+  z-index: 1;
+}
+
+/* ===== Ribbon Badge ===== */
+.ribbon-badge {
+  position: absolute;
+  top: -4px;
+  right: 12px;
+  background: #D32F2F;
+  color: white;
+  font-size: 0.6rem;
+  font-weight: 800;
+  padding: 4px 8px 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  z-index: 10;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 6px), 50% 100%, 0 calc(100% - 6px));
+}
+
+/* ===== Progress Bar (reading) ===== */
+.reading-progress {
+  height: 4px;
+  background: #EDE5D4;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.reading-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #5C8B5C, #7AC87A);
+  border-radius: 9999px;
+  transition: width 0.5s ease;
+}
+
+/* ===== Star Rating ===== */
+.star-rating {
+  color: #D4A843;
+  letter-spacing: -1px;
+}
+
+/* ===== SVG Cover Animations ===== */
+@keyframes svg-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes svg-twinkle {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+@keyframes svg-sway {
+  0%, 100% { transform: rotate(-2deg); }
+  50% { transform: rotate(2deg); }
+}
+
+@keyframes svg-pulse-glow {
+  0%, 100% { opacity: 0.4; r: 5; }
+  50% { opacity: 0.9; r: 7; }
+}
+
+@keyframes svg-drift {
+  0% { transform: translate(0, 0); }
+  25% { transform: translate(3px, -2px); }
+  50% { transform: translate(-2px, -4px); }
+  75% { transform: translate(-3px, -1px); }
+  100% { transform: translate(0, 0); }
+}
+
+@keyframes svg-spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes svg-wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(5deg); }
+  75% { transform: rotate(-5deg); }
+}
+
+@keyframes svg-crawl {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(6px); }
+}
+
+.svg-float { animation: svg-float 3s ease-in-out infinite; }
+.svg-twinkle { animation: svg-twinkle 2s ease-in-out infinite; }
+.svg-sway { animation: svg-sway 4s ease-in-out infinite; }
+.svg-pulse-glow { animation: svg-pulse-glow 3s ease-in-out infinite; }
+.svg-drift { animation: svg-drift 6s ease-in-out infinite; }
+.svg-spin-slow { animation: svg-spin-slow 12s linear infinite; }
+.svg-wiggle { animation: svg-wiggle 2s ease-in-out infinite; }
+.svg-crawl { animation: svg-crawl 3s ease-in-out infinite; }
+
+/* Stagger delays for variety */
+.anim-delay-1 { animation-delay: 0.5s; }
+.anim-delay-2 { animation-delay: 1s; }
+.anim-delay-3 { animation-delay: 1.5s; }
+.anim-delay-4 { animation-delay: 2s; }
+
+/* ===== Prefers Reduced Motion ===== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* Screen reader only utility */
 .sr-only {
   position: absolute;
@@ -284,4 +493,208 @@ a:focus-visible {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border-width: 0;
+}
+
+/* ===== Typography Baseline ===== */
+/* Ensure body text is never smaller than 14px for children readability */
+body {
+  font-size: 1rem; /* 16px */
+  line-height: 1.6;
+}
+
+p, li, td, th {
+  font-size: inherit;
+  min-font-size: 0.875rem; /* 14px floor */
+}
+
+/* ===== Page Heading Consistency ===== */
+/* h1 — page-level hero title */
+.page-title {
+  font-size: 1.875rem; /* text-3xl */
+  font-weight: 800;
+  color: #3D2E1E;
+  line-height: 1.25;
+}
+
+/* h2 — section heading */
+.section-title {
+  font-size: 1.25rem; /* text-xl */
+  font-weight: 800;
+  color: #3D2E1E;
+}
+
+/* ===== Touch Target Minimum ===== */
+/* Ensures all interactive elements meet 44x44px minimum */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ===== Section spacing helper ===== */
+.section-gap {
+  margin-bottom: 1.5rem; /* mb-6 */
+}
+
+/* ===== Error message style ===== */
+.error-message {
+  color: #D4736B;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.75rem 1rem;
+  background: #FEF2F1;
+  border: 1px solid rgba(212, 115, 107, 0.25);
+  border-radius: 0.75rem;
+}
+
+/* ===== Success message style ===== */
+.success-message {
+  color: #3D6B3D;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.75rem 1rem;
+  background: #E8F5E8;
+  border: 1px solid rgba(92, 139, 92, 0.25);
+  border-radius: 0.75rem;
+}
+
+/* ===== Loading Leaf (Ghibli Style) ===== */
+.loading-leaf {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 3rem 0;
+  color: #6B5744;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.loading-leaf .leaf-icon {
+  font-size: 3.5rem;
+  animation: float 3s ease-in-out infinite;
+}
+
+/* ===== Bottom Nav Safe Area ===== */
+/* Used by layout.js mobile bottom nav */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .pb-safe-nav {
+    padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+  }
+}
+
+/* ===== Card Grid Responsive Helpers ===== */
+/* Worksheet grid becomes 2 columns on small screens */
+.worksheet-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+@media (max-width: 480px) {
+  .worksheet-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Stats grid adapts from 4-col to 2-col on small screens */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+@media (max-width: 480px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ===== Banner Gradient (Login / Hero) ===== */
+.banner-gradient {
+  background: linear-gradient(
+    160deg,
+    #A8DAEA 0%,
+    #C8E6C9 35%,
+    #F5F0E8 80%
+  );
+}
+
+/* ===== Profile Header Gradient ===== */
+.profile-gradient {
+  background: linear-gradient(
+    135deg,
+    #3D6B3D 0%,
+    #5C8B5C 45%,
+    #87CEDB 100%
+  );
+}
+
+/* ===== Input focus ring (consistent) ===== */
+.ghibli-input:focus,
+input.ghibli-focus:focus,
+textarea.ghibli-focus:focus {
+  outline: none;
+  border-color: #5C8B5C;
+  box-shadow: 0 0 0 3px rgba(92, 139, 92, 0.18);
+}
+
+/* ===== Fade slide in for panels/views ===== */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ===== Ribbon / Badge Polish ===== */
+.badge-gold {
+  background: linear-gradient(135deg, #D4A843, #F0C060);
+  color: #3D2E1E;
+  font-weight: 800;
+  font-size: 0.65rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.badge-green {
+  background: linear-gradient(135deg, #C8E6C9, #A5D6A7);
+  color: #1B5E20;
+  font-weight: 800;
+  font-size: 0.65rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* ===== Skeleton loader ===== */
+@keyframes skeleton-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    #EDE5D4 25%,
+    #F5F0E8 50%,
+    #EDE5D4 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  border-radius: 0.5rem;
 }

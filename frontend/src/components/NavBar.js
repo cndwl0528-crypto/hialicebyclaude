@@ -6,7 +6,7 @@ import Link from 'next/link';
 
 const navLinks = [
   { href: '/', label: 'Home', icon: '🏠' },
-  { href: '/books', label: 'Books', icon: '📚' },
+  { href: '/books', label: 'Library', icon: '📚' },
   { href: '/review', label: 'Review', icon: '⭐' },
   { href: '/vocabulary', label: 'Words', icon: '📖' },
   { href: '/profile', label: 'Profile', icon: '👤' },
@@ -61,7 +61,7 @@ export default function NavBar() {
             ))}
           </div>
         </div>
-        <span className="text-xs text-[#9B8777] flex-shrink-0 font-semibold">v1.0</span>
+        <span className="text-xs text-[#6B5744] flex-shrink-0 font-semibold">v1.0</span>
       </nav>
 
       {/* Mobile Bottom Navigation */}

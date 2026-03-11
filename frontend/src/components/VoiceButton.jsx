@@ -22,10 +22,10 @@ export default function VoiceButton({
       disabled={disabled}
       aria-label={isListening ? 'Stop listening' : 'Start listening'}
       aria-pressed={isListening}
-      className={`relative flex items-center justify-center rounded-full transition-smooth focus-visible:ring-4 focus-visible:ring-offset-2 focus-visible:ring-[#3D6B3D] ${
+      className={`relative flex items-center justify-center rounded-full transition-all duration-200 focus-visible:ring-4 focus-visible:ring-offset-2 focus-visible:ring-[#3D6B3D] ${
         isListening
-          ? 'bg-red-500 hover:bg-red-600 pulse'
-          : 'bg-blue-500 hover:bg-blue-600'
+          ? 'bg-[#D4736B] hover:bg-[#C0625A] animate-pulse'
+          : 'bg-[#5C8B5C] hover:bg-[#3D6B3D]'
       } text-white shadow-lg hover:shadow-xl active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed`}
       style={{
         width: `${size}px`,
@@ -55,7 +55,7 @@ export default function VoiceButton({
       {isListening && (
         <div
           aria-hidden="true"
-          className="absolute inset-0 rounded-full border-4 border-red-400 animate-ping"
+          className="absolute inset-0 rounded-full border-4 border-[#D4736B] animate-ping"
           style={{
             width: `${size}px`,
             height: `${size}px`,

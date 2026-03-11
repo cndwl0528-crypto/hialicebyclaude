@@ -3,14 +3,14 @@ export default function PrivacyPolicy() {
   return (
     <div className="min-h-screen bg-[#F5F0E8] py-12 px-4">
       <div className="max-w-2xl mx-auto">
-        <a href="/" className="text-[#4A7C59] text-sm flex items-center gap-1 mb-6">← Back to Home</a>
+        <a href="/" className="text-[#5C8B5C] text-sm flex items-center gap-1 mb-6">← Back to Home</a>
 
-        <h1 className="text-3xl font-bold text-[#2C4A2E] mb-2">Privacy Policy</h1>
-        <p className="text-sm text-[#9CA3AF] mb-8">Last updated: March 2026 | Version 1.0</p>
+        <h1 className="text-3xl font-bold text-[#3D2E1E] mb-2">Privacy Policy</h1>
+        <p className="text-sm text-[#6B5744] mb-8">Last updated: March 2026 | Version 1.0</p>
 
-        <div className="space-y-8 text-[#4B5563]">
+        <div className="space-y-8 text-[#6B5744]">
           <section>
-            <h2 className="text-xl font-bold text-[#2C4A2E] mb-3">COPPA Compliance Statement</h2>
+            <h2 className="text-xl font-bold text-[#3D2E1E] mb-3">COPPA Compliance Statement</h2>
             <p className="leading-relaxed">
               HiAlice is committed to protecting the privacy of children. We comply with the
               Children&apos;s Online Privacy Protection Act (COPPA). We do not knowingly collect
@@ -19,7 +19,7 @@ export default function PrivacyPolicy() {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-[#2C4A2E] mb-3">What Information We Collect</h2>
+            <h2 className="text-xl font-bold text-[#3D2E1E] mb-3">What Information We Collect</h2>
             <ul className="list-disc list-inside space-y-2 leading-relaxed">
               <li>Parent/guardian email address (for account creation)</li>
               <li>Child&apos;s first name and age (to personalize learning)</li>
@@ -30,7 +30,7 @@ export default function PrivacyPolicy() {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-[#2C4A2E] mb-3">How We Use Information</h2>
+            <h2 className="text-xl font-bold text-[#3D2E1E] mb-3">How We Use Information</h2>
             <ul className="list-disc list-inside space-y-2 leading-relaxed">
               <li>To provide personalized AI reading tutoring</li>
               <li>To track and display learning progress to parents</li>
@@ -41,7 +41,7 @@ export default function PrivacyPolicy() {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-[#2C4A2E] mb-3">Parental Rights</h2>
+            <h2 className="text-xl font-bold text-[#3D2E1E] mb-3">Parental Rights</h2>
             <p className="leading-relaxed">Parents may at any time:</p>
             <ul className="list-disc list-inside space-y-2 mt-2 leading-relaxed">
               <li>Review the personal information collected about their child</li>
@@ -49,7 +49,7 @@ export default function PrivacyPolicy() {
               <li>Withdraw consent and discontinue collection</li>
               <li>
                 Contact us at:{' '}
-                <a href="mailto:privacy@hialice.com" className="text-[#4A7C59] underline">
+                <a href="mailto:privacy@hialice.com" className="text-[#5C8B5C] underline">
                   privacy@hialice.com
                 </a>
               </li>
@@ -57,7 +57,7 @@ export default function PrivacyPolicy() {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-[#2C4A2E] mb-3">Data Security</h2>
+            <h2 className="text-xl font-bold text-[#3D2E1E] mb-3">Data Security</h2>
             <p className="leading-relaxed">
               All data is encrypted in transit (HTTPS/TLS) and at rest. We use Supabase
               with Row Level Security policies to ensure each parent can only access their
@@ -67,10 +67,10 @@ export default function PrivacyPolicy() {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-[#2C4A2E] mb-3">Contact Us</h2>
+            <h2 className="text-xl font-bold text-[#3D2E1E] mb-3">Contact Us</h2>
             <p className="leading-relaxed">
               For privacy concerns or to exercise your parental rights:<br />
-              <a href="mailto:privacy@hialice.com" className="text-[#4A7C59] underline">
+              <a href="mailto:privacy@hialice.com" className="text-[#5C8B5C] underline">
                 privacy@hialice.com
               </a>
             </p>

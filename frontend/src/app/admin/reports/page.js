@@ -61,10 +61,10 @@ function LineChart({ data, labels, height = 250, color = '#5C8B5C' }) {
         />
       ))}
       {/* Y-axis labels */}
-      <text x="2" y="12" fontSize="7" fill="#9B8777">
+      <text x="2" y="12" fontSize="7" fill="#6B5744">
         {maxValue}
       </text>
-      <text x="2" y={height - 2} fontSize="7" fill="#9B8777">
+      <text x="2" y={height - 2} fontSize="7" fill="#6B5744">
         {minValue}
       </text>
     </svg>
@@ -112,7 +112,7 @@ function BarChart({ data, labels, height = 200, color = '#5C8B5C' }) {
                 y={height + 18}
                 textAnchor="middle"
                 fontSize="5"
-                fill="#9B8777"
+                fill="#6B5744"
               >
                 {labels[idx]}
               </text>
@@ -375,7 +375,7 @@ export default function ReportsPage() {
               Select a Student
             </label>
             {students.length === 0 ? (
-              <p className="text-[#9B8777] text-sm font-semibold">No students found. Add students first.</p>
+              <p className="text-[#6B5744] text-sm font-semibold">No students found. Add students first.</p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {students.map((student) => (
@@ -400,7 +400,7 @@ export default function ReportsPage() {
 
           {reportLoading && (
             <div className="bg-[#FFFCF3] rounded-2xl shadow-[0_4px_20px_rgba(61,46,30,0.08)] p-12 text-center border border-[#E8DEC8]">
-              <p className="text-[#9B8777] text-lg font-semibold">Loading report...</p>
+              <p className="text-[#6B5744] text-lg font-semibold">Loading report...</p>
             </div>
           )}
 
@@ -418,7 +418,7 @@ export default function ReportsPage() {
                     key={idx}
                     className="bg-[#FFFCF3] rounded-2xl shadow-[0_4px_20px_rgba(61,46,30,0.08)] p-4 border border-[#E8DEC8]"
                   >
-                    <p className="text-[#9B8777] text-sm font-bold mb-2">{stat.label}</p>
+                    <p className="text-[#6B5744] text-sm font-bold mb-2">{stat.label}</p>
                     <div className="flex items-center gap-3">
                       <span className="text-3xl">{stat.icon}</span>
                       <span className="text-2xl font-extrabold text-[#3D2E1E]">{stat.value}</span>
@@ -440,12 +440,12 @@ export default function ReportsPage() {
                         height={250}
                         color="#5C8B5C"
                       />
-                      <p className="text-xs text-[#9B8777] mt-2 text-center font-semibold">
+                      <p className="text-xs text-[#6B5744] mt-2 text-center font-semibold">
                         By month ({grammarTrendData.labels.join(', ')})
                       </p>
                     </>
                   ) : (
-                    <p className="text-[#9B8777] text-sm text-center py-8 font-semibold">No grammar data yet</p>
+                    <p className="text-[#6B5744] text-sm text-center py-8 font-semibold">No grammar data yet</p>
                   )}
                 </div>
 
@@ -460,10 +460,10 @@ export default function ReportsPage() {
                         height={200}
                         color="#D4A843"
                       />
-                      <p className="text-xs text-[#9B8777] mt-2 text-center font-semibold">Words learned per day</p>
+                      <p className="text-xs text-[#6B5744] mt-2 text-center font-semibold">Words learned per day</p>
                     </>
                   ) : (
-                    <p className="text-[#9B8777] text-sm text-center py-8 font-semibold">No vocabulary data yet</p>
+                    <p className="text-[#6B5744] text-sm text-center py-8 font-semibold">No vocabulary data yet</p>
                   )}
                 </div>
               </div>
@@ -518,7 +518,7 @@ export default function ReportsPage() {
                                 {s.completedAt ? 'Done' : 'Active'}
                               </span>
                             </td>
-                            <td className="py-3 px-3 text-[#9B8777] text-xs font-semibold">
+                            <td className="py-3 px-3 text-[#6B5744] text-xs font-semibold">
                               {s.createdAt ? new Date(s.createdAt).toLocaleDateString() : '--'}
                             </td>
                           </tr>
@@ -576,7 +576,7 @@ export default function ReportsPage() {
                         >
                           <div>
                             <span className="text-[#3D2E1E] font-bold">{item.word}</span>
-                            <span className="text-xs text-[#9B8777] ml-2">{item.pos || ''}</span>
+                            <span className="text-xs text-[#6B5744] ml-2">{item.pos || ''}</span>
                           </div>
                           <span
                             className="px-2 py-1 rounded-full text-xs font-bold"
@@ -603,7 +603,7 @@ export default function ReportsPage() {
         <div className="space-y-6">
           {classLoading ? (
             <div className="bg-[#FFFCF3] rounded-2xl shadow-[0_4px_20px_rgba(61,46,30,0.08)] p-12 text-center border border-[#E8DEC8]">
-              <p className="text-[#9B8777] text-lg font-semibold">Loading class overview...</p>
+              <p className="text-[#6B5744] text-lg font-semibold">Loading class overview...</p>
             </div>
           ) : classReport ? (
             <>
@@ -630,7 +630,7 @@ export default function ReportsPage() {
                     className="bg-[#FFFCF3] rounded-2xl shadow-[0_4px_20px_rgba(61,46,30,0.08)] p-4 border-l-4 border-[#E8DEC8]"
                     style={{ borderLeftColor: stat.color }}
                   >
-                    <p className="text-[#9B8777] text-sm font-bold mb-2">{stat.label}</p>
+                    <p className="text-[#6B5744] text-sm font-bold mb-2">{stat.label}</p>
                     <div className="flex items-center gap-3">
                       <span className="text-3xl">{stat.icon}</span>
                       <span className="text-2xl font-extrabold text-[#3D2E1E]">{stat.value}</span>
@@ -716,7 +716,7 @@ export default function ReportsPage() {
             </>
           ) : (
             <div className="bg-[#FFFCF3] rounded-2xl shadow-[0_4px_20px_rgba(61,46,30,0.08)] p-12 text-center border border-[#E8DEC8]">
-              <p className="text-[#9B8777] text-lg font-semibold">Could not load class overview</p>
+              <p className="text-[#6B5744] text-lg font-semibold">Could not load class overview</p>
             </div>
           )}
         </div>

@@ -101,9 +101,20 @@ export default function useSpeech() {
   }, []);
 
   const startListening = useCallback(() => {
-    if (recognitionRef.current && !isListening) {
-      setTranscript('');
+    if (!recognitionRef.current || isListening) return;
+    // Stop any playing TTS before we start listening — prevents mic picking up speaker audio
+    if (synthRef.current) synthRef.current.cancel();
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current = null;
+    }
+    setIsSpeaking(false);
+    setTranscript('');
+    try {
       recognitionRef.current.start();
+    } catch (e) {
+      // start() throws if recognition is already running
+      console.warn('Speech recognition start failed:', e.message);
     }
   }, [isListening]);
 
@@ -113,10 +124,29 @@ export default function useSpeech() {
     }
   }, [isListening]);
 
+  // Persist the chosen voice so it stays consistent across every speak() call
+  const selectedVoiceRef = useRef(null);
+
+  // Pick the best English voice once and lock it in
+  const pickVoice = useCallback(() => {
+    if (selectedVoiceRef.current) return selectedVoiceRef.current;
+    const voices = cachedVoicesRef.current;
+    if (!voices.length) return null;
+    // Priority: Samantha (macOS) > any en-US female > any en-US > any English
+    const pick =
+      voices.find(v => v.lang.startsWith('en') && v.name.toLowerCase().includes('samantha')) ||
+      voices.find(v => v.lang.startsWith('en-US') && v.name.toLowerCase().includes('female')) ||
+      voices.find(v => v.lang === 'en-US') ||
+      voices.find(v => v.lang.startsWith('en'));
+    if (pick) selectedVoiceRef.current = pick;
+    return pick;
+  }, []);
+
   // Web Speech API TTS (browser built-in) — uses cached voice list
   const speakBrowser = useCallback((text) => {
     if (!synthRef.current) return;
 
+    // Cancel any currently queued/speaking utterance to prevent overlap
     synthRef.current.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
@@ -125,21 +155,22 @@ export default function useSpeech() {
     utterance.pitch = 1.05; // Slightly higher for friendly tone
     utterance.volume = 1;
 
-    // Use cached voices instead of calling getVoices() every time
-    const voices = cachedVoicesRef.current;
-    const preferred = voices.find(v =>
-      v.lang.startsWith('en') && v.name.toLowerCase().includes('samantha')
-    ) || voices.find(v =>
-      v.lang.startsWith('en-US') && v.name.toLowerCase().includes('female')
-    ) || voices.find(v => v.lang.startsWith('en-US'));
-    if (preferred) utterance.voice = preferred;
+    // Use a locked-in voice so it never changes mid-session
+    const voice = pickVoice();
+    if (voice) utterance.voice = voice;
 
     utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
+    utterance.onerror = (e) => {
+      // 'interrupted' is normal when we cancel() before a new speak()
+      if (e.error !== 'interrupted') {
+        console.warn('TTS error:', e.error);
+      }
+      setIsSpeaking(false);
+    };
 
     synthRef.current.speak(utterance);
-  }, []);
+  }, [pickVoice]);
 
   // ElevenLabs TTS via backend proxy (API key stays server-side)
   const speakElevenLabs = useCallback(async (text) => {
