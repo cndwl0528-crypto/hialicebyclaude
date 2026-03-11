@@ -18,6 +18,7 @@ import express from 'express';
 import { supabase } from '../lib/supabase.js';
 import { generateToken, authMiddleware, COOKIE_OPTIONS, COOKIE_NAME } from '../middleware/auth.js';
 import { authRateLimiter } from '../middleware/sanitize.js';
+import logger from '../lib/logger.js';
 
 const router = express.Router();
 
@@ -87,7 +88,7 @@ router.post('/parent-login', authRateLimiter, async (req, res) => {
       children: childrenData || [],
     });
   } catch (err) {
-    console.error('Parent login error:', err);
+    logger.error({ err }, 'Parent login error');
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -159,7 +160,54 @@ router.post('/child-select', authMiddleware, async (req, res) => {
       },
     });
   } catch (err) {
-    console.error('Child select error:', err);
+    logger.error({ err }, 'Child select error');
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ============================================================================
+// POST /refresh
+// ============================================================================
+
+/**
+ * Refresh the current JWT token.
+ * Issues a new token with a fresh 24h expiry using the same claims.
+ * Requires a valid (non-expired) Bearer token.
+ *
+ * Returns: { token, expiresIn: 86400 }
+ */
+router.post('/refresh', authMiddleware, async (req, res) => {
+  try {
+    const { type } = req.user;
+
+    let newPayload;
+
+    if (type === 'parent') {
+      newPayload = {
+        parentId: req.user.parentId,
+        email: req.user.email,
+        type: 'parent',
+      };
+    } else if (type === 'student') {
+      newPayload = {
+        studentId: req.user.studentId,
+        name: req.user.name,
+        type: 'student',
+      };
+    } else {
+      return res.status(400).json({ error: 'Invalid token type' });
+    }
+
+    const token = generateToken(newPayload);
+
+    res.cookie(COOKIE_NAME, token, COOKIE_OPTIONS);
+
+    return res.status(200).json({
+      token,
+      expiresIn: 86400,
+    });
+  } catch (err) {
+    logger.error({ err }, 'Token refresh error');
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -184,7 +232,7 @@ router.post('/logout', authMiddleware, async (req, res) => {
 
     if (error) {
       // Log but do not surface to client — the signOut is best-effort
-      console.warn('Supabase signOut error (non-fatal):', error.message);
+      logger.warn({ error: error.message }, 'Supabase signOut error (non-fatal)');
     }
 
     // Clear the auth cookie
@@ -195,7 +243,7 @@ router.post('/logout', authMiddleware, async (req, res) => {
       message: 'Logged out successfully. Please clear your client token.',
     });
   } catch (err) {
-    console.error('Logout error:', err);
+    logger.error({ err }, 'Logout error');
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -273,7 +321,7 @@ router.get('/me', authMiddleware, async (req, res) => {
     // Unknown token type
     return res.status(400).json({ error: 'Invalid token type' });
   } catch (err) {
-    console.error('Get me error:', err);
+    logger.error({ err }, 'Get me error');
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -345,7 +393,7 @@ router.get('/notifications', authMiddleware, async (req, res) => {
       unreadCount: unreadRows?.length ?? 0,
     });
   } catch (err) {
-    console.error('Get notifications error:', err);
+    logger.error({ err }, 'Get notifications error');
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -418,7 +466,7 @@ router.put('/notifications/:id/read', authMiddleware, async (req, res) => {
 
     return res.status(200).json({ success: true });
   } catch (err) {
-    console.error('Mark read error:', err);
+    logger.error({ err }, 'Mark read error');
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -462,7 +510,7 @@ router.post('/consent', async (req, res) => {
     if (updateError) {
       // Parent not yet created or email mismatch — log a warning and continue.
       // The audit log below is the source of truth.
-      console.warn('[consent] Parent record not found for email, proceeding to audit log:', parentEmail);
+      logger.warn({ parentEmail }, 'Consent: parent record not found, proceeding to audit log');
     }
 
     // Append an immutable entry to the COPPA consent audit trail.
@@ -478,7 +526,7 @@ router.post('/consent', async (req, res) => {
     });
 
     if (auditError) {
-      console.error('[consent] Audit log insert failed:', auditError);
+      logger.error({ err: auditError }, 'Consent audit log insert failed');
       return res.status(500).json({ error: 'Failed to record consent audit entry' });
     }
 
@@ -488,7 +536,7 @@ router.post('/consent', async (req, res) => {
       consentDate: consentTimestamp || new Date().toISOString(),
     });
   } catch (err) {
-    console.error('Consent error:', err);
+    logger.error({ err }, 'Consent error');
     return res.status(500).json({ error: 'Failed to record consent' });
   }
 });

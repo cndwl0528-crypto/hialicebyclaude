@@ -1382,4 +1382,332 @@ router.post('/prompts/test', optionalAdminAuth, async (req, res) => {
   }
 });
 
+// ============================================================================
+// CSV EXPORT/IMPORT ENDPOINTS
+// ============================================================================
+
+/**
+ * Convert an array of objects to CSV string.
+ * Handles quoting, escaping, and nested values.
+ *
+ * @param {Array<Object>} rows
+ * @param {string[]} [columns] — Explicit column list (default: all keys from first row)
+ * @returns {string}
+ */
+function toCSV(rows, columns) {
+  if (!rows || rows.length === 0) return '';
+
+  const cols = columns || Object.keys(rows[0]);
+
+  const escapeCSV = (val) => {
+    if (val === null || val === undefined) return '';
+    const str = typeof val === 'object' ? JSON.stringify(val) : String(val);
+    // Quote if contains comma, quote, newline
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  };
+
+  const header = cols.map(escapeCSV).join(',');
+  const body = rows.map((row) =>
+    cols.map((col) => escapeCSV(row[col])).join(',')
+  ).join('\n');
+
+  return `${header}\n${body}`;
+}
+
+/**
+ * Parse a simple CSV string into an array of objects.
+ * Supports quoted fields with commas and escaped quotes ("").
+ *
+ * @param {string} csvString
+ * @returns {Array<Object>}
+ */
+function parseCSV(csvString) {
+  if (!csvString || !csvString.trim()) return [];
+
+  const lines = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < csvString.length; i++) {
+    const ch = csvString[i];
+    if (ch === '"') {
+      if (inQuotes && csvString[i + 1] === '"') {
+        current += '"';
+        i++; // skip escaped quote
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (ch === '\n' && !inQuotes) {
+      lines.push(current);
+      current = '';
+    } else if (ch === '\r' && !inQuotes) {
+      // skip CR (handle CRLF)
+    } else {
+      current += ch;
+    }
+  }
+  if (current.trim()) lines.push(current);
+
+  if (lines.length < 2) return []; // need header + at least one row
+
+  // Parse header
+  const headers = splitCSVLine(lines[0]);
+
+  // Parse rows
+  return lines.slice(1).map((line) => {
+    const values = splitCSVLine(line);
+    const obj = {};
+    headers.forEach((h, idx) => {
+      obj[h.trim()] = values[idx] !== undefined ? values[idx].trim() : '';
+    });
+    return obj;
+  });
+}
+
+/** Split a single CSV line into fields, respecting quotes. */
+function splitCSVLine(line) {
+  const fields = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (ch === ',' && !inQuotes) {
+      fields.push(current);
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  fields.push(current);
+  return fields;
+}
+
+/**
+ * GET /export/students
+ * Export all students as CSV
+ */
+router.get('/export/students', optionalAdminAuth, async (req, res) => {
+  try {
+    const { data: students, error } = await supabase
+      .from('students')
+      .select('id, name, age, level, created_at, current_streak, total_books_read, total_words_learned, last_session_date');
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    const csv = toCSV(students || [], [
+      'id', 'name', 'age', 'level', 'created_at',
+      'current_streak', 'total_books_read', 'total_words_learned', 'last_session_date',
+    ]);
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="students.csv"');
+    return res.status(200).send(csv);
+  } catch (err) {
+    console.error('Export students CSV error:', err);
+    return res.status(500).json({ error: 'Failed to export students' });
+  }
+});
+
+/**
+ * GET /export/sessions
+ * Export session history as CSV
+ * Query: ?studentId=uuid — filter by student (optional)
+ */
+router.get('/export/sessions', optionalAdminAuth, async (req, res) => {
+  try {
+    const { studentId } = req.query;
+
+    let query = supabase
+      .from('sessions')
+      .select('id, student_id, book_id, stage, status, grammar_score, level_score, started_at, completed_at, is_complete, students!inner(name), books!inner(title)')
+      .order('started_at', { ascending: false });
+
+    if (studentId) {
+      query = query.eq('student_id', studentId);
+    }
+
+    const { data: sessions, error } = await query;
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    // Flatten joined data for CSV
+    const rows = (sessions || []).map(s => ({
+      id: s.id,
+      student_id: s.student_id,
+      student_name: s.students?.name || '',
+      book_id: s.book_id,
+      book_title: s.books?.title || '',
+      stage: s.stage,
+      status: s.status,
+      grammar_score: s.grammar_score,
+      level_score: s.level_score,
+      started_at: s.started_at,
+      completed_at: s.completed_at,
+      is_complete: s.is_complete,
+    }));
+
+    const csv = toCSV(rows, [
+      'id', 'student_id', 'student_name', 'book_id', 'book_title',
+      'stage', 'status', 'grammar_score', 'level_score',
+      'started_at', 'completed_at', 'is_complete',
+    ]);
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="sessions.csv"');
+    return res.status(200).send(csv);
+  } catch (err) {
+    console.error('Export sessions CSV error:', err);
+    return res.status(500).json({ error: 'Failed to export sessions' });
+  }
+});
+
+/**
+ * GET /export/vocabulary
+ * Export vocabulary as CSV
+ * Query: ?studentId=uuid — filter by student (optional)
+ */
+router.get('/export/vocabulary', optionalAdminAuth, async (req, res) => {
+  try {
+    const { studentId } = req.query;
+
+    let query = supabase
+      .from('vocabulary')
+      .select('id, student_id, word, pos, context_sentence, synonyms, antonyms, mastery_level, use_count, first_used, last_used')
+      .order('first_used', { ascending: false });
+
+    if (studentId) {
+      query = query.eq('student_id', studentId);
+    }
+
+    const { data: vocabulary, error } = await query;
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    // Flatten arrays for CSV
+    const rows = (vocabulary || []).map(v => ({
+      ...v,
+      synonyms: Array.isArray(v.synonyms) ? v.synonyms.join('; ') : v.synonyms || '',
+      antonyms: Array.isArray(v.antonyms) ? v.antonyms.join('; ') : v.antonyms || '',
+    }));
+
+    const csv = toCSV(rows, [
+      'id', 'student_id', 'word', 'pos', 'context_sentence',
+      'synonyms', 'antonyms', 'mastery_level', 'use_count', 'first_used', 'last_used',
+    ]);
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="vocabulary.csv"');
+    return res.status(200).send(csv);
+  } catch (err) {
+    console.error('Export vocabulary CSV error:', err);
+    return res.status(500).json({ error: 'Failed to export vocabulary' });
+  }
+});
+
+/**
+ * POST /import/books
+ * Import books from CSV.
+ * Accepts multipart/form-data with a 'file' field, or JSON body with a 'csv' string.
+ *
+ * CSV columns: title, author, level, genre, cover_emoji, description
+ * Returns: { success: true, imported: number, errors: [] }
+ */
+router.post('/import/books', optionalAdminAuth, async (req, res) => {
+  try {
+    let csvString = '';
+
+    // Support both raw CSV in body and multipart file upload
+    if (req.body?.csv) {
+      csvString = req.body.csv;
+    } else if (req.file) {
+      csvString = req.file.buffer.toString('utf-8');
+    } else if (typeof req.body === 'string') {
+      csvString = req.body;
+    } else {
+      return res.status(400).json({
+        error: 'Please provide CSV data. Send { csv: "..." } in the body or upload a file.',
+      });
+    }
+
+    const rows = parseCSV(csvString);
+
+    if (rows.length === 0) {
+      return res.status(400).json({ error: 'No valid rows found in CSV' });
+    }
+
+    const imported = [];
+    const errors = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const title = row.title?.trim();
+      const author = row.author?.trim();
+      const level = row.level?.trim()?.toLowerCase();
+      const genre = row.genre?.trim() || null;
+      const cover_emoji = row.cover_emoji?.trim() || '📚';
+      const description = row.description?.trim() || '';
+
+      // Validate required fields
+      if (!title || !author) {
+        errors.push({ row: i + 2, error: 'Missing title or author' });
+        continue;
+      }
+
+      if (level && !['beginner', 'intermediate', 'advanced'].includes(level)) {
+        errors.push({ row: i + 2, error: `Invalid level: ${level}` });
+        continue;
+      }
+
+      const { data: book, error: insertError } = await supabase
+        .from('books')
+        .insert({
+          title,
+          author,
+          level: level || 'beginner',
+          genre,
+          cover_emoji,
+          description,
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        errors.push({ row: i + 2, error: insertError.message });
+      } else {
+        imported.push(book);
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        imported: imported.length,
+        total: rows.length,
+        errors,
+        books: imported,
+      },
+    });
+  } catch (err) {
+    console.error('Import books CSV error:', err);
+    return res.status(500).json({ error: 'Failed to import books' });
+  }
+});
+
 export default router;

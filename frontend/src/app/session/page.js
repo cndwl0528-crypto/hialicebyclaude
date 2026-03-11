@@ -99,15 +99,22 @@ export default function SessionPage() {
   const [emotionHistory, setEmotionHistory] = useState([]);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
+  // P3-UX-07: Gentle time milestone notifications (15 min, 25 min)
+  const [timeMilestone, setTimeMilestone] = useState(null); // 'great-job' | 'wrap-up' | null
   const [aiFeedback, setAiFeedback] = useState(null);
   const [showAiFeedbackCard, setShowAiFeedbackCard] = useState(false);
   const timerRef = useRef(null);
 
-  // Level-based UI: determine mode from sessionStorage once (stable across renders)
-  const isBeginnerMode = useMemo(() => {
-    if (typeof window === 'undefined') return false;
-    return (sessionStorage.getItem('studentLevel') || 'intermediate') === 'beginner';
+  // Level-based UI: determine student level from sessionStorage once (stable across renders)
+  // Returns 'beginner' | 'intermediate' | 'advanced'
+  const studentLevel = useMemo(() => {
+    if (typeof window === 'undefined') return 'intermediate';
+    return sessionStorage.getItem('studentLevel') || 'intermediate';
   }, []);
+
+  // Convenience booleans for level branching
+  const isBeginnerMode = studentLevel === 'beginner';
+  const isAdvancedMode = studentLevel === 'advanced';
 
   // For beginners, text input is hidden by default; others see it immediately.
   // useState lazy initialiser runs once so it safely reads sessionStorage on mount.
@@ -159,9 +166,19 @@ export default function SessionPage() {
     return () => clearInterval(timerRef.current);
   }, []);
 
-  // 30-minute timeout warning
+  // P3-UX-07: Gentle time milestones (15 min & 25 min) + 30-minute timeout dialog
   useEffect(() => {
-    if (elapsedSeconds === 1800) {
+    if (elapsedSeconds === 900) {
+      // 15 minutes — encouraging "great job" banner
+      setTimeMilestone('great-job');
+      // Auto-dismiss after 6 seconds so it doesn't distract
+      setTimeout(() => setTimeMilestone((prev) => prev === 'great-job' ? null : prev), 6000);
+    } else if (elapsedSeconds === 1500) {
+      // 25 minutes — gentle wrap-up nudge
+      setTimeMilestone('wrap-up');
+      setTimeout(() => setTimeMilestone((prev) => prev === 'wrap-up' ? null : prev), 8000);
+    } else if (elapsedSeconds === 1800) {
+      // 30 minutes — full timeout warning dialog
       setShowTimeoutWarning(true);
     }
   }, [elapsedSeconds]);
@@ -713,6 +730,38 @@ export default function SessionPage() {
         </div>
       )}
 
+      {/* P3-UX-07: Gentle time milestone notifications */}
+      {timeMilestone && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-40 animate-fade-in">
+          <div className={`rounded-2xl px-6 py-3 shadow-lg border-2 flex items-center gap-3 max-w-sm ${
+            timeMilestone === 'great-job'
+              ? 'bg-[#FEF9C3] border-[#FDE047] text-[#854D0E]'
+              : 'bg-[#EDE9FE] border-[#C4B5FD] text-[#5B21B6]'
+          }`}>
+            <span className="text-2xl flex-shrink-0" aria-hidden="true">
+              {timeMilestone === 'great-job' ? '🌟' : '📚'}
+            </span>
+            <div>
+              <p className="text-sm font-bold">
+                {timeMilestone === 'great-job'
+                  ? "You've been reading for 15 minutes! Great job!"
+                  : "Almost done! Let's wrap up your thoughts."}
+              </p>
+              {timeMilestone === 'great-job' && (
+                <p className="text-xs mt-0.5 opacity-80">Keep up the great work!</p>
+              )}
+            </div>
+            <button
+              onClick={() => setTimeMilestone(null)}
+              className="ml-auto text-lg opacity-60 hover:opacity-100 transition-opacity flex-shrink-0"
+              aria-label="Dismiss notification"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ===== LEFT: Worksheet Frame ===== */}
       <div className="lg:w-80 w-full lg:h-full bg-[#FFFCF3] border-r border-[#D6C9A8] shadow-[2px_0_12px_rgba(61,46,30,0.06)] flex-shrink-0 overflow-y-auto">
         {/* Worksheet Header */}
@@ -831,11 +880,16 @@ export default function SessionPage() {
 
       {/* ===== RIGHT: Chat Area ===== */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Session top bar: book title + Save & Exit */}
+        {/* Session top bar: book title + timer + Save & Exit */}
         <div className="bg-[#FFFCF3] border-b border-[#D6C9A8] px-4 py-2 flex items-center justify-between flex-shrink-0">
-          <p className="text-xs font-semibold text-[#6B5744] truncate max-w-[60%]">
+          <p className="text-xs font-semibold text-[#6B5744] truncate max-w-[45%]">
             {bookTitle || 'Reading Session'}
           </p>
+          {/* P3-UX-07: Session timer displayed in the top bar */}
+          <div className="flex items-center gap-1.5 bg-[#E8F5E9] px-3 py-1 rounded-full" aria-label={`Session time: ${elapsedTime}`}>
+            <span className="text-sm" aria-hidden="true">⏱️</span>
+            <span className="text-xs font-bold text-[#4A7C59] tabular-nums">{elapsedTime}</span>
+          </div>
           <button
             onClick={handlePauseSession}
             className="text-xs text-[#9CA3AF] hover:text-[#4A7C59] flex items-center gap-1 px-3 py-1 rounded-lg border border-[#E5E7EB] hover:border-[#4A7C59] transition-colors min-h-[36px]"
@@ -1017,10 +1071,10 @@ export default function SessionPage() {
             </div>
           )}
 
-          {/* Input area — layout branches on student level */}
+          {/* P3-UX-01: Input area — 3-way layout branching on student level */}
           {isBeginnerMode ? (
-            /* Beginner: large centred voice button, text input hidden by default */
-            <div className="flex flex-col items-center gap-3 w-full">
+            /* ===== BEGINNER (6-8): Voice-only, large mic, no text input by default ===== */
+            <div className="flex flex-col items-center gap-3 w-full py-2">
               <div className="relative">
                 <VoiceButton
                   isListening={isListening}
@@ -1028,15 +1082,23 @@ export default function SessionPage() {
                   onStop={handleVoiceInput}
                   size={100}
                   disabled={loading}
-                  className="w-[100px] h-[100px] text-3xl"
                 />
+                {/* Friendly pulsing ring when not listening to draw attention */}
+                {!isListening && !loading && (
+                  <div
+                    aria-hidden="true"
+                    className="absolute inset-0 rounded-full border-4 border-blue-300 animate-pulse pointer-events-none"
+                    style={{ width: '100px', height: '100px' }}
+                  />
+                )}
               </div>
-              <p className="text-sm font-bold text-[#5C8B5C]">
-                {isListening ? 'Listening...' : 'Tap to speak'}
+              <p className="text-base font-bold text-[#5C8B5C]">
+                {isListening ? '🎙️ Listening...' : '🎤 Tap to speak!'}
               </p>
+              {/* Small toggle to reveal text input for fallback */}
               <button
                 onClick={() => setShowTextInput((v) => !v)}
-                className="text-xs text-[#9CA3AF] underline"
+                className="text-xs text-[#9CA3AF] underline hover:text-[#6B5744] transition-colors"
               >
                 {showTextInput ? 'Hide keyboard' : 'Type instead'}
               </button>
@@ -1063,9 +1125,62 @@ export default function SessionPage() {
                 </div>
               )}
             </div>
-          ) : (
-            /* Intermediate / Advanced: text input first, voice button to the right */
+          ) : isAdvancedMode ? (
+            /* ===== ADVANCED (12-13): Text input prominent, voice button smaller on the side ===== */
             <div className="flex gap-3 items-end w-full">
+              <div className="flex flex-col gap-2 flex-1">
+                <div className="flex gap-2">
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={inputText}
+                    onChange={(e) => setInputText(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleTextSend()}
+                    placeholder="Type your answer here..."
+                    className="flex-1 px-4 py-3 border-2 border-[#D6C9A8] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#5C8B5C] focus:border-[#5C8B5C] text-sm bg-[#FFFCF3] text-[#3D2E1E] font-semibold disabled:bg-[#EDE5D4]"
+                    disabled={loading}
+                  />
+                  <button
+                    onClick={handleTextSend}
+                    disabled={loading || !inputText.trim()}
+                    className="px-6 py-3 bg-[#5C8B5C] text-white rounded-xl hover:bg-[#3D6B3D] disabled:bg-[#D6C9A8] transition-colors font-bold text-sm min-w-[48px] min-h-[48px] hover:-translate-y-0.5"
+                    title={loading ? 'Waiting for response...' : 'Send message'}
+                  >
+                    Send
+                  </button>
+                </div>
+              </div>
+              {/* Smaller voice button for advanced — available but not primary */}
+              <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                <VoiceButton
+                  isListening={isListening}
+                  onStart={handleVoiceInput}
+                  onStop={handleVoiceInput}
+                  size={48}
+                  disabled={loading}
+                />
+                <p className="text-[10px] font-semibold text-[#9CA3AF]">
+                  {isListening ? 'Listening' : 'Voice'}
+                </p>
+              </div>
+            </div>
+          ) : (
+            /* ===== INTERMEDIATE (9-11): Both inputs, voice is default/prominent ===== */
+            <div className="flex gap-3 items-end w-full">
+              {/* Voice button on the left — larger and more prominent */}
+              <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                <VoiceButton
+                  isListening={isListening}
+                  onStart={handleVoiceInput}
+                  onStop={handleVoiceInput}
+                  size={64}
+                  disabled={loading}
+                />
+                <p className="text-xs font-bold text-[#5C8B5C]">
+                  {isListening ? '🎙️ Listening' : '🎤 Speak'}
+                </p>
+              </div>
+              {/* Text input on the right — available but secondary */}
               <div className="flex flex-col gap-2 flex-1">
                 <div className="flex gap-2">
                   <input
@@ -1087,18 +1202,6 @@ export default function SessionPage() {
                     Send
                   </button>
                 </div>
-              </div>
-              <div className="flex flex-col items-center gap-1 flex-shrink-0">
-                <VoiceButton
-                  isListening={isListening}
-                  onStart={handleVoiceInput}
-                  onStop={handleVoiceInput}
-                  size={56}
-                  disabled={loading}
-                />
-                <p className="text-xs font-semibold text-[#5C8B5C]">
-                  {isListening ? 'Listening' : 'Speak'}
-                </p>
               </div>
             </div>
           )}

@@ -218,15 +218,39 @@ export default function AdminStudentsPage() {
     <div className="space-y-6">
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-3xl font-extrabold text-[#3D2E1E]">Student Management</h1>
-        <button
-          onClick={openCreateForm}
-          className="px-5 py-3 bg-[#5C8B5C] text-white rounded-xl hover:bg-[#3D6B3D] transition-all font-bold shadow-[0_2px_8px_rgba(61,107,61,0.3)] hover:-translate-y-0.5"
-          style={{ minHeight: '48px' }}
-        >
-          Add New Student
-        </button>
+        <div className="flex gap-3 flex-wrap">
+          <button
+            onClick={() => {
+              const url = `${API}/api/admin/export/students`;
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = 'students.csv';
+              // Use fetch to include auth token
+              fetch(url, { headers: { Authorization: `Bearer ${getToken()}` } })
+                .then(r => r.blob())
+                .then(blob => {
+                  const blobUrl = URL.createObjectURL(blob);
+                  a.href = blobUrl;
+                  a.click();
+                  URL.revokeObjectURL(blobUrl);
+                })
+                .catch(err => console.warn('Export failed:', err));
+            }}
+            className="px-4 py-3 bg-[#87CEDB] text-[#3D2E1E] rounded-xl hover:bg-[#5BA8B8] hover:text-white transition-all font-bold shadow-[0_2px_8px_rgba(135,206,219,0.3)] hover:-translate-y-0.5"
+            style={{ minHeight: '48px' }}
+          >
+            Export CSV
+          </button>
+          <button
+            onClick={openCreateForm}
+            className="px-5 py-3 bg-[#5C8B5C] text-white rounded-xl hover:bg-[#3D6B3D] transition-all font-bold shadow-[0_2px_8px_rgba(61,107,61,0.3)] hover:-translate-y-0.5"
+            style={{ minHeight: '48px' }}
+          >
+            Add New Student
+          </button>
+        </div>
       </div>
 
       {/* ── Filters ─────────────────────────────────────────────────────── */}

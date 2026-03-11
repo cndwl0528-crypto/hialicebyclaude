@@ -142,13 +142,36 @@ export default function AdminDashboard() {
       try {
         setLoading(true);
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const response = await fetch(`${apiUrl}/api/admin/stats`, {
+        const token =
+          typeof window !== 'undefined' ? sessionStorage.getItem('token') : null;
+        const response = await fetch(`${apiUrl}/api/admin/dashboard`, {
           signal: AbortSignal.timeout(5000),
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
 
         if (response.ok) {
           const data = await response.json();
-          setStats(data.stats || MOCK_STATS);
+          const d = data.data || data;
+          setStats({
+            totalStudents: d.totalStudents ?? MOCK_STATS.totalStudents,
+            totalBooks: d.totalBooks ?? MOCK_STATS.totalBooks,
+            activeSessions: d.activeSessions ?? MOCK_STATS.activeSessions,
+            avgGrammarScore: d.avgGrammarScore ?? MOCK_STATS.avgGrammarScore,
+          });
+          // Use real recent sessions if available
+          if (d.recentSessions && d.recentSessions.length > 0) {
+            setSessions(
+              d.recentSessions.map((s, idx) => ({
+                id: s.id || idx,
+                studentName: s.studentName || 'Unknown',
+                bookTitle: s.bookTitle || 'Unknown',
+                stage: s.stage || 'Body',
+                grammarScore: s.grammarScore || 0,
+                timestamp: s.date || new Date().toISOString(),
+                status: s.status || 'completed',
+              }))
+            );
+          }
         } else {
           setStats(MOCK_STATS);
         }

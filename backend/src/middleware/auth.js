@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
 import { config } from '../lib/config.js';
 
 export const COOKIE_OPTIONS = {
@@ -28,44 +28,27 @@ export function authMiddleware(req, res, next) {
   }
 
   try {
-    const [headerB64, payloadB64, signature] = token.split('.');
-
-    const expectedSig = crypto
-      .createHmac('sha256', config.jwt.secret)
-      .update(`${headerB64}.${payloadB64}`)
-      .digest('base64url');
-
-    if (signature !== expectedSig) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString());
-
-    if (payload.exp && Date.now() > payload.exp * 1000) {
-      return res.status(401).json({ error: 'Token expired' });
-    }
-
+    const payload = jwt.verify(token, config.jwt.secret);
     req.user = payload;
     next();
   } catch (err) {
+    if (err.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Token expired' });
+    }
     return res.status(401).json({ error: 'Invalid token' });
   }
 }
 
 export function generateToken(payload) {
-  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
-  const body = Buffer.from(JSON.stringify({
-    ...payload,
-    iat: Math.floor(Date.now() / 1000),
-    exp: Math.floor(Date.now() / 1000) + 86400, // 24h
-  })).toString('base64url');
+  return jwt.sign(payload, config.jwt.secret, { expiresIn: '24h' });
+}
 
-  const signature = crypto
-    .createHmac('sha256', config.jwt.secret)
-    .update(`${header}.${body}`)
-    .digest('base64url');
-
-  return `${header}.${body}.${signature}`;
+/**
+ * Verify a token and return the decoded payload.
+ * Throws if the token is invalid or expired.
+ */
+export function verifyToken(token) {
+  return jwt.verify(token, config.jwt.secret);
 }
 
 /**

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import {
   getStudentSessions,
   getStudentAnalytics,
+  getVocabStats,
   logout,
 } from '@/services/api';
 import LoadingCard from '@/components/LoadingCard';
@@ -77,15 +78,34 @@ const GHIBLI = {
 };
 
 function normalizeSession(s) {
-  // Normalise API response fields to match the UI's expected shape
+  // Normalise API response fields to match the UI's expected shape.
+  // Backend GET /sessions/student/:studentId returns camelCase fields:
+  // { id, bookTitle, bookLevel, stage, isComplete, startedAt, completedAt, grammarScore, levelScore }
+  const startedAt = s.startedAt || s.started_at;
+  const completedAt = s.completedAt || s.completed_at;
+
+  // Approximate duration in minutes from started/completed timestamps
+  let duration = s.duration || s.durationMinutes || 0;
+  if (!duration && startedAt && completedAt) {
+    const diffMs = new Date(completedAt).getTime() - new Date(startedAt).getTime();
+    if (diffMs > 0) {
+      duration = Math.round(diffMs / 60000);
+    }
+  }
+  if (!duration && s.durationSeconds) {
+    duration = Math.round(s.durationSeconds / 60);
+  }
+
   return {
     id: s.id,
     bookTitle: s.bookTitle || s.book_title || s.title || 'Unknown Book',
-    date: s.date || s.completedAt || s.completed_at || s.startedAt || s.started_at || new Date().toISOString(),
-    levelScore: s.levelScore || s.level_score || 0,
-    grammarScore: s.grammarScore || s.grammar_score || 0,
+    date: completedAt || startedAt || s.date || new Date().toISOString(),
+    levelScore: s.levelScore ?? s.level_score ?? 0,
+    grammarScore: s.grammarScore ?? s.grammar_score ?? 0,
     wordsLearned: s.wordsLearned || s.words_learned || s.wordCount || 0,
-    duration: s.duration || s.durationMinutes || (s.durationSeconds ? Math.round(s.durationSeconds / 60) : 0),
+    duration,
+    stage: s.stage || '',
+    isComplete: s.isComplete ?? s.is_complete ?? false,
     stages: s.stages || s.stageScores || {},
   };
 }
@@ -130,26 +150,47 @@ export default function ProfilePage() {
 
       let sessionsData = null;
       let analyticsData = null;
+      let vocabStatsData = null;
 
       try {
-        [sessionsData, analyticsData] = await Promise.all([
+        [sessionsData, analyticsData, vocabStatsData] = await Promise.all([
           getStudentSessions(studentId),
           getStudentAnalytics(studentId),
+          getVocabStats(studentId),
         ]);
       } catch (apiErr) {
         console.warn('API unavailable, using fallback data:', apiErr);
         setUsingFallback(true);
       }
 
-      // Process sessions
+      // Process sessions — backend returns { sessions: [...], stats: { ... } }
       if (sessionsData && sessionsData.sessions && sessionsData.sessions.length > 0) {
         const normalized = sessionsData.sessions.map(normalizeSession);
         setSessions(normalized);
+
+        // Use aggregate stats from the sessions endpoint to update student info
+        if (sessionsData.stats) {
+          const apiStats = sessionsData.stats;
+          setStudent((prev) => ({
+            ...prev,
+            current_streak: apiStats.streak ?? prev.current_streak,
+          }));
+        }
       } else if (sessionsData && Array.isArray(sessionsData) && sessionsData.length > 0) {
         setSessions(sessionsData.map(normalizeSession));
       } else {
         setUsingFallback(true);
         setSessions(MOCK_SESSIONS);
+      }
+
+      // Process vocabulary stats for total words learned
+      if (vocabStatsData && vocabStatsData.stats) {
+        const vStats = vocabStatsData.stats;
+        // Update student's total words from vocab stats endpoint
+        setStudent((prev) => ({
+          ...prev,
+          totalWordsFromAPI: vStats.totalWords || 0,
+        }));
       }
 
       // Process analytics
@@ -190,7 +231,9 @@ export default function ProfilePage() {
   // Guard against empty sessions for computed values
   const hasSessions = sessions.length > 0;
   const totalBooksRead = sessions.length;
-  const totalWordsLearned = sessions.reduce((sum, s) => sum + (s.wordsLearned || 0), 0);
+  // Prefer vocab stats from API; fall back to session-derived count
+  const totalWordsLearned = student.totalWordsFromAPI
+    || sessions.reduce((sum, s) => sum + (s.wordsLearned || 0), 0);
   const avgGrammarScore = hasSessions
     ? Math.round(sessions.reduce((sum, s) => sum + (s.grammarScore || 0), 0) / sessions.length)
     : 0;

@@ -86,10 +86,16 @@ END $$;
 -- ---------------------------------------------------------------------------
 -- Input length constraints — defence-in-depth at the DB layer
 -- ---------------------------------------------------------------------------
-ALTER TABLE dialogues
-  ADD CONSTRAINT IF NOT EXISTS content_max_length
-  CHECK (length(content) <= 2000);
+DO $$ BEGIN
+  ALTER TABLE dialogues
+    ADD CONSTRAINT content_max_length
+    CHECK (length(content) <= 2000);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-ALTER TABLE vocabulary
-  ADD CONSTRAINT IF NOT EXISTS word_max_length
-  CHECK (length(word) <= 100);
+DO $$ BEGIN
+  ALTER TABLE vocabulary
+    ADD CONSTRAINT word_max_length
+    CHECK (length(word) <= 100);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;

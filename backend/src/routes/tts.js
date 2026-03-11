@@ -1,5 +1,6 @@
 import express from 'express';
 import { config } from '../lib/config.js';
+import logger from '../lib/logger.js';
 
 const router = express.Router();
 
@@ -58,7 +59,7 @@ router.post('/speak', async (req, res) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('ElevenLabs API error:', errorText);
+      logger.error({ errorText }, 'ElevenLabs API error');
       return res.status(502).json({ error: 'TTS service error' });
     }
 
@@ -67,7 +68,7 @@ router.post('/speak', async (req, res) => {
     const arrayBuffer = await response.arrayBuffer();
     res.send(Buffer.from(arrayBuffer));
   } catch (err) {
-    console.error('TTS proxy error:', err);
+    logger.error({ err }, 'TTS proxy error');
     return res.status(500).json({ error: 'Internal server error' });
   }
 });

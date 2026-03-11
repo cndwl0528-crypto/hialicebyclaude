@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import {
   getStudentVocabulary,
   getVocabDueToday,
+  getVocabStats,
   recordPracticeResult,
 } from '@/services/api';
 import LoadingCard from '@/components/LoadingCard';
@@ -82,9 +83,28 @@ export default function VocabularyPage() {
   const [synonymOptions, setSynonymOptions] = useState([]);
   const [selectedSynonym, setSelectedSynonym] = useState(null);
   const [speechNotSupported, setSpeechNotSupported] = useState(false);
+  const [vocabStats, setVocabStats] = useState(null);
 
   // Track card flip time for response time measurement
   const cardFlipTimeRef = useRef(null);
+
+  /**
+   * Normalize a vocabulary record from the backend (snake_case) to the
+   * camelCase shape the UI components expect.
+   */
+  function normalizeVocabWord(v) {
+    return {
+      id: v.id,
+      word: v.word,
+      pos: v.pos || 'noun',
+      definition: v.definition || v.context_sentence || v.contextSentence || '',
+      contextSentence: v.context_sentence || v.contextSentence || '',
+      synonyms: v.synonyms || [],
+      antonyms: v.antonyms || [],
+      masteryLevel: v.mastery_level ?? v.masteryLevel ?? 1,
+      useCount: v.use_count ?? v.useCount ?? 1,
+    };
+  }
 
   useEffect(() => {
     const fetchVocabulary = async () => {
@@ -103,30 +123,37 @@ export default function VocabularyPage() {
           return;
         }
 
-        // Fetch vocabulary and due-today in parallel
+        // Fetch vocabulary, due-today, and stats in parallel
         let vocabData = null;
         let dueData = null;
+        let statsData = null;
         let dueIds = [];
 
         try {
-          [vocabData, dueData] = await Promise.all([
+          [vocabData, dueData, statsData] = await Promise.all([
             getStudentVocabulary(studentId),
             getVocabDueToday(studentId),
+            getVocabStats(studentId),
           ]);
 
           if (dueData && dueData.words) {
             dueIds = dueData.words.map((w) => w.id);
             setDueCount(dueData.count || dueData.words.length || 0);
           }
+
+          if (statsData && statsData.stats) {
+            setVocabStats(statsData.stats);
+          }
         } catch (apiErr) {
           console.warn('API unavailable, falling back to sessionStorage vocab:', apiErr);
           setUsingFallback(true);
         }
 
-        if (vocabData && vocabData.words && vocabData.words.length > 0) {
-          setVocabulary(vocabData.words);
-        } else if (vocabData && vocabData.vocabulary && vocabData.vocabulary.words) {
-          setVocabulary(vocabData.vocabulary.words);
+        // Backend GET /vocabulary/:studentId returns { vocabulary: [...], stats: { ... } }
+        if (vocabData && vocabData.vocabulary && Array.isArray(vocabData.vocabulary) && vocabData.vocabulary.length > 0) {
+          setVocabulary(vocabData.vocabulary.map(normalizeVocabWord));
+        } else if (vocabData && vocabData.words && vocabData.words.length > 0) {
+          setVocabulary(vocabData.words.map(normalizeVocabWord));
         } else {
           // Fallback chain: sessionStorage -> mock
           setUsingFallback(true);
@@ -423,6 +450,30 @@ export default function VocabularyPage() {
           </div>
         )}
       </div>
+
+      {/* Vocabulary Stats from API */}
+      {vocabStats && (
+        <div className="ghibli-card p-4 mb-6">
+          <div className="grid grid-cols-4 gap-3">
+            <div className="text-center p-2 bg-[#F5F0E8] rounded-xl">
+              <div className="text-2xl font-extrabold text-[#5C8B5C]">{vocabStats.totalWords || 0}</div>
+              <p className="text-[#6B5744] text-xs font-bold mt-1">Total Words</p>
+            </div>
+            <div className="text-center p-2 bg-[#F5F0E8] rounded-xl">
+              <div className="text-2xl font-extrabold text-[#7AC87A]">{vocabStats.masteredWords || 0}</div>
+              <p className="text-[#6B5744] text-xs font-bold mt-1">Mastered</p>
+            </div>
+            <div className="text-center p-2 bg-[#F5F0E8] rounded-xl">
+              <div className="text-2xl font-extrabold text-[#D4A843]">{vocabStats.learningWords || 0}</div>
+              <p className="text-[#6B5744] text-xs font-bold mt-1">Learning</p>
+            </div>
+            <div className="text-center p-2 bg-[#F5F0E8] rounded-xl">
+              <div className="text-2xl font-extrabold text-[#D4736B]">{vocabStats.dueToday || 0}</div>
+              <p className="text-[#6B5744] text-xs font-bold mt-1">Due Today</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Mode Selector */}
       <div className="ghibli-card p-4 mb-6">

@@ -1,5 +1,7 @@
+import logger from '../lib/logger.js';
+
 export function errorHandler(err, req, res, next) {
-  console.error(`[ERROR] ${req.method} ${req.path}:`, err.message);
+  logger.error({ err, method: req.method, path: req.path }, 'Unhandled error');
 
   if (err.name === 'ValidationError') {
     return res.status(400).json({ error: err.message });
@@ -10,8 +12,8 @@ export function errorHandler(err, req, res, next) {
   }
 
   res.status(err.status || 500).json({
-    error: process.env.NODE_ENV === 'production' 
-      ? 'Internal server error' 
+    error: process.env.NODE_ENV === 'production'
+      ? 'Internal server error'
       : err.message,
   });
 }

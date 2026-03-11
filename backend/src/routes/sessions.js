@@ -24,6 +24,7 @@ import { extractVocabulary } from '../alice/vocabularyExtractor.js';
 import { calculateGrammarScore, classifyAnswerDepth, calculateThinkingMomentum } from '../alice/levelDetector.js';
 import { checkAndAwardAchievements } from '../lib/achievements.js';
 import { getCrossBookContext } from '../alice/crossBookMemory.js';
+import { sendSessionReport } from '../services/emailService.js';
 
 const router = express.Router();
 
@@ -710,6 +711,33 @@ router.post('/:id/complete', optionalAuth, async (req, res) => {
         title: `${student.name} completed a session!`,
         message: `Great news! ${student.name} just finished a reading session with a grammar score of ${averageGrammarScore}/100 and learned ${vocabularyCount} new words.`,
       });
+    }
+
+    // --- Send email notification to parent (fire-and-forget) ---
+    if (student.parent_id) {
+      supabase
+        .from('parents')
+        .select('email')
+        .eq('id', student.parent_id)
+        .single()
+        .then(({ data: parentData }) => {
+          if (parentData?.email) {
+            sendSessionReport(parentData.email, {
+              studentName: student.name,
+              bookTitle: sessionBook?.title || 'a book',
+              grammarScore: averageGrammarScore,
+              levelScore,
+              vocabularyCount,
+              aiFeedback: aiFeedback || '',
+              completedAt,
+            }).catch(err => {
+              console.warn('[Sessions] Email notification failed (non-fatal):', err.message);
+            });
+          }
+        })
+        .catch(err => {
+          console.warn('[Sessions] Failed to fetch parent email (non-fatal):', err.message);
+        });
     }
 
     // --- Check and award achievements ---

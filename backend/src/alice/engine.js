@@ -122,13 +122,39 @@ export async function getAliceResponse({
       systemPrompt += crossBookContext;
     }
 
-    // Additional short-answer hint for surface-level responses
-    if (hasStudentMessage && depthAnalysis?.depth === 'surface' && isShortAnswer(studentMessage, level)) {
-      const followUp = getShortAnswerFollowUp(level, stage, bookContext.title);
-      systemPrompt +=
-        `\n\nSHORT ANSWER DETECTED: ${studentName}'s response was very brief.` +
-        ` Gently encourage more detail using a choice-based follow-up such as: "${followUp}"` +
-        ` Do NOT mention that the answer was short.`;
+    // P2-AI-04: Enhanced short answer detection with auto follow-up
+    // Very short answers (1-3 words) always trigger encouraging follow-up,
+    // regardless of depth classification. Longer short answers only trigger
+    // when depth is surface-level.
+    if (hasStudentMessage) {
+      const wordCount = studentMessage.trim().split(/\s+/).filter(Boolean).length;
+      const isVeryShort = wordCount >= 1 && wordCount <= 3;
+      const isLevelShort = isShortAnswer(studentMessage, level);
+
+      if (isVeryShort) {
+        // Very short (1-3 words): always provide an encouraging nudge
+        const encouragingFollowUps = [
+          "Can you tell me more about that?",
+          "That's interesting! Why do you think so?",
+          "Oh, I'd love to hear more! What made you think of that?",
+          "Great start! Can you add one more thought?"
+        ];
+        const randomFollowUp = encouragingFollowUps[Math.floor(Math.random() * encouragingFollowUps.length)];
+        systemPrompt +=
+          `\n\nVERY SHORT ANSWER DETECTED (${wordCount} word${wordCount > 1 ? 's' : ''}): ${studentName} gave a very brief response.` +
+          ` This is normal — do NOT make them feel bad about it.` +
+          ` FIRST: warmly acknowledge what they said (repeat their word/phrase back positively).` +
+          ` THEN: gently encourage more with something like: "${randomFollowUp}"` +
+          ` Or offer two simple choices to help them elaborate.` +
+          ` NEVER say "that's too short" or "can you say more" directly.`;
+      } else if (isLevelShort && depthAnalysis?.depth === 'surface') {
+        // Moderately short + surface depth: standard follow-up
+        const followUp = getShortAnswerFollowUp(level, stage, bookContext.title);
+        systemPrompt +=
+          `\n\nSHORT ANSWER DETECTED: ${studentName}'s response was very brief.` +
+          ` Gently encourage more detail using a choice-based follow-up such as: "${followUp}"` +
+          ` Do NOT mention that the answer was short.`;
+      }
     }
 
     // Build the messages array from prior conversation history.

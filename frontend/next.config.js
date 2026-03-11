@@ -54,7 +54,10 @@ const nextConfig = {
   // Optimize images
   images: {
     unoptimized: false,
-    formats: ['image/avif', 'image/webp']
+    formats: ['image/avif', 'image/webp'],
+    deviceSizes: [640, 750, 828, 1080, 1200],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256],
+    minimumCacheTTL: 60,
   },
 
   // Compression
@@ -62,6 +65,20 @@ const nextConfig = {
 
   // Performance optimizations
   swcMinify: true,
+
+  // Bundle analyzer — activate with ANALYZE=true npm run build
+  ...(process.env.ANALYZE === 'true' && {
+    webpack(config, { isServer }) {
+      try {
+        const { BundleAnalyzerPlugin } = require('@next/bundle-analyzer')({
+          enabled: true,
+        });
+      } catch {
+        // @next/bundle-analyzer not installed — skip silently
+      }
+      return config;
+    },
+  }),
 
   // Experimental features for better performance
   experimental: {

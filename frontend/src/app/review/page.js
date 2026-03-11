@@ -2,10 +2,24 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { getSessionReview, getSessionStageScores } from '@/services/api';
+import dynamic from 'next/dynamic';
+import { getSessionReview, getSessionStageScores, getBook } from '@/services/api';
 import LoadingCard from '@/components/LoadingCard';
-import PrintableWorksheet from '@/components/PrintableWorksheet';
-import BookRecommendation from '@/components/BookRecommendation';
+
+// Heavy components loaded dynamically to reduce initial bundle size
+const PrintableWorksheet = dynamic(() => import('@/components/PrintableWorksheet'), {
+  loading: () => <div className="animate-pulse h-24 bg-gray-100 rounded-lg" />,
+  ssr: false,
+});
+const BookRecommendation = dynamic(() => import('@/components/BookRecommendation'), {
+  loading: () => <div className="animate-pulse h-24 bg-gray-100 rounded-lg" />,
+});
+const ConfettiCelebration = dynamic(() => import('@/components/ConfettiCelebration'), {
+  ssr: false,
+});
+const AchievementUnlock = dynamic(() => import('@/components/AchievementUnlock'), {
+  ssr: false,
+});
 
 
 const MOCK_REVIEW = {
@@ -60,6 +74,8 @@ export default function ReviewPage() {
   const [stageBreakdown, setStageBreakdown] = useState([]);
   const [achievementsEarned, setAchievementsEarned] = useState([]);
   const [showAchievements, setShowAchievements] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [showAchievementModal, setShowAchievementModal] = useState(false);
   const [aiFeedback, setAiFeedback] = useState(null);
 
   useEffect(() => {
@@ -102,28 +118,92 @@ export default function ReviewPage() {
           return;
         }
 
-        // Process review data — no fallback to mock/sessionStorage
-        if (reviewData && reviewData.review) {
+        // Backend GET /sessions/:id/review returns { session, dialogues, vocabulary }
+        // Map to the UI's expected shape
+        if (reviewData && reviewData.session) {
+          const sess = reviewData.session;
+
+          // Resolve book title: session has book_id but no title,
+          // so fetch from books API or fall back to sessionStorage
+          let bookTitle = sess.book_title || sess.bookTitle || '';
+          if (!bookTitle && sess.book_id) {
+            try {
+              const bookData = await getBook(sess.book_id);
+              bookTitle = bookData?.book?.title || bookData?.title || '';
+            } catch {
+              // Non-fatal: fall back to sessionStorage
+            }
+          }
+          if (!bookTitle) {
+            bookTitle = sessionStorage.getItem('bookTitle') || 'Book';
+          }
+
+          // Build a review object matching the UI's expected fields
+          const apiReview = {
+            sessionId: sess.id,
+            studentId: sess.student_id,
+            studentName: sessionStorage.getItem('studentName') || 'Student',
+            bookTitle,
+            grammarScore: sess.grammar_score ?? sess.grammarScore ?? 0,
+            levelScore: sess.level_score ?? sess.levelScore ?? 0,
+            studentLevel: sess.level || sessionStorage.getItem('studentLevel') || 'Beginner',
+            completedAt: sess.completed_at || sess.completedAt,
+            achievements: sess.achievements || [],
+          };
+          setReview(apiReview);
+
+          // ai_feedback from session record
+          const apiFeedback = sess.ai_feedback || sess.aiFeedback || null;
+          if (apiFeedback) {
+            setAiFeedback(apiFeedback);
+          }
+
+          // Vocabulary from API — normalize snake_case fields
+          const vocabList = (reviewData.vocabulary || []).map((v) => ({
+            id: v.id,
+            word: v.word,
+            pos: v.pos || 'noun',
+            contextSentence: v.context_sentence || v.contextSentence || '',
+            synonyms: v.synonyms || [],
+            antonyms: v.antonyms || [],
+            masteryLevel: v.mastery_level ?? v.masteryLevel ?? 1,
+            useCount: v.use_count ?? v.useCount ?? 1,
+          }));
+          setVocabulary(vocabList);
+
+          // Dialogues from API — map to conversation messages
+          const dialogueList = (reviewData.dialogues || []).map((d) => ({
+            speaker: d.speaker,
+            content: d.content,
+            stage: d.stage,
+          }));
+          if (dialogueList.length > 0) {
+            setConversation(dialogueList);
+          }
+
+          // Achievements from session
+          if (apiReview.achievements && apiReview.achievements.length > 0) {
+            setAchievementsEarned(apiReview.achievements);
+            setShowAchievements(true);
+          }
+        } else if (reviewData && reviewData.review) {
+          // Legacy format: { review: { ... } }
           const apiReview = reviewData.review;
           setReview(apiReview);
 
-          // ai_feedback from API response
           const apiFeedback = apiReview.ai_feedback || apiReview.aiFeedback || null;
           if (apiFeedback) {
             setAiFeedback(apiFeedback);
           }
 
-          // Vocabulary from API
-          const vocabList = apiReview.vocabulary || [];
-          setVocabulary(vocabList);
+          const rawVocab = apiReview.vocabulary || [];
+          setVocabulary(Array.isArray(rawVocab) ? rawVocab : []);
 
-          // Conversation messages from API if available
           const msgs = apiReview.messages || apiReview.conversation || [];
           if (msgs.length > 0) {
             setConversation(msgs);
           }
 
-          // Achievements from API
           if (apiReview.achievements && apiReview.achievements.length > 0) {
             setAchievementsEarned(apiReview.achievements);
             setShowAchievements(true);
@@ -157,6 +237,18 @@ export default function ReviewPage() {
 
     fetchReview();
   }, []);
+
+  // P3-UX-02: Trigger confetti celebration when review data loads successfully
+  useEffect(() => {
+    if (!loading && review) {
+      setShowConfetti(true);
+      // P3-UX-03: Show achievement modal after a short delay for confetti to settle
+      if (achievementsEarned.length > 0) {
+        const timer = setTimeout(() => setShowAchievementModal(true), 1500);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [loading, review, achievementsEarned]);
 
   const renderStars = (level) => {
     return Array.from({ length: 5 }).map((_, i) => (
@@ -244,6 +336,21 @@ export default function ReviewPage() {
 
   return (
     <div className="py-8">
+
+      {/* P3-UX-02: Confetti celebration on session complete */}
+      <ConfettiCelebration
+        active={showConfetti}
+        duration={4000}
+        onComplete={() => setShowConfetti(false)}
+      />
+
+      {/* P3-UX-03: Achievement unlock modal — shows earned badges sequentially */}
+      <AchievementUnlock
+        achievements={showAchievementModal ? achievementsEarned : []}
+        onClose={() => {
+          setShowAchievementModal(false);
+        }}
+      />
 
       {/* Achievements Banner */}
       {showAchievements && achievementsEarned.length > 0 && (

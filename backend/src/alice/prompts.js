@@ -43,14 +43,17 @@ const LEVEL_DESCRIPTIONS = {
 // LEVEL RULES
 // ============================================================================
 
+// P2-AI-03: Enhanced with answerExpectation for level-based question difficulty
 const LEVEL_RULES = {
   beginner: {
     tense: 'Simple present tense only',
     vocabulary: 'Use only the 1000 most common English words',
     grammar: 'Never correct grammar directly. Celebrate attempts.',
-    questions: 'Ask simple What/Who questions',
+    questions: 'Ask simple What/Who questions. YES/NO + one-word answers are perfectly acceptable.',
     tone: 'Lots of praise and encouragement. Use simple exclamations.',
     correction: 'Never correct grammar directly. Let them feel successful.',
+    answerExpectation: 'Accept YES/NO answers and single-word responses as valid. Keep your questions very short (under 10 words when possible). Always offer 2 choices: "Was it A or B?" Never demand full sentences.',
+    questionStyle: 'Very short, simple questions. Offer choices. Example: "Was it funny?" or "Did you like it — yes or no?"',
     examples: [
       'Hi there! What was your favorite part? Was it funny?',
       'Oh, I love that! Who was your favorite character?'
@@ -60,9 +63,11 @@ const LEVEL_RULES = {
     tense: 'Past tense OK, compound sentences OK',
     vocabulary: 'Use up to 2000 common words',
     grammar: 'Gentle corrections: "Close! You could also say..."',
-    questions: 'Ask Why/How questions',
+    questions: 'Ask Why/How questions that expect 1-2 sentence answers',
     tone: 'Supportive and curious. Validate their thinking.',
     correction: 'Gentle corrections without making them feel wrong',
+    answerExpectation: 'Expect 1-2 sentence answers with moderate vocabulary. If they give only one word, gently prompt: "Can you tell me a little more?" Use medium-length questions with familiar words.',
+    questionStyle: 'Medium-length questions using familiar vocabulary. Ask "why" and "how" to encourage sentences.',
     examples: [
       "That's interesting! Can you tell me why the character made that choice?",
       'I like how you noticed that. What would you have done differently?'
@@ -72,9 +77,11 @@ const LEVEL_RULES = {
     tense: 'Complex sentences, various tenses, conditional structures',
     vocabulary: 'Use advanced vocabulary (3000+ words)',
     grammar: 'Constructive discussion of language choices',
-    questions: 'Ask analytical and inferential questions',
+    questions: 'Ask analytical and inferential questions expecting detailed, evidence-based responses',
     tone: 'Intellectual engagement. Challenge thinking constructively.',
     correction: 'Discuss language choices and suggest alternatives',
+    answerExpectation: 'Expect detailed responses (3+ sentences) supported with evidence from the text. Encourage them to reference specific scenes, quotes, or character actions. Prompt for reasoning: "What evidence from the text supports that?"',
+    questionStyle: 'Thought-provoking questions that require analysis, comparison, or inference. Expect textual evidence.',
     examples: [
       "You've made a compelling point about the theme. How does this connect to real-world situations?",
       'That interpretation is fascinating. Can you support it with specific evidence from the text?'
@@ -160,13 +167,47 @@ const STAGE_GUIDANCE = {
       // Turn 3 — Personal life connection
       'What did this story teach YOU about your own life? Can you think of a time when something like that happened to you?'
     ],
+    // P2-AI-02: Distinct follow-up question styles for each of the 3 reason types.
+    // Used by the system prompt to guide Alice's follow-up after each sub-question.
+    followUpStyles: {
+      emotion: {
+        label: 'Emotion',
+        description: 'Explore the feeling deeper — help the student name and describe their emotional response',
+        followUps: [
+          'Where in your body did you feel that? Was it butterflies in your tummy or a big smile?',
+          'Was it more of a HAPPY feeling or a WORRIED feeling? Or maybe both at the same time?',
+          'If that feeling were a color, what color would it be?'
+        ]
+      },
+      creativity: {
+        label: 'Creativity',
+        description: 'Encourage imaginative alternatives — validate their creative vision',
+        followUps: [
+          'That would make such a cool story! What would happen NEXT if you changed that?',
+          'If you were the author, how would you write the ending differently?',
+          'Wow, you have a great imagination! Would the other characters like your change too?'
+        ]
+      },
+      lesson: {
+        label: 'Lesson',
+        description: 'Connect story lessons to their real life — help them see the personal relevance',
+        followUps: [
+          'That is such a wise thought! How could you use that lesson this week?',
+          'Do you think your friends would learn the same thing, or something different?',
+          'If you could teach that lesson to someone younger, how would you explain it?'
+        ]
+      }
+    },
     guideQuestion: 'Tell me 3 things about the story',
     instructions: [
       'IMPORTANT: Body stage has exactly 3 sub-questions. Ask them ONE AT A TIME.',
-      'Turn 1 — Emotional: "What was the most exciting or surprising part? How did it make you feel?"',
-      'Turn 2 — Creative: "If you could change one part, what would you change and why?"',
+      'Turn 1 — Emotion: "What was the most exciting or surprising part? How did it make you feel?"',
+      '  → Follow-up style: Explore the feeling deeper. Help them NAME the emotion. Ask where they felt it or what color it would be.',
+      'Turn 2 — Creativity: "If you could change one part, what would you change and why?"',
+      '  → Follow-up style: Encourage imagination. Ask what would happen NEXT. Validate their creative vision.',
       'Turn 3 — Life lesson: "What did this story teach you about your own life?"',
-      'After each answer, praise specifically, then transition to the next sub-question'
+      '  → Follow-up style: Connect to real life. Ask how they could USE the lesson. Help them see personal relevance.',
+      'After each answer, praise specifically using the follow-up style for that turn, then transition to the next sub-question.'
     ],
     maxTurns: 3
   },
@@ -312,12 +353,24 @@ export function getSystemPrompt(bookTitleOrBook, studentNameOrStudent, level, st
     .replace(/\[BOOK_TITLE\]/g,  bookTitle);
 
   // ---- Body-stage sub-question directive (preserved from v1 for turn targeting) ----
+  // P2-AI-02: Enhanced with per-turn follow-up style guidance
   let bodySubQuestionSection = '';
   if (stage?.toLowerCase() === 'body') {
+    const bodyFollowUpStyles = stageGuide.followUpStyles || {};
+    const turnStyleMap = { 1: 'emotion', 2: 'creativity', 3: 'lesson' };
+    const currentStyle = bodyFollowUpStyles[turnStyleMap[turn]];
+    const followUpGuidance = currentStyle
+      ? `\nFOLLOW-UP STYLE for this turn (${currentStyle.label}):
+${currentStyle.description}
+Example follow-ups you can adapt:
+${currentStyle.followUps.map(f => `  - "${f}"`).join('\n')}\n`
+      : '';
+
     bodySubQuestionSection = `\nBODY STAGE — CURRENT SUB-QUESTION (Turn ${turn}/3):
 You MUST focus on this specific question right now:
   "${targetSubQuestion}"
-Do NOT skip ahead. Ask only this question and wait for ${studentName}'s response.\n`;
+Do NOT skip ahead. Ask only this question and wait for ${studentName}'s response.
+${followUpGuidance}`;
   }
 
   // ---- Short-answer threshold hint ----
@@ -325,6 +378,8 @@ Do NOT skip ahead. Ask only this question and wait for ${studentName}'s response
   const shortAnswerFollowUp  = SHORT_ANSWER_FOLLOWUPS[level]?.[0] || 'Tell me more!';
 
   // ---- Book context block (omitted entirely when no synopsis present) ----
+  // P2-AI-01: Enhanced with explicit instructions to leverage book context
+  // for emotion-eliciting questions connected to the story's emotional core.
   const bookContextBlock = synopsis
     ? `═══════════════════════════════════════════════
 BOOK CONTEXT (use this to personalise every question):
@@ -333,6 +388,16 @@ BOOK CONTEXT (use this to personalise every question):
 • Emotional Keywords: ${emotionalKeywords || 'not specified'}
 • Characters:         ${characters || 'not specified'}
 • Moral Lesson:       ${moralLesson || 'not specified'}
+
+HOW TO USE THIS CONTEXT (CRITICAL — apply to EVERY question you ask):
+1. EMOTION-ELICITING: Frame questions around the emotional keywords (${emotionalKeywords || 'feelings in the story'}).
+   Instead of generic "How did you feel?", ask about specific emotional moments:
+   e.g. "When [specific event from synopsis], did that make you feel ${emotionalKeywords ? emotionalKeywords.split(', ')[0] : 'surprised'}?"
+2. CHARACTER-CONNECTED: Reference specific characters (${characters || 'the characters'}) by name.
+   Ask ${studentName} to imagine themselves AS the character or speaking TO the character.
+3. THEME-DRIVEN: Weave the key themes (${keyThemes || 'the story themes'}) into your questions naturally.
+   Connect themes to ${studentName}'s own life: "The story is about [theme] — has something like that ever happened to you?"
+4. MORAL EXPLORATION: ${moralLesson ? `This book teaches: "${moralLesson}". Guide ${studentName} to discover this lesson through questions, NEVER state it directly.` : 'Help the student discover what the story teaches through their own reflection.'}
 ═══════════════════════════════════════════════\n\n`
     : '';
 
@@ -368,6 +433,8 @@ LANGUAGE RULES FOR ${(level || 'intermediate').toUpperCase()} LEVEL:
 - Grammar:       ${levelRules.grammar}
 - Questions:     ${levelRules.questions}
 - Tone:          ${levelRules.tone}
+- Answer expectation: ${levelRules.answerExpectation || 'Expect age-appropriate responses.'}
+- Question style: ${levelRules.questionStyle || 'Match questions to student level.'}
 
 STAGE-SPECIFIC FOCUS (${(stage || 'title').toUpperCase()}):
 ${stageGuide.instructions.map((inst, i) => `${i + 1}. ${inst}`).join('\n')}

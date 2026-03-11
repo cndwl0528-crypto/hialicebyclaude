@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import BookCard from '@/components/BookCard';
 import BookRecommendation from '@/components/BookRecommendation';
 import BookCoverIllustration from '@/components/BookCoverIllustration';
-import { getBooks as fetchBooksApi, startSession } from '@/services/api';
+import { getBooks as fetchBooksApi, startSession, getStudentSessions, resumeSession } from '@/services/api';
 
 const MOCK_BOOKS = [
   {
@@ -148,6 +148,8 @@ export default function BooksPage() {
   const [studentLevel, setStudentLevel] = useState('All');
   const [studentId, setStudentId] = useState(null);
   const [error, setError] = useState('');
+  const [pausedSessions, setPausedSessions] = useState([]);
+  const [resumingSessionId, setResumingSessionId] = useState(null);
 
   useEffect(() => {
     const fetchBooks = async () => {
@@ -163,6 +165,17 @@ export default function BooksPage() {
         const storedStudentId = sessionStorage.getItem('studentId');
         if (storedStudentId) {
           setStudentId(storedStudentId);
+
+          // P3-UX-04: Fetch paused sessions for resume functionality
+          try {
+            const sessionsData = await getStudentSessions(storedStudentId);
+            const paused = (sessionsData.sessions || []).filter(
+              (s) => s.status === 'paused' || s.status === 'in_progress'
+            );
+            setPausedSessions(paused);
+          } catch (sessErr) {
+            console.warn('Failed to fetch paused sessions:', sessErr);
+          }
         }
 
         // Use api.js client (includes auth token + timeout + error handling)
@@ -219,6 +232,26 @@ export default function BooksPage() {
     router.push(`/session?${params.toString()}`);
   };
 
+  // P3-UX-04: Resume a paused session
+  const handleResumeSession = async (session) => {
+    setResumingSessionId(session.id);
+    try {
+      await resumeSession(session.id);
+    } catch (err) {
+      console.warn('Resume session API failed (continuing with redirect):', err);
+    }
+    // Cache book info for the session page
+    sessionStorage.setItem('bookId', session.bookId || session.book_id || '');
+    sessionStorage.setItem('bookTitle', session.bookTitle || session.book_title || '');
+
+    const params = new URLSearchParams({
+      bookId: session.bookId || session.book_id || '',
+      bookTitle: session.bookTitle || session.book_title || '',
+      sessionId: session.id,
+    });
+    router.push(`/session?${params.toString()}`);
+  };
+
   return (
     <div className="py-8">
       <div className="mb-8">
@@ -256,6 +289,43 @@ export default function BooksPage() {
           })}
         </div>
       </div>
+
+      {/* P3-UX-04: Resumable paused sessions */}
+      {pausedSessions.length > 0 && !loading && (
+        <div className="mb-8">
+          <h3 className="text-lg font-extrabold text-[#3D2E1E] mb-3 flex items-center gap-2">
+            <span role="img" aria-label="bookmark">📌</span> Continue Reading
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {pausedSessions.map((session) => (
+              <button
+                key={session.id}
+                onClick={() => handleResumeSession(session)}
+                disabled={resumingSessionId === session.id}
+                className="bg-gradient-to-r from-[#FEF9C3] to-[#FDE68A] border-2 border-[#F59E0B]/30 rounded-2xl p-4 flex items-center gap-4 text-left hover:shadow-md hover:-translate-y-0.5 transition-all active:scale-[0.98] disabled:opacity-60"
+                aria-label={`Resume reading ${session.bookTitle || session.book_title || 'your book'}`}
+              >
+                <div className="text-3xl flex-shrink-0 w-12 h-12 rounded-xl bg-white/60 flex items-center justify-center" aria-hidden="true">
+                  {session.coverEmoji || session.cover_emoji || '📖'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-[#92400E] text-sm truncate">
+                    {session.bookTitle || session.book_title || 'In Progress'}
+                  </p>
+                  <p className="text-xs text-[#B45309] mt-0.5">
+                    {session.stage || 'Paused'} — tap to continue!
+                  </p>
+                </div>
+                <div className="text-[#F59E0B] text-xl flex-shrink-0" aria-hidden="true">
+                  {resumingSessionId === session.id ? (
+                    <span className="animate-spin inline-block">...</span>
+                  ) : '→'}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center items-center py-16">

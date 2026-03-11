@@ -1,9 +1,13 @@
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
+import pinoHttp from 'pino-http';
 import { errorHandler } from './middleware/errorHandler.js';
 import { sanitizeBody, sanitizeQuery, rateLimiter, inputLengthLimiter, profanityFilter } from './middleware/sanitize.js';
 import { validateEnv } from './lib/config.js';
+import logger from './lib/logger.js';
+import { sentryErrorHandler } from './lib/sentry.js';
+import { supabase } from './lib/supabase.js';
 import authRouter from './routes/auth.js';
 import booksRouter from './routes/books.js';
 import sessionsRouter from './routes/sessions.js';
@@ -17,6 +21,14 @@ import coppaRouter from './routes/coppa.js';
 validateEnv();
 
 const app = express();
+
+// Structured request logging via pino-http
+app.use(pinoHttp({
+  logger,
+  autoLogging: {
+    ignore: (req) => req.url === '/health' || req.url === '/health/db',
+  },
+}));
 
 // Restrict CORS to explicitly allowed origins only (no wildcard)
 const allowedOrigins = process.env.ALLOWED_ORIGINS
@@ -56,9 +68,46 @@ app.use((req, res, next) => {
   next();
 });
 
-// Health check
+// Health check — basic
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', service: 'hialice-backend', timestamp: new Date().toISOString() });
+  res.json({
+    status: 'ok',
+    service: 'hialice-backend',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+  });
+});
+
+// Health check — database connectivity
+app.get('/health/db', async (req, res) => {
+  try {
+    const start = Date.now();
+    const { error } = await supabase.from('books').select('id').limit(1);
+    const latencyMs = Date.now() - start;
+
+    if (error) {
+      return res.status(503).json({
+        status: 'error',
+        database: 'unreachable',
+        error: error.message,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    return res.json({
+      status: 'ok',
+      database: 'connected',
+      latencyMs,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    return res.status(503).json({
+      status: 'error',
+      database: 'unreachable',
+      error: err.message,
+      timestamp: new Date().toISOString(),
+    });
+  }
 });
 
 // Routes
@@ -69,6 +118,9 @@ app.use('/api/vocabulary', vocabularyRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/tts', ttsRouter);
 app.use('/api/coppa', coppaRouter);
+
+// Sentry error handler (no-op when SENTRY_DSN is not set)
+app.use(sentryErrorHandler);
 
 // Error handler
 app.use(errorHandler);

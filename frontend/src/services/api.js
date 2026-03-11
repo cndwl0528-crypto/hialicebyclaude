@@ -349,11 +349,17 @@ export async function getSessionReview(sessionId) {
             beautiful: 2,
             leaves: 2,
           },
-          vocabulary: {
-            newWords: ['caterpillar', 'cocoon', 'metamorphosis'],
-            reviewWords: ['eat', 'day', 'week'],
-            totalUsed: 34,
-          },
+          vocabulary: [
+            { id: 1, word: 'caterpillar', pos: 'noun', contextSentence: 'The caterpillar ate through one apple.', synonyms: ['larva', 'grub'], antonyms: [], masteryLevel: 2, useCount: 3 },
+            { id: 2, word: 'cocoon', pos: 'noun', contextSentence: 'He built a cocoon around himself.', synonyms: ['chrysalis', 'shell'], antonyms: [], masteryLevel: 1, useCount: 1 },
+            { id: 3, word: 'metamorphosis', pos: 'noun', contextSentence: 'The metamorphosis was amazing.', synonyms: ['transformation', 'change'], antonyms: [], masteryLevel: 1, useCount: 1 },
+          ],
+          messages: [
+            { speaker: 'alice', content: "Hi there! Let's talk about The Very Hungry Caterpillar. What was your favorite part?" },
+            { speaker: 'student', content: "I liked when the caterpillar ate so many things!" },
+            { speaker: 'alice', content: "That's a great observation! Why do you think the caterpillar was so hungry?" },
+            { speaker: 'student', content: "Because he was growing and needed energy to become a beautiful butterfly." },
+          ],
         },
       };
     }
@@ -499,6 +505,25 @@ export async function pauseSession(sessionId) {
     return response;
   } catch (error) {
     console.error('Pause session failed:', error);
+    if (process.env.NODE_ENV === 'development') {
+      return { success: true, sessionId };
+    }
+    throw error;
+  }
+}
+
+/**
+ * Resume a paused session
+ * PUT /sessions/:sessionId/resume
+ */
+export async function resumeSession(sessionId) {
+  try {
+    const response = await apiFetch(`/sessions/${sessionId}/resume`, {
+      method: 'PUT',
+    });
+    return response;
+  } catch (error) {
+    console.error('Resume session failed:', error);
     if (process.env.NODE_ENV === 'development') {
       return { success: true, sessionId };
     }
@@ -869,6 +894,7 @@ export default {
   getStudentSessions,
   getSessionStageScores,
   pauseSession,
+  resumeSession,
   getSessionFeedback,
   recordEmotionReaction,
   getStudentVocabulary,
