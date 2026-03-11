@@ -1,33 +1,39 @@
 import { test, expect } from '@playwright/test';
+import { setStudentSession, mockBooksApi, mockSessionsApi, mockAllApiFallback } from './fixtures.js';
 
 test.describe('Book Selection', () => {
-  test('should display book library', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
+    await mockAllApiFallback(page);
+    await mockBooksApi(page);
+    await mockSessionsApi(page);
+    await setStudentSession(page);
     await page.goto('/books');
-    await expect(page.locator('body')).toBeVisible();
-    // Check for book cards or grid layout
-    const content = await page.textContent('body');
-    expect(content).toBeTruthy();
   });
 
-  test('should show book details on click', async ({ page }) => {
-    await page.goto('/books');
-    // Try to find and click a book card
-    const bookCard = page.locator('[data-testid="book-card"], .book-card, button:has-text("Read"), button:has-text("Start")').first();
-    if (await bookCard.isVisible().catch(() => false)) {
-      await bookCard.click();
-      await page.waitForTimeout(1000);
-      // Should show book details or navigate to session
-      await expect(page.locator('body')).toBeVisible();
-    }
+  test('renders book library with book titles', async ({ page }) => {
+    // Student is Beginner, so click "All" to show all levels
+    await page.getByRole('button', { name: 'All' }).click();
+    await expect(page.getByText('The Very Hungry Caterpillar')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("Charlotte's Web")).toBeVisible();
   });
 
-  test('should filter books by level', async ({ page }) => {
-    await page.goto('/books');
-    // Look for level filter buttons
-    const filterButton = page.locator('button:has-text("Beginner"), button:has-text("All"), select, [data-testid="level-filter"]').first();
-    if (await filterButton.isVisible().catch(() => false)) {
-      await filterButton.click();
-    }
-    await expect(page.locator('body')).toBeVisible();
+  test('level filter buttons are visible', async ({ page }) => {
+    await expect(page.getByRole('button', { name: 'All' })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('button', { name: 'Beginner' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Intermediate' })).toBeVisible();
+  });
+
+  test('search input filters books', async ({ page }) => {
+    const search = page.getByPlaceholder(/search/i);
+    await expect(search).toBeVisible({ timeout: 10_000 });
+    await search.fill('caterpillar');
+    await expect(page.getByText('The Very Hungry Caterpillar')).toBeVisible();
+  });
+
+  test('book cards display author names', async ({ page }) => {
+    // Student is Beginner — check beginner-level book author, then switch to All for Intermediate
+    await expect(page.getByText('Eric Carle').first()).toBeVisible({ timeout: 10_000 });
+    await page.getByRole('button', { name: 'All' }).click();
+    await expect(page.getByText('E.B. White')).toBeVisible();
   });
 });

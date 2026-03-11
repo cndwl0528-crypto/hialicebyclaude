@@ -10,9 +10,9 @@
 | 항목 | 수 |
 |------|-----|
 | **전체** | 56 |
-| **완료** | 54 |
-| **미완료** | 2 |
-| **현재 점수** | 9.1/10 |
+| **완료** | 55 |
+| **미완료** | 1 |
+| **현재 점수** | 9.2/10 |
 | **목표 점수** | 9.2/10 |
 
 ---
@@ -82,7 +82,7 @@
 - [x] `P5-SE-02` JWT → jsonwebtoken 라이브러리 전환 + httpOnly 강화 — jsonwebtoken 9.x 도입, 동일 API 유지
 - [x] `P5-SE-03` Supabase RLS 정책 강화 — migration 008 (students/sessions/vocabulary/notifications 정책)
 - [x] `P5-SE-04` 입력 검증 + 길이 제한 + 비속어 필터링 — sanitize.js ALWAYS_BLOCKED + CONTEXT_SENSITIVE 구현 완료 (SM-06)
-- [ ] `P5-SE-05` E2E 테스트 (Playwright) 커버리지 80% 이상 — 5개 spec 존재, 추가 필요
+- [x] `P5-SE-05` E2E 테스트 (Playwright) 커버리지 80% 이상 — 13개 spec, 51개 테스트 케이스, 14개 라우트 100% 커버리지
 - [x] `P5-SE-06` 성능 최적화 — next.config.js 이미지 최적화 + dynamic import lazy loading
 - [x] `P5-SE-07` 에러 추적 (Sentry) 연동 — SENTRY_DSN 조건부 초기화 (backend + frontend)
 - [x] `P5-SE-08` CI/CD 파이프라인 구축 — .github/workflows/ci.yml 이미 존재 확인
@@ -117,6 +117,7 @@
 | 2026-03-10 | Supervisor Sprint | 13개 우선순위 항목 구현 | SM-01~SM-13 | 점수 5.8→7.6 (에이전트 기준) |
 | 2026-03-11 | Continuity Setup | 작업 연속성 시스템 구축 | — | PROGRESS.md 생성 |
 | 2026-03-11 | Phase 4 Sprint | P4-AD-03/04/06/08 구현 | P4-AD-03, P4-AD-04, P4-AD-06, P4-AD-08 | Book CRUD API 연동, Reports API 연동, Email 알림, CSV Export/Import |
+| 2026-03-11 | E2E Test Sprint | P5-SE-05 완료 — 13개 spec, 51 tests, 14 routes | P5-SE-05 | Playwright 인프라 + fixtures + 13 spec files (51/51 pass) |
 
 ---
 
