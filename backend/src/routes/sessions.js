@@ -172,8 +172,8 @@ async function tagCognitiveData(sessionId, studentDialogues, level) {
       .filter(d => d.content && d.content.trim().length > 0)
       .map(d => {
         const depth = classifyAnswerDepth(d.content, level);
-        // Map answer depth to Bloom's level
-        const bloomLevel = mapDepthToBloom(depth.depth);
+        // Map answer depth to Bloom's level (6-level)
+        const bloomLevel = mapDepthToBloom(depth.depth, depth.score, depth.indicators);
         return supabase.from('dialogue_cognitive_tags').insert({
           dialogue_id: d.id,
           bloom_level: bloomLevel,
@@ -205,16 +205,32 @@ async function tagCognitiveData(sessionId, studentDialogues, level) {
 
 /**
  * Map answer depth classification to Bloom's taxonomy level.
+ * Uses score + indicators for finer-grained 6-level mapping.
+ *
  * @param {'surface'|'developing'|'analytical'|'deep'} depth
+ * @param {number} [score=0] - Depth score (0-100)
+ * @param {string[]} [indicators=[]] - Detected thinking indicators
  * @returns {'remember'|'understand'|'apply'|'analyze'|'evaluate'|'create'}
  */
-function mapDepthToBloom(depth) {
+function mapDepthToBloom(depth, score = 0, indicators = []) {
+  const hasEvaluative = indicators.includes('evaluative_language');
+  const hasCreative = indicators.includes('creative_thinking');
+  const hasEvidence = indicators.includes('text_evidence');
+  const hasPersonal = indicators.includes('personal_connection');
+
   switch (depth) {
-    case 'deep': return 'create';
-    case 'analytical': return 'analyze';
-    case 'developing': return 'understand';
+    case 'deep':
+      // create: hypothetical/creative thinking; evaluate: judgement with evidence
+      return hasCreative ? 'create' : 'evaluate';
+    case 'analytical':
+      // evaluate: evaluative language present; analyze: evidence-based analysis
+      return hasEvaluative ? 'evaluate' : 'analyze';
+    case 'developing':
+      // apply: personal connection (applying to own life); understand: basic comprehension
+      return (hasPersonal || hasEvidence) ? 'apply' : 'understand';
     case 'surface':
-    default: return 'remember';
+    default:
+      return 'remember';
   }
 }
 
@@ -423,9 +439,10 @@ router.post('/:id/message', optionalAuth, async (req, res) => {
     const grammarScore = calculateGrammarScore(content, student.level);
     const depthAnalysis = aliceResponse.depthAnalysis;
 
-    // Map depth to Bloom's taxonomy level for storage
-    const depthToBloom = { surface: 'remember', developing: 'understand', analytical: 'analyze', deep: 'create' };
-    const bloomLevel = depthToBloom[depthAnalysis?.depth] || null;
+    // Map depth to Bloom's taxonomy level for storage (6-level)
+    const bloomLevel = depthAnalysis
+      ? mapDepthToBloom(depthAnalysis.depth, depthAnalysis.score, depthAnalysis.indicators)
+      : null;
 
     // Update the student's dialogue row with depth classification
     if (bloomLevel) {
@@ -927,6 +944,99 @@ router.get('/student/:studentId', optionalAuth, async (req, res) => {
     });
   } catch (err) {
     console.error('Student sessions error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ============================================================================
+// GET /:id/cognitive-tags
+// ============================================================================
+
+/**
+ * Get Bloom's taxonomy cognitive tags for a session.
+ * Returns per-dialogue tags + session-level summary.
+ *
+ * Returns:
+ * {
+ *   sessionId, thinkingMomentum,
+ *   tags: [{ dialogueId, stage, bloomLevel, evidenceText, confidence }],
+ *   distribution: { remember: N, understand: N, apply: N, analyze: N, evaluate: N, create: N },
+ *   higherOrderRatio: 0-1
+ * }
+ */
+router.get('/:id/cognitive-tags', optionalAuth, async (req, res) => {
+  try {
+    const { id: sessionId } = req.params;
+
+    // Verify session exists and get thinking momentum
+    const { data: session, error: sessionError } = await supabase
+      .from('sessions')
+      .select('id, thinking_momentum')
+      .eq('id', sessionId)
+      .single();
+
+    if (sessionError) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    // Fetch cognitive tags with dialogue stage info
+    const { data: tags, error: tagsError } = await supabase
+      .from('dialogue_cognitive_tags')
+      .select('id, dialogue_id, bloom_level, evidence_text, confidence, created_at, dialogues(stage)')
+      .eq('dialogues.session_id', sessionId)
+      .order('created_at', { ascending: true });
+
+    // Fallback: if the join filter returns nothing, query via dialogue IDs
+    let cogTags = tags || [];
+    if (cogTags.length === 0) {
+      const { data: dialogueIds } = await supabase
+        .from('dialogues')
+        .select('id')
+        .eq('session_id', sessionId)
+        .eq('speaker', 'student');
+
+      if (dialogueIds && dialogueIds.length > 0) {
+        const ids = dialogueIds.map(d => d.id);
+        const { data: fallbackTags } = await supabase
+          .from('dialogue_cognitive_tags')
+          .select('id, dialogue_id, bloom_level, evidence_text, confidence, created_at')
+          .in('dialogue_id', ids)
+          .order('created_at', { ascending: true });
+        cogTags = fallbackTags || [];
+      }
+    }
+
+    // If we used the join, extract stage from nested dialogues
+    const formattedTags = cogTags.map(t => ({
+      dialogueId: t.dialogue_id,
+      stage: t.dialogues?.stage || null,
+      bloomLevel: t.bloom_level,
+      evidenceText: t.evidence_text,
+      confidence: t.confidence,
+    }));
+
+    // Calculate distribution
+    const bloomLevels = ['remember', 'understand', 'apply', 'analyze', 'evaluate', 'create'];
+    const distribution = {};
+    bloomLevels.forEach(level => { distribution[level] = 0; });
+    formattedTags.forEach(t => {
+      if (distribution[t.bloomLevel] !== undefined) {
+        distribution[t.bloomLevel]++;
+      }
+    });
+
+    const total = formattedTags.length || 1;
+    const higherOrder = (distribution.analyze + distribution.evaluate + distribution.create) / total;
+
+    return res.status(200).json({
+      sessionId: session.id,
+      thinkingMomentum: session.thinking_momentum,
+      tags: formattedTags,
+      distribution,
+      higherOrderRatio: Math.round(higherOrder * 100) / 100,
+    });
+  } catch (err) {
+    console.error('Cognitive tags error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });

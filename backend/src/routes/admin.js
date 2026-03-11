@@ -1218,7 +1218,61 @@ router.get('/students/:id/analytics', optionalAdminAuth, async (req, res) => {
       });
     }
 
-    // ── 7. Assemble response ───────────────────────────────────────────────
+    // ── 7. Bloom's cognitive distribution ──────────────────────────────────
+    let bloomDistribution = { remember: 0, understand: 0, apply: 0, analyze: 0, evaluate: 0, create: 0 };
+    let higherOrderRatio = 0;
+    let avgThinkingMomentum = null;
+
+    if (sessionIdList.length > 0) {
+      // Get all dialogue IDs for this student's sessions
+      const { data: studentDialogues } = await supabase
+        .from('dialogues')
+        .select('id')
+        .in('session_id', sessionIdList)
+        .eq('speaker', 'student');
+
+      if (studentDialogues && studentDialogues.length > 0) {
+        const dialogueIds = studentDialogues.map(d => d.id);
+        const { data: cogTags } = await supabase
+          .from('dialogue_cognitive_tags')
+          .select('bloom_level')
+          .in('dialogue_id', dialogueIds);
+
+        if (cogTags && cogTags.length > 0) {
+          cogTags.forEach(t => {
+            if (bloomDistribution[t.bloom_level] !== undefined) {
+              bloomDistribution[t.bloom_level]++;
+            }
+          });
+          const total = cogTags.length;
+          higherOrderRatio = Math.round(
+            ((bloomDistribution.analyze + bloomDistribution.evaluate + bloomDistribution.create) / total) * 100
+          ) / 100;
+        }
+      }
+
+      // Average thinking momentum across completed sessions
+      const { data: momentumSessions } = await supabase
+        .from('sessions')
+        .select('thinking_momentum')
+        .in('id', sessionIdList)
+        .not('thinking_momentum', 'is', null);
+
+      if (momentumSessions && momentumSessions.length > 0) {
+        const sum = momentumSessions.reduce((acc, s) => acc + s.thinking_momentum, 0);
+        avgThinkingMomentum = Math.round(sum / momentumSessions.length);
+      }
+    }
+
+    // ── 8. Bloom's weekly trend (from DB view) ──────────────────────────────
+    const { data: bloomWeekly } = await supabase
+      .from('student_bloom_weekly')
+      .select('*')
+      .eq('student_id', studentId)
+      .order('week', { ascending: true })
+      .limit(8);
+
+    // ── 9. Assemble response ───────────────────────────────────────────────
     return res.status(200).json({
       success: true,
       data: {
@@ -1244,6 +1298,17 @@ router.get('/students/:id/analytics', optionalAdminAuth, async (req, res) => {
         achievements,
         weeklyProgress,
         stageBreakdown,
+        cognitiveProfile: {
+          bloomDistribution,
+          higherOrderRatio,
+          avgThinkingMomentum,
+          weeklyTrend: (bloomWeekly || []).map(w => ({
+            week: w.week,
+            higherOrderRatio: w.higher_order_ratio,
+            lowerOrderRatio: w.lower_order_ratio,
+            sessionsCount: w.sessions_count,
+          })),
+        },
       },
     });
   } catch (err) {
