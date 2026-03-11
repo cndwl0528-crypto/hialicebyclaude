@@ -8,8 +8,15 @@ const LEVEL_COLORS = {
   Advanced: { bg: '#E1BEE7', text: '#6A1B9A', border: '#CE93D8' },
 };
 
+function normalizeLevel(level) {
+  if (!level) return 'Beginner';
+  const cap = level.charAt(0).toUpperCase() + level.slice(1).toLowerCase();
+  if (LEVEL_COLORS[cap]) return cap;
+  return level;
+}
+
 export default function BookCard({ book, onClick }) {
-  const level = book.level || 'Beginner';
+  const level = normalizeLevel(book.level);
   const colors = LEVEL_COLORS[level] || LEVEL_COLORS.Beginner;
 
   return (

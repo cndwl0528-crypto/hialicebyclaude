@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import BookCard from '@/components/BookCard';
 import BookRecommendation from '@/components/BookRecommendation';
 import BookCoverIllustration from '@/components/BookCoverIllustration';
+import { getBooks as fetchBooksApi, startSession } from '@/services/api';
 
 const MOCK_BOOKS = [
   {
@@ -111,7 +112,10 @@ const CEFR_TO_DISPLAY = {
 function getDisplayLevel(level) {
   if (!level) return 'Beginner';
   if (CEFR_TO_DISPLAY[level]) return CEFR_TO_DISPLAY[level];
-  return level; // already Beginner/Intermediate/Advanced
+  // Normalize lowercase API levels → capitalized display levels
+  const capitalized = level.charAt(0).toUpperCase() + level.slice(1).toLowerCase();
+  if (['Beginner', 'Intermediate', 'Advanced'].includes(capitalized)) return capitalized;
+  return level;
 }
 
 const LEVELS = ['All', 'Beginner', 'Intermediate', 'Advanced'];
@@ -161,19 +165,10 @@ export default function BooksPage() {
           setStudentId(storedStudentId);
         }
 
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const response = await fetch(
-          `${apiUrl}/api/books${storedLevel ? `?level=${storedLevel}` : ''}`,
-          { signal: AbortSignal.timeout(5000) }
-        );
-
-        if (response.ok) {
-          const data = await response.json();
-          setBooks(data.books || MOCK_BOOKS);
-          setError('');
-        } else {
-          setBooks(MOCK_BOOKS);
-        }
+        // Use api.js client (includes auth token + timeout + error handling)
+        const data = await fetchBooksApi(storedLevel);
+        setBooks(data.books || MOCK_BOOKS);
+        setError('');
       } catch (err) {
         console.warn('Failed to fetch books from API, using mock data:', err);
         setBooks(MOCK_BOOKS);
@@ -199,12 +194,29 @@ export default function BooksPage() {
     return filtered;
   }, [selectedLevel, searchTerm, books]);
 
-  const handleSelectBook = (bookId, bookTitle) => {
+  const handleSelectBook = async (bookId, bookTitle) => {
+    // Cache book info for fallback
     sessionStorage.setItem('bookId', bookId);
     sessionStorage.setItem('bookTitle', bookTitle);
-    sessionStorage.setItem('sessionId', 'session-' + Date.now());
 
-    router.push(`/session?bookId=${bookId}&bookTitle=${encodeURIComponent(bookTitle)}`);
+    // Create a real session via API (so session/page.js doesn't need to create one)
+    let realSessionId = null;
+    try {
+      const storedStudentId = sessionStorage.getItem('studentId');
+      if (storedStudentId) {
+        const result = await startSession(storedStudentId, bookId);
+        realSessionId = result?.session?.id || null;
+      }
+    } catch (err) {
+      console.warn('startSession API failed, session page will retry:', err);
+    }
+
+    const params = new URLSearchParams({
+      bookId,
+      bookTitle,
+      ...(realSessionId ? { sessionId: realSessionId } : {}),
+    });
+    router.push(`/session?${params.toString()}`);
   };
 
   return (

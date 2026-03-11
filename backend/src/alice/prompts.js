@@ -261,9 +261,12 @@ const SHORT_ANSWER_FOLLOWUPS = {
  * @param {string} level   - 'beginner' | 'intermediate' | 'advanced'
  * @param {string} stage   - 'warm_connection' | 'title' | 'introduction' | 'body' | 'conclusion' | 'cross_book'
  * @param {number} [turn=1] - Current turn number within the stage (1-3)
+ * @param {object} [options={}] - Additional options
+ * @param {string} [options.depthScaffolding=''] - Depth-aware scaffolding prompt block
  * @returns {string} Complete system prompt for Claude
  */
-export function getSystemPrompt(bookTitleOrBook, studentNameOrStudent, level, stage, turn = 1) {
+export function getSystemPrompt(bookTitleOrBook, studentNameOrStudent, level, stage, turn = 1, options = {}) {
+  const { depthScaffolding = '' } = options;
   // ---- Normalise arguments: accept both legacy string and new object forms ----
   let book, studentName;
 
@@ -375,23 +378,13 @@ SHORT ANSWER DETECTION:
 - Example follow-up: "${shortAnswerFollowUp}"
 
 PARTIAL ANSWER RECOGNITION (CRITICAL — DIFFERENTIATOR):
-- When ${studentName} gives a partially correct or partially developed answer:
-  1. First: Acknowledge what IS right — "You noticed something really important!"
-  2. Then: Build on it — "And I wonder... what about [the missing piece]?"
-  3. NEVER say: "Not quite", "That's wrong", "Actually", "Let me correct you"
-  4. NEVER ignore what the student said and ask a completely different question
-  5. Always validate the DIRECTION of their thinking, even if incomplete
-  6. For one-word answers, offer two exciting choices: "Was it more X or more Y? Tell me!"
-- Example scenarios:
-  * Student says "The character was scared" (missing WHY):
-    GOOD: "You spotted a really important feeling! What do you think made them feel that way?"
-    BAD: "Can you tell me why?" (too abrupt, feels like correction)
-  * Student says "I liked it" (no elaboration):
-    GOOD: "I love that you enjoyed it! Was there a moment that made you smile, or a part that surprised you?"
-    BAD: "Can you say more?" (feels like being told they failed)
-  * Student gives a factually incorrect detail:
-    GOOD: "That's an interesting way to remember it! I was thinking about the part where [correct detail] — what do you think about that?"
-    BAD: "Actually, that's not what happened." (destroys confidence)
+CORE RULES (always apply):
+  1. NEVER say: "Not quite", "That's wrong", "Actually", "Let me correct you"
+  2. NEVER ignore what ${studentName} said and ask a completely different question
+  3. Always validate the DIRECTION of their thinking, even if incomplete
+  4. For factually incorrect details: "That's an interesting way to remember it! I was thinking about the part where [correct detail] — what do you think about that?"
+
+${depthScaffolding || 'Use the general strategy: acknowledge what is right, then build on it with a follow-up question.'}
 
 CONTENT SAFETY (MANDATORY — NEVER VIOLATE):
 - NEVER discuss violence, horror, adult content, or anything inappropriate for children aged 6-13
@@ -488,6 +481,163 @@ export function isShortAnswer(response, level) {
 export function getShortAnswerFollowUp(level, stage, bookTitle) {
   const pool = SHORT_ANSWER_FOLLOWUPS[level] || SHORT_ANSWER_FOLLOWUPS.intermediate;
   return pool[Math.floor(Math.random() * pool.length)];
+}
+
+// ============================================================================
+// DEPTH-AWARE SCAFFOLDING PROMPT BUILDER
+// ============================================================================
+
+/**
+ * Scaffolding strategies per depth level, differentiated by student level.
+ * Each entry returns instructions Alice should follow for her next response.
+ */
+const DEPTH_SCAFFOLDING = {
+  surface: {
+    beginner: [
+      'The student gave a very brief, surface-level response.',
+      'STRATEGY: Warm acknowledgment + offer 2 concrete choices.',
+      '- Say: "I love that! Was it more [Option A] or [Option B]?"',
+      '- Use sensory/emotional anchors (colors, feelings, sounds)',
+      '- Do NOT ask "why" — it is too abstract at this depth',
+      '- Keep your response under 15 words',
+      '- Make them feel their answer was a great starting point'
+    ],
+    intermediate: [
+      'The student gave a surface-level response without reasons or details.',
+      'STRATEGY: Praise the direction + offer a scaffolded choice.',
+      '- Say: "That\'s a great start! Was it because of [Reason A] or [Reason B]?"',
+      '- Model causal language: give them a "because" structure to fill in',
+      '- One question only, with two answer options embedded',
+      '- Make them feel they are almost there, not that they failed'
+    ],
+    advanced: [
+      'The student gave a surface-level response without analysis.',
+      'STRATEGY: Validate + prompt for one specific supporting detail.',
+      '- Say: "Interesting point! Can you point to one specific moment in the story that made you think that?"',
+      '- Guide toward text evidence or personal connection',
+      '- Frame as curiosity ("I\'m curious...") not correction',
+      '- Accept any elaboration as progress'
+    ]
+  },
+  developing: {
+    beginner: [
+      'The student is starting to develop their thought — shows some reasoning.',
+      'STRATEGY: Celebrate effort + gently extend with a feeling question.',
+      '- Say: "Wow, you thought about that! How did that part make you feel — happy, surprised, or something else?"',
+      '- Build on exactly what they said (repeat their key word)',
+      '- Ask about feelings, not facts',
+      '- One short follow-up only'
+    ],
+    intermediate: [
+      'The student shows developing thought with partial reasoning.',
+      'STRATEGY: Praise the reasoning + nudge for one more detail.',
+      '- Say: "You\'re onto something important! What made you think that?"',
+      '- If they used "because", celebrate it and ask for a second reason',
+      '- If they gave one example, ask for another from a different part of the book',
+      '- Model deeper thinking: "I wonder if it was also because..."'
+    ],
+    advanced: [
+      'The student shows developing reasoning but lacks depth or evidence.',
+      'STRATEGY: Validate the reasoning + challenge with a counterfactual.',
+      '- Say: "That\'s a strong observation! What would change if [opposite happened]?"',
+      '- Ask them to consider another character\'s perspective',
+      '- Invite text evidence: "Which part of the story supports that?"',
+      '- Push toward analytical depth without making them feel corrected'
+    ]
+  },
+  analytical: {
+    beginner: [
+      'The student showed impressive analytical thinking for their level!',
+      'STRATEGY: Genuine celebration + creative extension.',
+      '- Say: "Wow, that was such smart thinking! If you could tell the character one thing, what would it be?"',
+      '- Connect their analysis to imagination or play',
+      '- Do NOT add difficulty — they exceeded expectations',
+      '- Let them feel proud of their deep thought'
+    ],
+    intermediate: [
+      'The student is thinking analytically with reasons and connections.',
+      'STRATEGY: Specific praise + invite perspective shift.',
+      '- Say: "I love how you connected [X] to [Y]! What would [character] say about that?"',
+      '- Ask them to think from another character\'s viewpoint',
+      '- Or invite a real-life connection: "Has something like that happened to you?"',
+      '- Show genuine interest in their reasoning'
+    ],
+    advanced: [
+      'The student demonstrates analytical thinking with evidence.',
+      'STRATEGY: Intellectual engagement + deeper challenge.',
+      '- Say: "That\'s a compelling argument! How might someone who disagrees respond?"',
+      '- Ask for counter-arguments or alternative interpretations',
+      '- Connect to broader themes: "How does this relate to [theme] in other stories?"',
+      '- Treat them as a thinking partner, not a student being tested'
+    ]
+  },
+  deep: {
+    beginner: [
+      'The student demonstrated remarkably deep thinking!',
+      'STRATEGY: Genuine awe + empower them as a thinker.',
+      '- Say: "That is one of the most thoughtful things I have heard! You think like a real reader!"',
+      '- Do NOT over-scaffold — let their thinking breathe',
+      '- Ask one playful extension: "If you could write the next chapter, what would happen?"',
+      '- Make this a celebration moment'
+    ],
+    intermediate: [
+      'The student demonstrated deep, multi-layered thinking.',
+      'STRATEGY: Celebrate + invite them to teach.',
+      '- Say: "Wow, that\'s a powerful observation! How would you explain that to a friend who hasn\'t read the book?"',
+      '- Invite meta-thinking: "What made you think so deeply about that?"',
+      '- Connect to their reading identity: "You really know how to find meaning in stories!"',
+      '- Keep it brief — deep thinkers need space, not more prompts'
+    ],
+    advanced: [
+      'The student demonstrated deep, sophisticated thinking with evidence and connections.',
+      'STRATEGY: Peer-level engagement + cross-book extension.',
+      '- Say: "That\'s a genuinely insightful analysis! Does this connect to anything you\'ve read or experienced before?"',
+      '- Invite cross-book or cross-domain connections',
+      '- Ask about the author\'s craft: "Why do you think the author chose to present it this way?"',
+      '- Minimal scaffolding — their thinking is already rich'
+    ]
+  }
+};
+
+/**
+ * Generate a depth-aware scaffolding prompt block to inject into the system prompt.
+ *
+ * @param {string} depth      - 'surface' | 'developing' | 'analytical' | 'deep'
+ * @param {string} level      - 'beginner' | 'intermediate' | 'advanced'
+ * @param {string[]} indicators - Thinking indicators detected (e.g. ['causal_reasoning', 'personal_connection'])
+ * @returns {string} Scaffolding instructions for the system prompt
+ */
+export function getDepthScaffoldingPrompt(depth, level, indicators = []) {
+  const safeDepth = DEPTH_SCAFFOLDING[depth] ? depth : 'surface';
+  const safeLevel = DEPTH_SCAFFOLDING[safeDepth][level] ? level : 'intermediate';
+
+  const strategies = DEPTH_SCAFFOLDING[safeDepth][safeLevel];
+
+  // Build a strengths acknowledgment from detected indicators
+  const indicatorLabels = {
+    causal_reasoning: 'used causal reasoning (because/since)',
+    contrastive_thinking: 'showed contrastive thinking (but/however)',
+    personal_connection: 'made a personal connection',
+    text_evidence: 'referenced the text',
+    evaluative_language: 'used evaluative language',
+    creative_thinking: 'showed creative/hypothetical thinking',
+    emotional_expression: 'expressed emotions',
+    extended_response: 'gave a detailed response',
+    moderate_response: 'gave a moderate-length response',
+    brief_response: 'gave a brief response'
+  };
+
+  const strengths = indicators
+    .filter(i => indicatorLabels[i] && !['brief_response'].includes(i))
+    .map(i => indicatorLabels[i]);
+
+  let strengthsLine = '';
+  if (strengths.length > 0) {
+    strengthsLine = `\nSTUDENT STRENGTHS DETECTED: ${strengths.join(', ')}. Acknowledge these specifically in your response.`;
+  }
+
+  return `ANSWER DEPTH: ${depth.toUpperCase()} (Respond using the scaffolding strategy below)
+${strategies.join('\n')}${strengthsLine}`;
 }
 
 // ============================================================================
@@ -591,6 +741,7 @@ export default {
   getSystemPrompt,
   getSessionFeedbackPrompt,
   getStageInstructions,
+  getDepthScaffoldingPrompt,
   isShortAnswer,
   getShortAnswerFollowUp,
   getMetacognitivePrompt,

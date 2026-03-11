@@ -21,11 +21,13 @@ import { config } from '../lib/config.js';
 import {
   getSystemPrompt,
   getSessionFeedbackPrompt,
+  getDepthScaffoldingPrompt,
   isShortAnswer,
   getShortAnswerFollowUp,
   getMetacognitivePrompt,
   getRephrasePrompt
 } from './prompts.js';
+import { classifyAnswerDepth } from './levelDetector.js';
 import { getCrossBookContext } from './crossBookMemory.js';
 
 // ============================================================================
@@ -105,14 +107,23 @@ export async function getAliceResponse({
       && studentMessage !== undefined
       && studentMessage.trim() !== '';
 
-    let systemPrompt = getSystemPrompt(bookContext, studentName, level, stage, turn);
+    // Classify answer depth for scaffolding (only when student message exists)
+    let depthAnalysis = null;
+    let depthScaffolding = '';
+    if (hasStudentMessage) {
+      depthAnalysis = classifyAnswerDepth(studentMessage, level);
+      depthScaffolding = getDepthScaffoldingPrompt(depthAnalysis.depth, level, depthAnalysis.indicators);
+    }
+
+    let systemPrompt = getSystemPrompt(bookContext, studentName, level, stage, turn, { depthScaffolding });
 
     // Inject cross-book memory context if available
     if (crossBookContext) {
       systemPrompt += crossBookContext;
     }
 
-    if (hasStudentMessage && isShortAnswer(studentMessage, level)) {
+    // Additional short-answer hint for surface-level responses
+    if (hasStudentMessage && depthAnalysis?.depth === 'surface' && isShortAnswer(studentMessage, level)) {
       const followUp = getShortAnswerFollowUp(level, stage, bookContext.title);
       systemPrompt +=
         `\n\nSHORT ANSWER DETECTED: ${studentName}'s response was very brief.` +
@@ -160,6 +171,7 @@ export async function getAliceResponse({
     return {
       content,
       grammarFeedback,
+      depthAnalysis,
       usage: {
         inputTokens: response.usage?.input_tokens   || 0,
         outputTokens: response.usage?.output_tokens || 0

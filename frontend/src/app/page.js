@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { parentLogin } from '@/services/api';
+import { parentLogin, childSelect } from '@/services/api';
 
 const MOCK_CHILDREN = [
   {
@@ -59,7 +59,8 @@ export default function Home() {
       }
 
       // Persist the real token and parent data from the API
-      sessionStorage.setItem('authToken', result.token);
+      // Key MUST be 'token' — api.js apiFetch() reads sessionStorage.getItem('token')
+      sessionStorage.setItem('token', result.token);
       sessionStorage.setItem('parentId', result.parent?.id || '');
       sessionStorage.setItem('parentEmail', result.parent?.email || parentEmail);
 
@@ -79,18 +80,28 @@ export default function Home() {
     }
   };
 
-  const handleSelectChild = (child) => {
+  const handleSelectChild = async (child) => {
     setSelectedChild(child);
+
+    // Cache in sessionStorage for quick access across pages
     sessionStorage.setItem('studentId', child.id);
     sessionStorage.setItem('studentName', child.name);
     sessionStorage.setItem('studentLevel', child.level);
     sessionStorage.setItem('studentAge', child.age);
+
+    // Persist selection to backend (non-blocking — don't let API failure block navigation)
+    try {
+      await childSelect(child.id);
+    } catch (err) {
+      console.warn('childSelect API call failed (non-critical):', err);
+    }
+
     router.push('/books');
   };
 
   const handleDemoMode = () => {
     sessionStorage.setItem('parentId', 'demo-parent');
-    sessionStorage.setItem('authToken', 'demo-token');
+    sessionStorage.setItem('token', 'demo-token');
     sessionStorage.setItem('parentEmail', 'demo@hialice.com');
 
     const demoChild = MOCK_CHILDREN[0];

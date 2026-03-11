@@ -195,9 +195,14 @@ export default function SessionPage() {
     const params = new URLSearchParams(window.location.search);
     const id = params.get('bookId');
     const title = params.get('bookTitle') || 'the book';
-    console.log('[HiAlice] mount: bookId =', id, 'bookTitle =', title);
+    const urlSessionId = params.get('sessionId');
+    console.log('[HiAlice] mount: bookId =', id, 'bookTitle =', title, 'sessionId =', urlSessionId);
     setBookId(id);
     setBookTitle(title);
+    // If books page already created a real session, reuse it
+    if (urlSessionId) {
+      setSessionId(urlSessionId);
+    }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Kick off the session once bookId is known (set by the mount effect above).
@@ -208,7 +213,7 @@ export default function SessionPage() {
   }, [bookId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const initializeSession = async () => {
-    console.log('[HiAlice] initializeSession called, bookId:', bookId, 'bookTitle:', bookTitle);
+    console.log('[HiAlice] initializeSession called, bookId:', bookId, 'bookTitle:', bookTitle, 'sessionId:', sessionId);
 
     // Read student info directly from sessionStorage so we don't rely on
     // React state that may still be null if both mount effects haven't flushed.
@@ -223,34 +228,44 @@ export default function SessionPage() {
 
     try {
       setSessionStartTime(new Date());
-      const apiUrl = getApiUrl();
 
-      try {
-        const response = await fetch(`${apiUrl}/api/sessions/start`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            studentId: resolvedStudentId,
-            bookId: resolvedBookId,
-            bookTitle: resolvedBookTitle,
-          }),
-        });
+      // If sessionId was already passed via URL (created by books page), skip creation
+      if (sessionId) {
+        console.log('[HiAlice] Reusing session from URL:', sessionId);
+        setApiAvailable(true);
+      } else {
+        // No sessionId from URL — create one via API
+        const apiUrl = getApiUrl();
+        try {
+          const response = await fetch(`${apiUrl}/api/sessions/start`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(typeof window !== 'undefined' && sessionStorage.getItem('token')
+                ? { Authorization: `Bearer ${sessionStorage.getItem('token')}` }
+                : {}),
+            },
+            body: JSON.stringify({
+              studentId: resolvedStudentId,
+              bookId: resolvedBookId,
+              bookTitle: resolvedBookTitle,
+            }),
+          });
 
-        if (response.ok) {
-          const data = await response.json();
-          setSessionId(data.session?.id || data.sessionId || data.id);
-          setApiAvailable(true);
-        } else {
-          // Non-2xx response — fall back to demo mode with a local mock sessionId.
-          console.warn('API returned non-OK status, using mock session:', response.status);
+          if (response.ok) {
+            const data = await response.json();
+            setSessionId(data.session?.id || data.sessionId || data.id);
+            setApiAvailable(true);
+          } else {
+            console.warn('API returned non-OK status, using mock session:', response.status);
+            setApiAvailable(false);
+            setSessionId('demo-session-' + Date.now());
+          }
+        } catch (fetchError) {
+          console.warn('API unavailable, using mock responses:', fetchError);
           setApiAvailable(false);
           setSessionId('demo-session-' + Date.now());
         }
-      } catch (fetchError) {
-        // Network / CORS error — API is unreachable, use demo mode.
-        console.warn('API unavailable, using mock responses:', fetchError);
-        setApiAvailable(false);
-        setSessionId('demo-session-' + Date.now());
       }
 
       const initialMessage = {

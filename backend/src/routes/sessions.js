@@ -397,6 +397,7 @@ router.post('/:id/message', optionalAuth, async (req, res) => {
         turn: currentTurn,
         speaker: 'student',
         content,
+        word_count: content.trim().split(/\s+/).filter(Boolean).length,
       });
 
     if (studentDialogueError) {
@@ -420,6 +421,22 @@ router.post('/:id/message', optionalAuth, async (req, res) => {
 
     // Score the student's response
     const grammarScore = calculateGrammarScore(content, student.level);
+    const depthAnalysis = aliceResponse.depthAnalysis;
+
+    // Map depth to Bloom's taxonomy level for storage
+    const depthToBloom = { surface: 'remember', developing: 'understand', analytical: 'analyze', deep: 'create' };
+    const bloomLevel = depthToBloom[depthAnalysis?.depth] || null;
+
+    // Update the student's dialogue row with depth classification
+    if (bloomLevel) {
+      await supabase
+        .from('dialogues')
+        .update({ bloom_level: bloomLevel })
+        .eq('session_id', sessionId)
+        .eq('stage', stage)
+        .eq('turn', currentTurn)
+        .eq('speaker', 'student');
+    }
 
     // Store Alice's reply
     const { error: aliceDialogueError } = await supabase
@@ -489,6 +506,7 @@ router.post('/:id/message', optionalAuth, async (req, res) => {
       shouldAdvance,
       nextStage,
       grammarScore,
+      depthAnalysis: depthAnalysis || null,
     });
   } catch (err) {
     console.error('Message error:', err);
