@@ -1,11 +1,13 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getItem, setItem } from '@/lib/clientStorage';
 
 export default function Home() {
   const router = useRouter();
+  const [pausedSession, setPausedSession] = useState(null);
+  const [isStudent, setIsStudent] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -13,11 +15,44 @@ export default function Home() {
       const forceLanding = params.get('landing') === '1';
       const token = getItem('token');
       const role = getItem('userRole');
+
+      if (role === 'student' || role === 'demo') {
+        setIsStudent(true);
+      }
+
+      // Read locally-persisted paused session (set by session/page.js on Save & Exit)
+      try {
+        const raw = window.localStorage.getItem('pausedSession');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          // Only surface it for the current student
+          const currentStudentId = getItem('studentId');
+          if (!currentStudentId || parsed.studentId === currentStudentId) {
+            setPausedSession(parsed);
+          }
+        }
+      } catch (_) {
+        // Ignore JSON parse errors
+      }
+
       if (token && !forceLanding) {
         router.push(role === 'student' ? '/books' : '/dashboard');
       }
     }
   }, [router]);
+
+  const handleContinueSession = () => {
+    if (!pausedSession) return;
+    // Clear the local paused flag before navigating so it does not show again
+    // on the next home page visit if the session is completed.
+    // The books page and session page manage their own paused state via the API.
+    const params = new URLSearchParams({
+      bookId: pausedSession.bookId || '',
+      bookTitle: pausedSession.bookTitle || '',
+      ...(pausedSession.sessionId ? { sessionId: pausedSession.sessionId } : {}),
+    });
+    router.push(`/session?${params.toString()}`);
+  };
 
   const handleDemoMode = () => {
     setItem('parentId', 'demo-parent');
@@ -40,6 +75,63 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-[#F5F0E8] flex flex-col items-center justify-center py-10 px-4">
       <div className="w-full max-w-2xl flex flex-col items-center gap-7">
+
+        {/* Continue Your Review — shown when a paused session is detected */}
+        {pausedSession && isStudent && (
+          <div
+            className="w-full rounded-3xl p-5 flex items-center gap-4"
+            style={{
+              background: 'linear-gradient(135deg, #FFF8E0 0%, #FDEEB0 100%)',
+              border: '2px solid #D4A843',
+              boxShadow: '0 6px 24px rgba(212,168,67,0.20)',
+            }}
+            role="region"
+            aria-label="Continue your paused review"
+          >
+            {/* Book icon */}
+            <div
+              className="text-4xl w-14 h-14 flex items-center justify-center rounded-2xl flex-shrink-0"
+              style={{ backgroundColor: 'rgba(212,168,67,0.15)' }}
+              aria-hidden="true"
+            >
+              📖
+            </div>
+
+            {/* Info */}
+            <div className="flex-1 min-w-0">
+              <p
+                className="text-xs font-extrabold uppercase tracking-widest mb-0.5"
+                style={{ color: '#A8822E' }}
+              >
+                Continue Your Review
+              </p>
+              <p
+                className="font-extrabold text-base truncate"
+                style={{ color: '#3D2E1E' }}
+              >
+                {pausedSession.bookTitle || 'Your book'}
+              </p>
+              <p
+                className="text-xs font-semibold mt-0.5"
+                style={{ color: '#6B5744' }}
+              >
+                Paused at: {pausedSession.stage || 'In Progress'}
+              </p>
+            </div>
+
+            {/* Continue button */}
+            <button
+              onClick={handleContinueSession}
+              className="flex-shrink-0 min-h-[44px] px-4 py-2.5 rounded-2xl font-extrabold text-sm text-white transition-all hover:-translate-y-0.5 active:translate-y-0 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#D4A843]"
+              style={{
+                background: 'linear-gradient(135deg, #D4A843, #B8882A)',
+                boxShadow: '0 4px 14px rgba(212,168,67,0.40)',
+              }}
+            >
+              Continue
+            </button>
+          </div>
+        )}
 
         {/* Hero Section */}
         <div

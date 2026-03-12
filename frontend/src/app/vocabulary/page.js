@@ -12,11 +12,23 @@ import LoadingCard from '@/components/LoadingCard';
 import { getItem, setItem } from '@/lib/clientStorage';
 
 const MOCK_VOCABULARY = [
-  { id: 1, word: 'caterpillar', pos: 'noun', definition: 'A small creature with many legs that becomes a butterfly', contextSentence: 'The caterpillar ate leaves all day.', synonyms: ['larva', 'grub'], antonyms: [], masteryLevel: 2, useCount: 5 },
-  { id: 2, word: 'metamorphosis', pos: 'noun', definition: 'A complete change or transformation', contextSentence: 'The caterpillar went through metamorphosis.', synonyms: ['transformation', 'change'], antonyms: [], masteryLevel: 1, useCount: 2 },
-  { id: 3, word: 'journey', pos: 'noun', definition: 'A trip or adventure from one place to another', contextSentence: 'It was a long and interesting journey.', synonyms: ['trip', 'voyage'], antonyms: [], masteryLevel: 3, useCount: 3 },
-  { id: 4, word: 'devour', pos: 'verb', definition: 'To eat quickly and with great appetite', contextSentence: 'He devoured all the food in the forest.', synonyms: ['eat', 'consume'], antonyms: [], masteryLevel: 1, useCount: 1 },
-  { id: 5, word: 'beautiful', pos: 'adjective', definition: 'Pleasing to look at; attractive', contextSentence: 'The butterfly was beautiful and colorful.', synonyms: ['lovely', 'pretty'], antonyms: ['ugly', 'plain'], masteryLevel: 4, useCount: 4 },
+  // The Very Hungry Caterpillar
+  { id: 1, word: 'caterpillar', pos: 'noun', definition: 'A small creature with many legs that becomes a butterfly', contextSentence: 'The caterpillar ate leaves all day.', synonyms: ['larva', 'grub'], antonyms: [], masteryLevel: 2, useCount: 5, bookTitle: 'The Very Hungry Caterpillar' },
+  { id: 2, word: 'metamorphosis', pos: 'noun', definition: 'A complete change or transformation', contextSentence: 'The caterpillar went through metamorphosis.', synonyms: ['transformation', 'change'], antonyms: [], masteryLevel: 1, useCount: 2, bookTitle: 'The Very Hungry Caterpillar' },
+  { id: 3, word: 'devour', pos: 'verb', definition: 'To eat quickly and with great appetite', contextSentence: 'He devoured all the food in the forest.', synonyms: ['eat', 'consume'], antonyms: [], masteryLevel: 1, useCount: 1, bookTitle: 'The Very Hungry Caterpillar' },
+  { id: 4, word: 'nibble', pos: 'verb', definition: 'To take small bites repeatedly', contextSentence: 'He nibbled through one leaf.', synonyms: ['munch', 'bite'], antonyms: [], masteryLevel: 3, useCount: 3, bookTitle: 'The Very Hungry Caterpillar' },
+  { id: 5, word: 'beautiful', pos: 'adjective', definition: 'Pleasing to look at; attractive', contextSentence: 'The butterfly was beautiful and colorful.', synonyms: ['lovely', 'pretty'], antonyms: ['ugly', 'plain'], masteryLevel: 4, useCount: 4, bookTitle: 'The Very Hungry Caterpillar' },
+  // Charlotte's Web
+  { id: 6, word: 'radiant', pos: 'adjective', definition: 'Sending out light; bright and shining', contextSentence: 'Charlotte wrote the word radiant in her web.', synonyms: ['glowing', 'brilliant'], antonyms: ['dull', 'dim'], masteryLevel: 1, useCount: 2, bookTitle: "Charlotte's Web" },
+  { id: 7, word: 'humble', pos: 'adjective', definition: 'Not proud or not believing you are important', contextSentence: 'Wilbur was a humble and gentle pig.', synonyms: ['modest', 'meek'], antonyms: ['arrogant', 'proud'], masteryLevel: 2, useCount: 3, bookTitle: "Charlotte's Web" },
+  { id: 8, word: 'terrific', pos: 'adjective', definition: 'Extremely good; wonderful', contextSentence: 'Charlotte spun the word terrific to save Wilbur.', synonyms: ['wonderful', 'fantastic'], antonyms: ['terrible', 'awful'], masteryLevel: 1, useCount: 1, bookTitle: "Charlotte's Web" },
+  { id: 9, word: 'salutation', pos: 'noun', definition: 'A greeting used to begin a letter or conversation', contextSentence: 'Charlotte began her letter with a warm salutation.', synonyms: ['greeting', 'hello'], antonyms: ['farewell', 'goodbye'], masteryLevel: 1, useCount: 1, bookTitle: "Charlotte's Web" },
+  { id: 10, word: 'friendship', pos: 'noun', definition: 'A close relationship between friends', contextSentence: 'Wilbur and Charlotte had a special friendship.', synonyms: ['bond', 'companionship'], antonyms: ['enmity', 'rivalry'], masteryLevel: 3, useCount: 4, bookTitle: "Charlotte's Web" },
+  // Magic Tree House
+  { id: 11, word: 'journey', pos: 'noun', definition: 'A trip or adventure from one place to another', contextSentence: 'It was a long and interesting journey through time.', synonyms: ['trip', 'voyage'], antonyms: [], masteryLevel: 3, useCount: 3, bookTitle: 'Magic Tree House: Dinosaurs Before Dark' },
+  { id: 12, word: 'ancient', pos: 'adjective', definition: 'Very old; belonging to a time long ago', contextSentence: 'They discovered an ancient forest full of dinosaurs.', synonyms: ['prehistoric', 'old'], antonyms: ['modern', 'new'], masteryLevel: 2, useCount: 2, bookTitle: 'Magic Tree House: Dinosaurs Before Dark' },
+  { id: 13, word: 'mysterious', pos: 'adjective', definition: 'Difficult to understand or explain', contextSentence: 'The mysterious tree house appeared suddenly.', synonyms: ['strange', 'puzzling'], antonyms: ['obvious', 'clear'], masteryLevel: 1, useCount: 1, bookTitle: 'Magic Tree House: Dinosaurs Before Dark' },
+  { id: 14, word: 'courage', pos: 'noun', definition: 'The ability to do something that frightens one', contextSentence: 'Jack showed great courage facing the dinosaur.', synonyms: ['bravery', 'boldness'], antonyms: ['cowardice', 'fear'], masteryLevel: 2, useCount: 2, bookTitle: 'Magic Tree House: Dinosaurs Before Dark' },
 ];
 
 const PRACTICE_MODES = {
@@ -85,6 +97,7 @@ export default function VocabularyPage() {
   const [selectedSynonym, setSelectedSynonym] = useState(null);
   const [speechNotSupported, setSpeechNotSupported] = useState(false);
   const [vocabStats, setVocabStats] = useState(null);
+  const [selectedBook, setSelectedBook] = useState('all');
 
   // Track card flip time for response time measurement
   const cardFlipTimeRef = useRef(null);
@@ -104,6 +117,8 @@ export default function VocabularyPage() {
       antonyms: v.antonyms || [],
       masteryLevel: v.mastery_level ?? v.masteryLevel ?? 1,
       useCount: v.use_count ?? v.useCount ?? 1,
+      bookTitle: v.book_title || v.bookTitle || '',
+      sessionId: v.session_id || v.sessionId || null,
     };
   }
 
@@ -210,11 +225,24 @@ export default function VocabularyPage() {
       } catch (e) {
         // ignore
       }
-      const filtered = getWordsBySpacedRepetition(vocabulary, dueIds);
-      setFilteredVocabulary(filtered.length > 0 ? filtered : vocabulary);
-      setScore({ correct: 0, total: filtered.length > 0 ? filtered.length : vocabulary.length });
+
+      // Apply book filter before spaced repetition ordering
+      const bookFiltered =
+        selectedBook === 'all'
+          ? vocabulary
+          : vocabulary.filter((w) => w.bookTitle === selectedBook);
+
+      const sourceWords = bookFiltered.length > 0 ? bookFiltered : vocabulary;
+      const filtered = getWordsBySpacedRepetition(sourceWords, dueIds);
+      const practiceWords = filtered.length > 0 ? filtered : sourceWords;
+
+      setFilteredVocabulary(practiceWords);
+      setCurrentWordIndex(0);
+      setIsFlipped(false);
+      setScore({ correct: 0, total: practiceWords.length });
+      setSessionComplete(false);
     }
-  }, [vocabulary]);
+  }, [vocabulary, selectedBook]);
 
   useEffect(() => {
     if (mode === PRACTICE_MODES.SYNONYM_MATCH && filteredVocabulary.length > 0) {
@@ -352,7 +380,7 @@ export default function VocabularyPage() {
         <div className="ghibli-card p-8 text-center max-w-md">
           <div className="text-4xl mb-4">🌱</div>
           <p className="text-[#6B5744] font-bold text-lg mb-2">No words to practice right now!</p>
-          <p className="text-[#6B5744] text-sm font-semibold mb-6">Complete a reading session to start practicing vocabulary.</p>
+          <p className="text-[#6B5744] text-sm font-semibold mb-6">Complete a review session to start practicing vocabulary.</p>
           <button
             onClick={() => router.push('/books')}
             className="px-6 py-3 bg-[#5C8B5C] text-white rounded-2xl hover:bg-[#3D6B3D] transition-all font-bold hover:-translate-y-0.5"
@@ -451,6 +479,51 @@ export default function VocabularyPage() {
           </div>
         )}
       </div>
+
+      {/* Book Filter Bar */}
+      {(() => {
+        const bookTitles = [...new Set(vocabulary.map((w) => w.bookTitle).filter(Boolean))];
+        if (bookTitles.length === 0) return null;
+        return (
+          <div className="mb-6">
+            <p className="text-xs font-extrabold text-[#6B5744] uppercase tracking-wide mb-2">Filter by Book</p>
+            <div
+              className="flex gap-2 overflow-x-auto pb-2"
+              style={{ scrollbarWidth: 'thin', scrollbarColor: '#D6C9A8 transparent' }}
+            >
+              {/* "All Words" chip */}
+              <button
+                onClick={() => setSelectedBook('all')}
+                className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-bold transition-all hover:-translate-y-0.5 whitespace-nowrap ${
+                  selectedBook === 'all'
+                    ? 'bg-[#5C8B5C] text-white shadow-[0_2px_8px_rgba(92,139,92,0.3)]'
+                    : 'bg-[#EDE5D4] text-[#6B5744] hover:bg-[#D6C9A8]'
+                }`}
+              >
+                All Words ({vocabulary.length})
+              </button>
+
+              {/* One chip per book */}
+              {bookTitles.map((title) => {
+                const count = vocabulary.filter((w) => w.bookTitle === title).length;
+                return (
+                  <button
+                    key={title}
+                    onClick={() => setSelectedBook(title)}
+                    className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-bold transition-all hover:-translate-y-0.5 whitespace-nowrap ${
+                      selectedBook === title
+                        ? 'bg-[#5C8B5C] text-white shadow-[0_2px_8px_rgba(92,139,92,0.3)]'
+                        : 'bg-[#EDE5D4] text-[#6B5744] hover:bg-[#D6C9A8]'
+                    }`}
+                  >
+                    {title} ({count})
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Vocabulary Stats from API */}
       {vocabStats && (

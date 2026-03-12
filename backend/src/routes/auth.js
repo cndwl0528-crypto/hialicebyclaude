@@ -372,8 +372,14 @@ router.post('/logout', authMiddleware, async (req, res) => {
       logger.warn({ error: error.message }, 'Supabase signOut error (non-fatal)');
     }
 
-    // Clear the auth cookie
-    res.clearCookie(COOKIE_NAME, { path: '/' });
+    // Clear the auth cookie — must use the same options that were used to set
+    // it (minus maxAge/expires) so the browser actually removes it.
+    res.clearCookie(COOKIE_NAME, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+    });
 
     return res.status(200).json({
       success: true,

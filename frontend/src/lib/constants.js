@@ -34,26 +34,34 @@ export const LEVELS = {
 };
 
 export const STAGES = {
+  warm_connection: {
+    id: 'warm_connection',
+    label: "Let's Say Hi!",
+    order: 1,
+    icon: '🌟',
+    description: 'Warm up and connect',
+    instruction: 'What kind of stories do you enjoy?',
+  },
   title: {
     id: 'title',
-    label: 'Title',
-    order: 1,
+    label: 'About This Book',
+    order: 2,
     icon: '📖',
     description: 'Explore the title',
     instruction: 'What do you think the title means? Why did the author choose this title?',
   },
   introduction: {
     id: 'introduction',
-    label: 'Introduction',
-    order: 2,
-    icon: '👋',
+    label: 'Meet the Characters',
+    order: 3,
+    icon: '👤',
     description: 'Meet the characters',
     instruction: 'Who is the main character? How would you describe them?',
   },
   body: {
     id: 'body',
-    label: 'Body',
-    order: 3,
+    label: 'Think Deeper',
+    order: 4,
     icon: '💭',
     description: 'Share your thoughts',
     instruction: 'Can you give me three reasons why you think that? Let\'s start with your first reason.',
@@ -61,11 +69,19 @@ export const STAGES = {
   },
   conclusion: {
     id: 'conclusion',
-    label: 'Conclusion',
-    order: 4,
+    label: 'My Thoughts',
+    order: 5,
     icon: '⭐',
     description: 'Wrap up',
     instruction: 'What did this book teach you? Would you recommend it to a friend?',
+  },
+  cross_book: {
+    id: 'cross_book',
+    label: 'Connect the Stories',
+    order: 6,
+    icon: '🔗',
+    description: 'Connect to other books',
+    instruction: 'Does this book remind you of another book you have read?',
   },
 };
 

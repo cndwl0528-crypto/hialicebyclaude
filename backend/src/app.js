@@ -15,6 +15,11 @@ import vocabularyRouter from './routes/vocabulary.js';
 import adminRouter from './routes/admin.js';
 import ttsRouter from './routes/tts.js';
 import coppaRouter from './routes/coppa.js';
+import notificationsRouter from './routes/notifications.js';
+import safetyRouter from './routes/safety.js';
+import syncRouter from './routes/sync.js';
+import experimentsRouter from './routes/experiments.js';
+import { contentFilterMiddleware } from './middleware/contentFilter.js';
 
 // Validate required environment variables at startup.
 // Exits the process in production if critical vars are missing.
@@ -33,7 +38,7 @@ app.use(pinoHttp({
 // Restrict CORS to explicitly allowed origins only (no wildcard)
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
-  : ['http://localhost:3001', 'http://localhost:5173'];
+  : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173', 'http://localhost:5174'];
 
 app.use(cors({
   origin: allowedOrigins,
@@ -47,6 +52,7 @@ app.use(inputLengthLimiter);   // Reject/truncate oversized request bodies
 app.use(sanitizeBody);         // Strip HTML/XSS from all body strings
 app.use(sanitizeQuery);        // Strip HTML/XSS from query params
 app.use(profanityFilter);      // Flag and sanitise inappropriate content in student messages
+app.use(contentFilterMiddleware); // Attach AI response / student input safety filters to req
 
 // Security headers
 app.use((req, res, next) => {
@@ -118,6 +124,10 @@ app.use('/api/vocabulary', vocabularyRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/tts', ttsRouter);
 app.use('/api/coppa', coppaRouter);
+app.use('/api/notifications', notificationsRouter);
+app.use('/api/safety', safetyRouter);
+app.use('/api/sync', syncRouter);
+app.use('/api/experiments', experimentsRouter);
 
 // Sentry error handler (no-op when SENTRY_DSN is not set)
 app.use(sentryErrorHandler);

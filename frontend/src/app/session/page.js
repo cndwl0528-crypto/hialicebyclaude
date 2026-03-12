@@ -9,53 +9,140 @@ import { pauseSession as apiPauseSession } from '@/services/api';
 import { getItem } from '@/lib/clientStorage';
 import ConfettiCelebration from '@/components/ConfettiCelebration';
 import AchievementUnlock from '@/components/AchievementUnlock';
+import VocabMiniCard from '@/components/VocabMiniCard';
+import StageProgress from '@/components/StageProgress';
 
-const STAGES = ['Warm Connection', 'Title', 'Introduction', 'Body', 'Conclusion', 'Cross Book'];
+// Internal API stage keys — these are sent to the backend and never changed
+const STAGE_KEYS = ['warm_connection', 'title', 'introduction', 'body', 'conclusion', 'cross_book'];
+// Child-friendly display labels shown in the UI
+const STAGES = ["Let's Say Hi!", 'About This Book', 'Meet the Characters', 'Think Deeper', 'My Thoughts', 'Connect the Stories'];
 const STAGE_EMOJIS = ['🌟', '📖', '👤', '💭', '⭐', '🔗'];
+// Tree growth emojis for the garden progress bar
+const STAGE_TREE_EMOJIS = ['🌱', '🌿', '🌳', '🌲', '🌸', '🍎'];
 const MAX_TURNS_PER_STAGE = 3;
 
+/**
+ * Returns the subset of STAGES (and matching STAGE_EMOJIS) appropriate for
+ * the student's age, following Bloom's Taxonomy progression:
+ *
+ *  6-8  (Beginner)     → 4 stages: About This Book, Meet the Characters, Think Deeper, My Thoughts
+ *  9-11 (Intermediate) → 5 stages: Let's Say Hi! + above (skip Connect the Stories)
+ * 12-13 (Advanced)     → 6 stages: all
+ *
+ * Falls back to all 6 stages when age is unknown.
+ */
+function getAgeAdaptedStages(studentAge) {
+  const age = parseInt(studentAge, 10);
+
+  if (age >= 6 && age <= 8) {
+    // Beginner: skip warm_connection and cross_book
+    const names = ['About This Book', 'Meet the Characters', 'Think Deeper', 'My Thoughts'];
+    return {
+      stages: names,
+      emojis: names.map((n) => STAGE_EMOJIS[STAGES.indexOf(n)]),
+    };
+  }
+
+  if (age >= 9 && age <= 11) {
+    // Intermediate: skip Connect the Stories only
+    const names = ["Let's Say Hi!", 'About This Book', 'Meet the Characters', 'Think Deeper', 'My Thoughts'];
+    return {
+      stages: names,
+      emojis: names.map((n) => STAGE_EMOJIS[STAGES.indexOf(n)]),
+    };
+  }
+
+  // Advanced (12-13) or unknown age → all 6 stages
+  return { stages: [...STAGES], emojis: [...STAGE_EMOJIS] };
+}
+
 const MOCK_AI_RESPONSES = {
-  'Warm Connection': [
+  "Let's Say Hi!": [
     "Before we dive in, tell me — what was the last really good book you read? What made it so special?",
     "What kind of stories do you like the most — funny, scary, adventure, or something else?",
     "When you first saw the cover of this book, what did you think it would be about?",
   ],
-  Title: [
+  'About This Book': [
     "What do you think the title means? Why did the author choose this title?",
     "That's interesting! Can you tell me more about why you feel that way?",
     "Great observation! Now, what do you think might happen in this story based on the title?",
   ],
-  Introduction: [
+  'Meet the Characters': [
     "Who is the main character in the story? How would you describe them?",
     "Can you tell me about the setting? Where does the story take place?",
     "What do you think the main character wants or needs?",
   ],
-  Body: [
+  'Think Deeper': [
     "Can you give me three reasons why you think that? Let's start with your first reason.",
     "That's a great first reason. Now, what would be your second reason?",
     "Excellent! And your third reason would be...?",
   ],
-  Conclusion: [
+  'My Thoughts': [
     "What did this book teach you? What was the most important lesson?",
     "Would you recommend this book to a friend? Why or why not?",
     "If you could change one thing in the story, what would it be?",
   ],
-  'Cross Book': [
+  'Connect the Stories': [
     "Does this book remind you of any other book you have read? How are they similar?",
     "If the main character from this book met a character from another book you love, what do you think they would talk about?",
     "You have read so many stories now! What kind of reader do you think you are becoming?",
   ],
 };
 
+// ── Vocabulary detection database ─────────────────────────────────────────────
+// A lightweight dictionary of advanced/interesting words that HiAlice might use.
+// When one of these words is detected in an AI response the VocabMiniCard overlay
+// is shown so the child can learn it in context (Krashen's i+1 principle).
+const VOCAB_HINTS = {
+  metamorphosis:  { definition: 'A big change in form or shape', example: 'The caterpillar went through metamorphosis to become a beautiful butterfly.' },
+  protagonist:    { definition: 'The main character in a story', example: 'Charlotte is the protagonist who saves Wilbur the pig.' },
+  courageous:     { definition: 'Being brave even when you feel scared', example: 'The knight was courageous when facing the fearsome dragon.' },
+  perseverance:   { definition: 'Keeping going even when things are hard', example: 'Her perseverance helped her finish the marathon.' },
+  compassionate:  { definition: 'Caring deeply about how others feel', example: 'The teacher was compassionate when the student cried.' },
+  tremendous:     { definition: 'Extremely large or impressive', example: 'The volcano made a tremendous noise when it erupted.' },
+  magnificent:    { definition: 'Very beautiful or impressive', example: 'The castle was magnificent, shining in the morning sun.' },
+  triumphant:     { definition: 'Feeling very happy after winning or succeeding', example: 'She felt triumphant when she solved the puzzle.' },
+  melancholy:     { definition: 'A feeling of sadness that lasts a while', example: 'There was a melancholy look on his face after saying goodbye.' },
+  bewildered:     { definition: 'Totally confused and surprised', example: 'The puppy looked bewildered the first time it saw snow.' },
+  exhilarating:   { definition: 'Exciting in a way that makes you feel alive', example: 'Riding the roller-coaster was exhilarating!' },
+  determined:     { definition: 'Firmly decided to do something no matter what', example: 'She was determined to read every book in the library.' },
+  imagination:    { definition: 'The ability to think of new ideas and pictures in your mind', example: 'His imagination helped him invent a flying bicycle.' },
+  adventure:      { definition: 'An exciting and often dangerous experience', example: 'Their adventure through the jungle was full of surprises.' },
+  curiosity:      { definition: 'A strong wish to know or learn about something', example: 'Curiosity led Alice down the rabbit hole.' },
+};
+
+/**
+ * detectVocabWord
+ * Scans `text` for any word from VOCAB_HINTS that has not been shown yet.
+ * Returns the first match found, or null if none.
+ *
+ * @param {string}   text          - AI response text to scan
+ * @param {Set}      shownWords    - Words already shown this session
+ * @returns {{ word: string, definition: string, example: string } | null}
+ */
+function detectVocabWord(text, shownWords) {
+  if (!text) return null;
+  const lower = text.toLowerCase();
+  for (const [word, data] of Object.entries(VOCAB_HINTS)) {
+    if (shownWords.has(word)) continue;
+    // Match whole-word occurrences only (avoid matching "courage" inside "courageous" etc.)
+    const regex = new RegExp(`\\b${word}\\b`, 'i');
+    if (regex.test(lower)) {
+      return { word, ...data };
+    }
+  }
+  return null;
+}
+
 const WORKSHEET_ROWS = [
-  { stage: 'Warm Connection', label: 'Warm Connection', color: '#FF6B6B', icon: '🌟', question: 'What kind of stories do you enjoy?', example: 'e.g. I really love adventure stories because they are so exciting.' },
-  { stage: 'Title', label: 'Title', color: '#5C8B5C', icon: '📖', question: 'What is this book about?', example: 'e.g. This book is about a caterpillar that becomes a butterfly.' },
-  { stage: 'Introduction', label: 'Introduction', color: '#87CEDB', icon: '👤', question: 'Who is your favorite character? Why?', example: 'e.g. I would choose the caterpillar because it is brave.' },
-  { stage: 'Body', label: 'Body ①', color: '#D4A843', icon: '💭', question: 'What is the most important part of the story? Why?', example: 'e.g. The most important part is when the caterpillar eats all the food.', bodyIndex: 0 },
-  { stage: 'Body', label: 'Body ②', color: '#D4A843', icon: '💭', question: 'What would you change about the story? Why?', example: 'e.g. I would add more animals because it would be more fun.', bodyIndex: 1 },
-  { stage: 'Body', label: 'Body ③', color: '#D4A843', icon: '💭', question: 'What did you learn from this story?', example: 'e.g. Moreover, I learned that change can be beautiful.', bodyIndex: 2 },
-  { stage: 'Conclusion', label: 'Conclusion', color: '#7AC87A', icon: '⭐', question: 'How do you feel about this book?', example: 'e.g. Reading this book was really fun and I learned a lot.' },
-  { stage: 'Cross Book', label: 'Cross Book', color: '#9B59B6', icon: '🔗', question: 'Does this book remind you of another book?', example: 'e.g. This book reminds me of Charlotte\'s Web because both have animal friends.' },
+  { stage: "Let's Say Hi!", label: "Let's Say Hi! 🌟", color: '#FF6B6B', icon: '🌟', question: 'What kind of stories do you enjoy?', example: 'e.g. I really love adventure stories because they are so exciting.' },
+  { stage: 'About This Book', label: 'About This Book 📖', color: '#5C8B5C', icon: '📖', question: 'What is this book about?', example: 'e.g. This book is about a caterpillar that becomes a butterfly.' },
+  { stage: 'Meet the Characters', label: 'Meet the Characters 👤', color: '#87CEDB', icon: '👤', question: 'Who is your favorite character? Why?', example: 'e.g. I would choose the caterpillar because it is brave.' },
+  { stage: 'Think Deeper', label: 'Think Deeper ①', color: '#D4A843', icon: '💭', question: 'What is the most important part of the story? Why?', example: 'e.g. The most important part is when the caterpillar eats all the food.', bodyIndex: 0 },
+  { stage: 'Think Deeper', label: 'Think Deeper ②', color: '#D4A843', icon: '💭', question: 'What would you change about the story? Why?', example: 'e.g. I would add more animals because it would be more fun.', bodyIndex: 1 },
+  { stage: 'Think Deeper', label: 'Think Deeper ③', color: '#D4A843', icon: '💭', question: 'What did you learn from this story?', example: 'e.g. Moreover, I learned that change can be beautiful.', bodyIndex: 2 },
+  { stage: 'My Thoughts', label: 'My Thoughts ⭐', color: '#7AC87A', icon: '⭐', question: 'How do you feel about this book?', example: 'e.g. Reading this book was really fun and I learned a lot.' },
+  { stage: 'Connect the Stories', label: 'Connect the Stories 🔗', color: '#9B59B6', icon: '🔗', question: 'Does this book remind you of another book?', example: 'e.g. This book reminds me of Charlotte\'s Web because both have animal friends.' },
 ];
 
 const SOCRATIC_LOADING_PROMPTS = [
@@ -65,15 +152,23 @@ const SOCRATIC_LOADING_PROMPTS = [
   'Nice thinking. I am connecting your answer to the next part of the story.',
 ];
 
-function getWorksheetRowIndex(stageIndex, bodyReasonCount) {
-  const stage = STAGES[stageIndex];
-  if (stage === 'Warm Connection') return 0;
-  if (stage === 'Title') return 1;
-  if (stage === 'Introduction') return 2;
-  if (stage === 'Body') return 3 + Math.min(bodyReasonCount, 2);
-  if (stage === 'Conclusion') return 6;
-  if (stage === 'Cross Book') return 7;
-  return 0;
+/**
+ * Maps the current stageIndex (into activeStages) and bodyReasonCount to the
+ * matching row index in the filtered ACTIVE_WORKSHEET_ROWS array.
+ *
+ * The worksheet has one row per stage EXCEPT Think Deeper which has 3 rows.
+ * So for stages before Think Deeper each contributes 1 row, Think Deeper contributes 3.
+ */
+function getWorksheetRowIndex(stageIndex, bodyReasonCount, activeStagesList) {
+  const stage = activeStagesList[stageIndex];
+  let rowIndex = 0;
+  for (let i = 0; i < stageIndex; i++) {
+    rowIndex += activeStagesList[i] === 'Think Deeper' ? 3 : 1;
+  }
+  if (stage === 'Think Deeper') {
+    rowIndex += Math.min(bodyReasonCount, 2);
+  }
+  return rowIndex;
 }
 
 export default function SessionPage() {
@@ -108,6 +203,10 @@ export default function SessionPage() {
   const [emotionHistory, setEmotionHistory] = useState([]);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
+
+  // Vocabulary mini-card state — shows just-in-time word learning overlay
+  const [vocabCard, setVocabCard] = useState(null); // null | { word, definition, example }
+  const shownVocabWordsRef = useRef(new Set());
   // P3-UX-07: Gentle time milestone notifications (15 min, 25 min)
   const [timeMilestone, setTimeMilestone] = useState(null); // 'great-job' | 'wrap-up' | null
   const [aiFeedback, setAiFeedback] = useState(null);
@@ -120,6 +219,26 @@ export default function SessionPage() {
     if (typeof window === 'undefined') return 'intermediate';
     return getItem('studentLevel') || 'intermediate';
   }, []);
+
+  // Age-adaptive stages: read studentAge once and derive the filtered stage list.
+  // This is the single source of truth for how many stages this student will see.
+  const studentAge = useMemo(() => {
+    if (typeof window === 'undefined') return null;
+    return getItem('studentAge');
+  }, []);
+
+  const { stages: activeStages, emojis: activeStageEmojis } = useMemo(
+    () => getAgeAdaptedStages(studentAge),
+    [studentAge]
+  );
+
+  // Build the worksheet row list filtered to only the active stages.
+  // Body always expands to 3 sub-rows; all other stages get 1 row each.
+  const activeWorksheetRows = useMemo(() => {
+    return activeStages.flatMap((stageName) => {
+      return WORKSHEET_ROWS.filter((r) => r.stage === stageName);
+    });
+  }, [activeStages]);
 
   // Convenience booleans for level branching
   const isBeginnerMode = studentLevel === 'beginner';
@@ -206,8 +325,9 @@ export default function SessionPage() {
     return `${m}:${s.toString().padStart(2, '0')}`;
   }, [elapsedSeconds]);
 
-  // Derived turn count within the current stage (1-indexed for display)
-  const turnCount = currentStage === 3 /* Body */
+  // Derived turn count within the current stage (1-indexed for display).
+  // Use stage name comparison so the count is correct for any filtered stage list.
+  const turnCount = activeStages[currentStage] === 'Think Deeper'
     ? bodyReasonCount + 1
     : currentTurn + 1;
   const maxTurns = MAX_TURNS_PER_STAGE;
@@ -219,7 +339,7 @@ export default function SessionPage() {
     return 'http://localhost:3001';
   };
 
-  const activeRowIndex = getWorksheetRowIndex(currentStage, bodyReasonCount);
+  const activeRowIndex = getWorksheetRowIndex(currentStage, bodyReasonCount, activeStages);
 
   // Read URL search params from window.location.search on mount.
   // Using window.location.search directly avoids useSearchParams() + Suspense
@@ -302,29 +422,40 @@ export default function SessionPage() {
         }
       }
 
+      // Choose the opening message based on the first active stage for this student.
+      // Beginners start at "About This Book" (Title), so skip the warm-up question.
+      const firstStage = activeStages[0];
+      const firstStageQuestion = MOCK_AI_RESPONSES[firstStage]?.[0] || '';
+      const openingContent = firstStage === "Let's Say Hi!"
+        ? `Hello! I'm so excited to talk about "${resolvedBookTitle}"! Before we dive in, tell me — what was the last really good book you read? What made it special?`
+        : `Hello! I'm so excited to talk about "${resolvedBookTitle}"! ${firstStageQuestion}`;
+
       const initialMessage = {
         id: 0,
         speaker: 'alice',
-        content: `Hello! I'm so excited to talk about "${resolvedBookTitle}"! Before we dive in, tell me — what was the last really good book you read? What made it special?`,
+        content: openingContent,
         timestamp: new Date(),
-        stage: 'Warm Connection',
+        stage: firstStage,
       };
       setMessages([initialMessage]);
-      speak(
-        `Hello! I'm so excited to talk about ${resolvedBookTitle}! Before we dive in, tell me — what was the last really good book you read? What made it special?`
-      );
+      speak(openingContent);
       setShowSkipButton(true);
     } catch (error) {
       console.error('Error initializing session:', error);
       setApiAvailable(false);
       setSessionId('demo-session-' + Date.now());
       setError("Oops! Something went a little wrong. I'll use my notes instead!");
+      const firstStage = activeStages[0];
+      const firstStageQuestion = MOCK_AI_RESPONSES[firstStage]?.[0] || '';
+      const openingContent = firstStage === "Let's Say Hi!"
+        ? `Hello! I'm so excited to talk about "${resolvedBookTitle}"! Before we dive in, tell me — what was the last really good book you read? What made it special?`
+        : `Hello! I'm so excited to talk about "${resolvedBookTitle}"! ${firstStageQuestion}`;
       const fallbackMessage = {
         id: 0,
         speaker: 'alice',
-        content: `Hello! I'm so excited to talk about "${resolvedBookTitle}"! Before we dive in, tell me — what was the last really good book you read? What made it special?`,
+        content: openingContent,
         timestamp: new Date(),
-        stage: 'Warm Connection',
+        stage: firstStage,
       };
       setMessages([fallbackMessage]);
     }
@@ -339,7 +470,7 @@ export default function SessionPage() {
       speaker: 'alice',
       content: data.reply?.content || data.content || data.message,
       timestamp: new Date(),
-      stage: STAGES[currentStage],
+      stage: activeStages[currentStage],
     };
 
     setMessages((prev) => [...prev, aliceMessage]);
@@ -349,27 +480,39 @@ export default function SessionPage() {
       setSessionVocabulary((prev) => [...prev, ...data.vocabulary]);
     }
 
+    // Just-in-Time vocabulary: scan the AI reply for interesting words
+    const vocabHit = detectVocabWord(
+      data.reply?.content || data.content || data.message || '',
+      shownVocabWordsRef.current
+    );
+    if (vocabHit) {
+      shownVocabWordsRef.current = new Set([...shownVocabWordsRef.current, vocabHit.word]);
+      // Small delay so the AI message appears in the chat before the card pops up
+      setTimeout(() => setVocabCard(vocabHit), 600);
+    }
+
     if (data.grammarScore !== undefined) {
       setStageScores((prev) => ({
         ...prev,
-        [STAGES[currentStage]]: data.grammarScore,
+        [activeStages[currentStage]]: data.grammarScore,
       }));
     }
 
     if (data.shouldAdvance && data.nextStage) {
-      const nextStageIndex = STAGES.indexOf(data.nextStage);
+      // Map nextStage name to index within the filtered activeStages list
+      const nextStageIndex = activeStages.indexOf(data.nextStage);
       if (nextStageIndex > currentStage) {
         showStageTransitionAnimation(data.nextStage, nextStageIndex);
       }
     } else {
-      if (STAGES[currentStage] === 'Body') {
+      if (activeStages[currentStage] === 'Think Deeper') {
         setBodyReasonCount((prev) => prev + 1);
       }
       setCurrentTurn((prev) => prev + 1);
     }
 
     setLoading(false);
-  }, [currentStage, showStageTransitionAnimation, speak]);
+  }, [activeStages, currentStage, showStageTransitionAnimation, speak]);
 
   // This callback also needs the latest stage completion helpers so mock flow
   // stays in sync with the active worksheet stage.
@@ -380,16 +523,23 @@ export default function SessionPage() {
       speaker: 'alice',
       content,
       timestamp: new Date(),
-      stage: STAGES[currentStage],
+      stage: activeStages[currentStage],
     };
 
     setMessages((prev) => [...prev, aliceMessage]);
     speak(content);
 
+    // Just-in-Time vocabulary: scan mock AI response for interesting words
+    const vocabHit = detectVocabWord(content, shownVocabWordsRef.current);
+    if (vocabHit) {
+      shownVocabWordsRef.current = new Set([...shownVocabWordsRef.current, vocabHit.word]);
+      setTimeout(() => setVocabCard(vocabHit), 600);
+    }
+
     const nextTurn = currentTurn + 1;
 
     let shouldAdvance = false;
-    if (STAGES[currentStage] === 'Body') {
+    if (activeStages[currentStage] === 'Think Deeper') {
       shouldAdvance = reasonCount >= 3;
       setBodyReasonCount(reasonCount);
     } else {
@@ -398,8 +548,8 @@ export default function SessionPage() {
 
     if (shouldAdvance) {
       const nextStageIndex = currentStage + 1;
-      if (nextStageIndex < STAGES.length) {
-        showStageTransitionAnimation(STAGES[nextStageIndex], nextStageIndex);
+      if (nextStageIndex < activeStages.length) {
+        showStageTransitionAnimation(activeStages[nextStageIndex], nextStageIndex);
       } else {
         completeSession();
       }
@@ -408,7 +558,7 @@ export default function SessionPage() {
     }
 
     setLoading(false);
-  }, [currentStage, currentTurn, completeSession, showStageTransitionAnimation, speak]);
+  }, [activeStages, currentStage, currentTurn, completeSession, showStageTransitionAnimation, speak]);
 
   const handleSendMessage = useCallback(async (text) => {
     if (!text.trim() || loading) return;
@@ -421,13 +571,13 @@ export default function SessionPage() {
       speaker: 'student',
       content: text,
       timestamp: new Date(),
-      stage: STAGES[currentStage],
+      stage: activeStages[currentStage],
     };
 
     setMessages((prev) => [...prev, studentMessage]);
     setInputText('');
 
-    const rowIdx = getWorksheetRowIndex(currentStage, bodyReasonCount);
+    const rowIdx = getWorksheetRowIndex(currentStage, bodyReasonCount, activeStages);
     setWorksheetAnswers((prev) => ({
       ...prev,
       [rowIdx]: text,
@@ -442,7 +592,8 @@ export default function SessionPage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               content: text,
-              stage: STAGES[currentStage],
+              // Map active display label back to the internal API key for the backend
+              stage: STAGE_KEYS[STAGES.indexOf(activeStages[currentStage])] || activeStages[currentStage],
             }),
           });
 
@@ -461,8 +612,7 @@ export default function SessionPage() {
       }
 
       await new Promise((resolve) => setTimeout(resolve, 800));
-      const stageIndex = currentStage;
-      const stageName = STAGES[stageIndex];
+      const stageName = activeStages[currentStage];
       const stageQuestions = MOCK_AI_RESPONSES[stageName];
 
       const mockIndex = currentTurn + 1;
@@ -472,7 +622,7 @@ export default function SessionPage() {
           : "That was wonderful! Let's move to the next topic.";
 
       let reasonCount = bodyReasonCount;
-      if (stageName === 'Body') {
+      if (stageName === 'Think Deeper') {
         reasonCount = currentTurn + 1;
       }
 
@@ -482,7 +632,7 @@ export default function SessionPage() {
       setError('Failed to get response. Please try again.');
       setLoading(false);
     }
-  }, [loading, currentStage, bodyReasonCount, apiAvailable, sessionId, currentTurn, processApiResponse, processMockResponse]);
+  }, [loading, currentStage, bodyReasonCount, apiAvailable, sessionId, currentTurn, activeStages, processApiResponse, processMockResponse]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   function showStageTransitionAnimation(stageName, stageIndex) {
@@ -590,8 +740,8 @@ export default function SessionPage() {
   }
 
   const handleSkipToNextStage = () => {
-    if (currentStage < STAGES.length - 1) {
-      showStageTransitionAnimation(STAGES[currentStage + 1], currentStage + 1);
+    if (currentStage < activeStages.length - 1) {
+      showStageTransitionAnimation(activeStages[currentStage + 1], currentStage + 1);
     } else {
       completeSession();
     }
@@ -618,8 +768,29 @@ export default function SessionPage() {
         console.warn('Pause session API failed (continuing with redirect):', err);
       }
     }
+
+    // Persist paused session info locally so the home page and dashboard
+    // can surface a "Continue Review" card without an API round-trip.
+    if (typeof window !== 'undefined') {
+      const pausedInfo = {
+        sessionId,
+        bookId,
+        bookTitle,
+        stage: activeStages[currentStage] || 'In Progress',
+        stageKey: STAGE_KEYS[STAGES.indexOf(activeStages[currentStage])] || '',
+        stageIndex: currentStage,
+        pausedAt: new Date().toISOString(),
+        studentId: getItem('studentId'),
+      };
+      try {
+        window.localStorage.setItem('pausedSession', JSON.stringify(pausedInfo));
+      } catch (_) {
+        // localStorage may be unavailable in private browsing
+      }
+    }
+
     router.push('/books');
-  }, [sessionId, router]);
+  }, [sessionId, bookId, bookTitle, currentStage, activeStages, router]);
 
   // Use a ref to read the latest transcript synchronously — avoids the race
   // condition where React state `transcript` hasn't updated yet when
@@ -740,7 +911,7 @@ export default function SessionPage() {
             <div className="text-4xl mb-3">💤</div>
             <h3 className="text-lg font-bold text-[#3D2E1E] mb-2">Need a break?</h3>
             <p className="text-sm text-[#6B5744] mb-4">
-              You&apos;ve been reading for 30 minutes! Great job! Want to save and come back later?
+              You&apos;ve been reviewing for 30 minutes! Great job! Want to save and come back later?
             </p>
             <div className="flex gap-3">
               <button
@@ -776,7 +947,7 @@ export default function SessionPage() {
             <div>
               <p className="text-sm font-bold">
                 {timeMilestone === 'great-job'
-                  ? "You've been reading for 15 minutes! Great job!"
+                  ? "You've been reviewing for 15 minutes! Great job!"
                   : "Almost done! Let's wrap up your thoughts."}
               </p>
               {timeMilestone === 'great-job' && (
@@ -814,9 +985,14 @@ export default function SessionPage() {
           )}
         </div>
 
+        {/* Tree Garden Progress Bar */}
+        <div className="bg-[#F5F0E8] border-b border-[#D6C9A8] px-2 pb-1">
+          <StageProgress currentStage={currentStage} stages={activeStages} />
+        </div>
+
         {/* Worksheet Table */}
         <div className="divide-y divide-[#EDE5D4]">
-          {WORKSHEET_ROWS.map((row, idx) => {
+          {activeWorksheetRows.map((row, idx) => {
             const isActive = idx === activeRowIndex;
             const isCompleted = idx < activeRowIndex;
             const answer = worksheetAnswers[idx];
@@ -878,13 +1054,13 @@ export default function SessionPage() {
           <div className="flex items-center justify-between text-xs text-[#6B5744] mb-1">
             <span className="font-bold">Progress</span>
             <span className="font-extrabold text-[#5C8B5C]">
-              {Object.keys(worksheetAnswers).length} / {WORKSHEET_ROWS.length}
+              {Object.keys(worksheetAnswers).length} / {activeWorksheetRows.length}
             </span>
           </div>
           <div className="w-full bg-[#EDE5D4] rounded-full h-2">
             <div
               className="bg-[#5C8B5C] h-2 rounded-full transition-all duration-500"
-              style={{ width: `${(Object.keys(worksheetAnswers).length / WORKSHEET_ROWS.length) * 100}%` }}
+              style={{ width: `${(Object.keys(worksheetAnswers).length / activeWorksheetRows.length) * 100}%` }}
             />
           </div>
         </div>
@@ -897,7 +1073,7 @@ export default function SessionPage() {
           <div className="min-w-0">
             <span className="hialice-stage-badge mb-1">
               <span aria-hidden="true">💬</span>
-              Reading Talk
+              Review Talk
             </span>
             <p className="text-xs font-semibold text-[#6B5744] truncate">
               {bookTitle || 'Review Session'}
@@ -1034,12 +1210,12 @@ export default function SessionPage() {
 
         {/* Input Area */}
         <div className="bg-[#FFFCF3] border-t border-[#D6C9A8] p-4 space-y-3 flex-shrink-0 shadow-[0_-4px_12px_rgba(61,46,30,0.06)]">
-          {/* Phase 2B: Stage + Turn progress indicator */}
+          {/* Stage + Turn progress indicator */}
           <div className="flex items-center justify-between mb-2 px-1" aria-label="Session progress">
             <span className="text-xs font-medium text-[#5C8B5C] bg-[#E8F5E8] px-3 py-1 rounded-full">
               {isBeginnerMode
-                ? `${STAGE_EMOJIS[currentStage]} Stage`
-                : `${STAGES[currentStage]} Stage`}
+                ? `${activeStageEmojis[currentStage] || '🌟'} Step ${currentStage + 1} of ${activeStages.length}`
+                : `${activeStages[currentStage] || ''} — Step ${currentStage + 1} of ${activeStages.length}`}
             </span>
             <span className="text-xs text-[#6B5744]">
               Turn {Math.min(turnCount, maxTurns)}/{maxTurns} &bull; {elapsedTime}
@@ -1048,17 +1224,17 @@ export default function SessionPage() {
 
           {/* Current Stage Indicator (mobile only) */}
           <div className="lg:hidden flex items-center gap-2 mb-2">
-            {WORKSHEET_ROWS[activeRowIndex] && (
+            {activeWorksheetRows[activeRowIndex] && (
               <>
                 <span
                   aria-hidden="true"
                   className="inline-flex items-center justify-center w-6 h-6 rounded-full text-white text-xs font-extrabold"
-                  style={{ backgroundColor: WORKSHEET_ROWS[activeRowIndex].color }}
+                  style={{ backgroundColor: activeWorksheetRows[activeRowIndex].color }}
                 >
-                  {WORKSHEET_ROWS[activeRowIndex].icon}
+                  {activeWorksheetRows[activeRowIndex].icon}
                 </span>
-                <span className="text-sm font-extrabold" style={{ color: WORKSHEET_ROWS[activeRowIndex].color }}>
-                  {WORKSHEET_ROWS[activeRowIndex].label}
+                <span className="text-sm font-extrabold" style={{ color: activeWorksheetRows[activeRowIndex].color }}>
+                  {activeWorksheetRows[activeRowIndex].label}
                 </span>
                 <span className="text-xs text-[#6B5744] flex-1 truncate font-medium ml-1">
                   — conversation in progress
@@ -1260,6 +1436,16 @@ export default function SessionPage() {
           setPendingAchievements([]);
         }}
       />
+
+      {/* Just-in-Time vocabulary mini-card — slides up when a new word is detected */}
+      {vocabCard && (
+        <VocabMiniCard
+          word={vocabCard.word}
+          definition={vocabCard.definition}
+          example={vocabCard.example}
+          onDismiss={() => setVocabCard(null)}
+        />
+      )}
     </div>
   );
 }

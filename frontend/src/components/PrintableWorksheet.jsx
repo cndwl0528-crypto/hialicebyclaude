@@ -9,10 +9,10 @@ import { useRef } from 'react';
 const STAGES = ['title', 'introduction', 'body', 'conclusion'];
 
 const STAGE_LABELS = {
-  title: 'Title',
-  introduction: 'Introduction',
-  body: 'Body',
-  conclusion: 'Conclusion',
+  title: 'About This Book 📖',
+  introduction: 'Meet the Characters 👤',
+  body: 'Think Deeper 💭',
+  conclusion: 'My Thoughts ⭐',
 };
 
 /** Print-safe hex colours for each stage header band */

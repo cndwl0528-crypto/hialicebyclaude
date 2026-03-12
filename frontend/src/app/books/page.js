@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import VoiceButton from '@/components/VoiceButton';
 import useSpeech from '@/hooks/useSpeech';
@@ -29,6 +29,161 @@ function LoadingSpinner() {
       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
     </svg>
+  );
+}
+
+function PreReadingScreen({ book, onReady }) {
+  const [step, setStep] = useState(1);
+  const [priorKnowledge, setPriorKnowledge] = useState('');
+  const [prediction, setPrediction] = useState('');
+  const [animating, setAnimating] = useState(false);
+  const inputRef = useRef(null);
+
+  // Focus the textarea whenever the step changes
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [step]);
+
+  const goToStep2 = useCallback(() => {
+    setAnimating(true);
+    setTimeout(() => {
+      setStep(2);
+      setAnimating(false);
+    }, 280);
+  }, []);
+
+  const handleReady = useCallback(() => {
+    setItem('preReadingResponses', JSON.stringify({
+      bookId: book.id,
+      priorKnowledge: priorKnowledge.trim(),
+      prediction: prediction.trim(),
+    }));
+    onReady(book.id, book.title);
+  }, [book, priorKnowledge, prediction, onReady]);
+
+  const stepLabels = ['Prior Knowledge', 'Prediction'];
+
+  return (
+    <div className="min-h-[70vh] flex flex-col items-center justify-center px-4 py-8">
+      {/* Book identity */}
+      <div className="mb-6 flex flex-col items-center gap-2 text-center">
+        <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-[#E8F5E8] text-5xl shadow-[0_6px_18px_rgba(61,107,61,0.15)]">
+          {book.coverEmoji || book.cover || '📖'}
+        </div>
+        <h2 className="text-xl font-extrabold text-[#3D2E1E] max-w-xs leading-tight">
+          {book.title}
+        </h2>
+        <p className="text-sm font-bold text-[#5C8B5C]">
+          Before we start, let&apos;s think about this book!
+        </p>
+      </div>
+
+      {/* Progress dots */}
+      <div className="mb-6 flex items-center gap-2" aria-label={`Step ${step} of 2`}>
+        {[1, 2].map((n) => (
+          <div key={n} className="flex items-center gap-2">
+            <div
+              className={`h-3 w-3 rounded-full transition-all duration-300 ${
+                n === step
+                  ? 'bg-[#5C8B5C] scale-125 shadow-[0_0_0_3px_rgba(92,139,92,0.25)]'
+                  : n < step
+                  ? 'bg-[#5C8B5C] opacity-50'
+                  : 'bg-[#D6C9A8]'
+              }`}
+              aria-hidden="true"
+            />
+            {n < 2 && (
+              <div className="h-0.5 w-8 rounded-full bg-[#D6C9A8]" aria-hidden="true" />
+            )}
+          </div>
+        ))}
+        <span className="ml-2 text-xs font-bold text-[#9C8B74]">
+          Step {step} / 2 — {stepLabels[step - 1]}
+        </span>
+      </div>
+
+      {/* Card */}
+      <div
+        className={`w-full max-w-lg rounded-3xl border border-[#E8DEC8] bg-[#FFFCF3] p-6 shadow-[0_8px_24px_rgba(61,46,30,0.08)] transition-all duration-280 ${
+          animating ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'
+        }`}
+      >
+        {step === 1 ? (
+          <>
+            <p className="mb-1 text-xs font-extrabold uppercase tracking-[0.18em] text-[#D4A843]">
+              Step 1
+            </p>
+            <h3 className="mb-4 text-lg font-extrabold leading-snug text-[#3D2E1E]">
+              What do you already know about{' '}
+              <span className="text-[#5C8B5C]">&ldquo;{book.title}&rdquo;</span>?
+            </h3>
+            <textarea
+              ref={inputRef}
+              value={priorKnowledge}
+              onChange={(e) => setPriorKnowledge(e.target.value)}
+              placeholder="Write what you already know, or just leave it blank!"
+              rows={4}
+              className="w-full resize-none rounded-2xl border border-[#D6C9A8] bg-[#FFFDF7] px-4 py-3 text-[#3D2E1E] font-semibold placeholder:text-[#C4B49A] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5C8B5C] text-base leading-relaxed"
+            />
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+              <button
+                onClick={() => { setPriorKnowledge(''); goToStep2(); }}
+                className="flex-1 min-h-[48px] rounded-2xl bg-[#EDE5D4] px-4 py-3 text-sm font-bold text-[#6B5744] transition-all hover:-translate-y-0.5 hover:bg-[#D6C9A8]"
+              >
+                Skip this one
+              </button>
+              <button
+                onClick={goToStep2}
+                className="flex-1 min-h-[48px] rounded-2xl bg-[#5C8B5C] px-4 py-3 text-sm font-extrabold text-white shadow-[0_4px_12px_rgba(92,139,92,0.28)] transition-all hover:-translate-y-0.5 hover:bg-[#3D6B3D]"
+              >
+                Next →
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="mb-1 text-xs font-extrabold uppercase tracking-[0.18em] text-[#D4A843]">
+              Step 2
+            </p>
+            <h3 className="mb-4 text-lg font-extrabold leading-snug text-[#3D2E1E]">
+              What do you think this book is about?
+            </h3>
+            <textarea
+              ref={inputRef}
+              value={prediction}
+              onChange={(e) => setPrediction(e.target.value)}
+              placeholder="Make your best guess — there's no wrong answer!"
+              rows={4}
+              className="w-full resize-none rounded-2xl border border-[#D6C9A8] bg-[#FFFDF7] px-4 py-3 text-[#3D2E1E] font-semibold placeholder:text-[#C4B49A] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5C8B5C] text-base leading-relaxed"
+            />
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+              <button
+                onClick={() => {
+                  setAnimating(true);
+                  setTimeout(() => { setStep(1); setAnimating(false); }, 280);
+                }}
+                className="flex-1 min-h-[48px] rounded-2xl bg-[#EDE5D4] px-4 py-3 text-sm font-bold text-[#6B5744] transition-all hover:-translate-y-0.5 hover:bg-[#D6C9A8]"
+              >
+                ← Back
+              </button>
+              <button
+                onClick={handleReady}
+                className="flex-1 min-h-[48px] rounded-2xl bg-[#3D6B3D] px-4 py-3 text-sm font-extrabold text-white shadow-[0_4px_14px_rgba(61,107,61,0.35)] transition-all hover:-translate-y-0.5 hover:bg-[#2E5230]"
+              >
+                Ready! Let&apos;s Talk About It! →
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Encouraging note */}
+      <p className="mt-5 text-xs font-semibold text-[#9C8B74] text-center max-w-xs">
+        These warm-up questions help Alice understand what you already know so she can ask you the best questions!
+      </p>
+    </div>
   );
 }
 
@@ -65,6 +220,7 @@ export default function BooksPage() {
   const [pausedSessions, setPausedSessions] = useState([]);
   const [resumingSessionId, setResumingSessionId] = useState(null);
   const [confirmBook, setConfirmBook] = useState(null);
+  const [preReadingBook, setPreReadingBook] = useState(null);
   const [discoveryFilter, setDiscoveryFilter] = useState('All');
   const [voiceSearchPromptDismissed, setVoiceSearchPromptDismissed] = useState(false);
   const { isListening, transcript, startListening, stopListening, supported } = useSpeech();
@@ -187,10 +343,15 @@ export default function BooksPage() {
 
   const handleConfirmYes = useCallback(() => {
     if (confirmBook) {
-      handleSelectBook(confirmBook.id, confirmBook.title);
+      // Transition to Pre-Reading screen instead of going straight to session
+      setPreReadingBook(confirmBook);
       setConfirmBook(null);
     }
-  }, [confirmBook, handleSelectBook]);
+  }, [confirmBook]);
+
+  const handlePreReadingReady = useCallback((bookId, bookTitle) => {
+    handleSelectBook(bookId, bookTitle);
+  }, [handleSelectBook]);
 
   const handleVoiceSearch = useCallback(() => {
     if (isListening) {
@@ -205,6 +366,27 @@ export default function BooksPage() {
       setSearchTerm(transcript.trim());
     }
   }, [transcript]);
+
+  // When pre-reading is active, show the pre-reading screen only
+  if (preReadingBook) {
+    return (
+      <div className="py-4 sm:py-8">
+        <div className="mx-auto max-w-2xl">
+          {/* Back button to cancel pre-reading and return to book list */}
+          <button
+            onClick={() => setPreReadingBook(null)}
+            className="mb-4 flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold text-[#6B5744] bg-[#EDE5D4] hover:bg-[#D6C9A8] transition-all"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+            Back to book list
+          </button>
+          <PreReadingScreen book={preReadingBook} onReady={handlePreReadingReady} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="py-4 sm:py-8">
@@ -245,14 +427,28 @@ export default function BooksPage() {
                   <p className="text-base font-extrabold text-[#5C8B5C]">
                     {isListening ? 'I am listening...' : 'Tap to speak'}
                   </p>
-                  <input
-                    id="book-search"
-                    type="text"
-                    placeholder="Or type the book title here"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full rounded-2xl border border-[#D6C9A8] bg-[#FFFCF3] px-4 py-3 text-[#3D2E1E] font-semibold focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5C8B5C]"
-                  />
+                  <div className="relative w-full">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9C8B74] pointer-events-none" aria-hidden="true">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                    </span>
+                    <input
+                      id="book-search"
+                      type="text"
+                      placeholder="Or type the book title here"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full rounded-2xl border border-[#D6C9A8] bg-[#FFFCF3] pl-10 pr-10 py-3 text-[#3D2E1E] font-semibold focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5C8B5C]"
+                    />
+                    {searchTerm && (
+                      <button
+                        onClick={() => setSearchTerm('')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full bg-[#D6C9A8]/50 text-[#6B5744] hover:bg-[#D6C9A8] transition-colors"
+                        aria-label="Clear search"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                      </button>
+                    )}
+                  </div>
                   {transcript && (
                     <div className="w-full rounded-2xl border border-[#C8E6C9] bg-[#E8F5E8] px-4 py-3 text-sm font-semibold text-[#3D2E1E]">
                       I heard: <span className="font-extrabold">{transcript}</span>
@@ -299,6 +495,18 @@ export default function BooksPage() {
                         Search again
                       </button>
                     </div>
+                  </div>
+                ) : searchTerm.trim() && filteredBooks.length === 0 ? (
+                  <div className="mt-4 rounded-3xl border border-dashed border-[#D4736B]/30 bg-[#FFF5F3] p-5 text-center">
+                    <p className="text-sm font-bold text-[#6B5744] mb-3">
+                      No books found for &quot;{searchTerm}&quot;
+                    </p>
+                    <button
+                      onClick={() => setSearchTerm('')}
+                      className="min-h-[44px] px-5 py-2 rounded-2xl bg-[#EDE5D4] text-sm font-bold text-[#6B5744] hover:bg-[#D6C9A8] transition-all"
+                    >
+                      Clear and try again
+                    </button>
                   </div>
                 ) : (
                   <div className="mt-4 rounded-3xl border border-dashed border-[#D6C9A8] bg-[#FFFDF7] p-5">
@@ -429,7 +637,7 @@ export default function BooksPage() {
       </div>
 
 
-      {/* PRIORITY: Continue Reading — top of page before any controls */}
+      {/* PRIORITY: Continue Review — top of page before any controls */}
       {pausedSessions.length > 0 && !loading && (
         <div className="mb-6">
           <h3 className="text-lg font-extrabold text-[#3D2E1E] mb-3 flex items-center gap-2">

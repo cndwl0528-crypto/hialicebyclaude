@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { getStudentSessions, getVocabStats } from '@/services/api';
+import { getStudentSessions, getVocabStats, resumeSession, getParentNotifications, markNotificationRead } from '@/services/api';
 import { isParentOrAdmin, LEVELS } from '@/lib/constants';
-import { getItem } from '@/lib/clientStorage';
+import { getItem, setItem } from '@/lib/clientStorage';
 import ReadingJourneyMap from '@/components/ReadingJourneyMap';
 
 // ---------------------------------------------------------------------------
@@ -96,6 +96,95 @@ const G = {
   border: '#E8DEC8',
   bgAlt: '#EDE5D4',
 };
+
+// ---------------------------------------------------------------------------
+// PausedSessionCard — shown in the parent dashboard when the child has an
+// incomplete session. Parents can see it; actual resuming happens on /books.
+// ---------------------------------------------------------------------------
+function PausedSessionCard({ session, onResume, resuming }) {
+  const STAGE_EMOJIS = {
+    'Warm Connection': '🌟',
+    Title: '📖',
+    Introduction: '👤',
+    Body: '💭',
+    Conclusion: '⭐',
+    'Cross Book': '🔗',
+  };
+
+  const stageEmoji = STAGE_EMOJIS[session.stage] || '📌';
+  const bookEmoji = session.coverEmoji || session.cover_emoji || '📖';
+
+  return (
+    <div
+      className="flex items-center gap-3 p-4 rounded-2xl border-2"
+      style={{
+        background: 'linear-gradient(135deg, #FFF8E0 0%, #FDEEB0 100%)',
+        borderColor: 'rgba(212,168,67,0.45)',
+        boxShadow: '0 4px 16px rgba(212,168,67,0.14)',
+      }}
+    >
+      {/* Book cover emoji */}
+      <div
+        className="text-3xl w-12 h-12 flex items-center justify-center rounded-xl flex-shrink-0"
+        style={{ backgroundColor: 'rgba(212,168,67,0.15)' }}
+        aria-hidden="true"
+      >
+        {bookEmoji}
+      </div>
+
+      {/* Session info */}
+      <div className="flex-1 min-w-0">
+        <p className="font-extrabold text-sm truncate" style={{ color: G.textDark }}>
+          {session.bookTitle || session.book_title || 'Untitled Book'}
+        </p>
+        <p className="text-xs font-semibold mt-0.5 flex items-center gap-1" style={{ color: G.textMid }}>
+          <span aria-hidden="true">{stageEmoji}</span>
+          {session.stage || 'In Progress'} — paused
+        </p>
+      </div>
+
+      {/* Resume button */}
+      <button
+        onClick={() => onResume(session)}
+        disabled={resuming}
+        className="flex-shrink-0 min-h-[40px] px-3 py-2 rounded-xl font-extrabold text-xs text-white transition-all hover:-translate-y-0.5 disabled:opacity-60"
+        style={{
+          background: 'linear-gradient(135deg, #D4A843, #B8882A)',
+          boxShadow: '0 3px 10px rgba(212,168,67,0.35)',
+        }}
+        aria-label={`Continue review of ${session.bookTitle || session.book_title}`}
+      >
+        {resuming ? '...' : 'Continue'}
+      </button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// BellButton — notification bell for parent/admin users
+// ---------------------------------------------------------------------------
+function BellButton({ count, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label={count > 0 ? `${count} unread notifications` : 'Notifications'}
+      className="relative p-2 rounded-full hover:bg-[#E8DEC8] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5C8B5C]"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+        stroke={count > 0 ? '#3D6B3D' : '#6B5744'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+        className="w-6 h-6" aria-hidden="true">
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+        <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+      </svg>
+      {count > 0 && (
+        <span aria-hidden="true"
+          className="absolute -top-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white leading-none">
+          {count > 99 ? '99+' : count}
+        </span>
+      )}
+    </button>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Sub-components
@@ -269,6 +358,15 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [usingFallback, setUsingFallback] = useState(false);
 
+  // Paused / incomplete sessions for the selected child
+  const [pausedSessions, setPausedSessions] = useState([]);
+  const [resumingSessionId, setResumingSessionId] = useState(null);
+
+  // Notifications (parent/admin only)
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const unreadCount = notifications.filter(n => !n.read).length;
+
   // ---------------------------------------------------------------------------
   // Mount: read sessionStorage, redirect if missing, fetch data
   // ---------------------------------------------------------------------------
@@ -302,6 +400,28 @@ export default function DashboardPage() {
     setStudentLevel(level || '');
     setShowLevelBadge(isParentOrAdmin());
 
+    // Seed paused sessions from localStorage immediately so the card shows
+    // even before the API response arrives.
+    try {
+      const raw = window.localStorage.getItem('pausedSession');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        // Only show if it belongs to the current child
+        if (!parsed.studentId || parsed.studentId === id) {
+          setPausedSessions([{
+            id: parsed.sessionId || 'local',
+            bookId: parsed.bookId || '',
+            bookTitle: parsed.bookTitle || '',
+            book_title: parsed.bookTitle || '',
+            stage: parsed.stage || 'In Progress',
+            status: 'paused',
+          }]);
+        }
+      }
+    } catch (_) {
+      // Ignore localStorage read errors
+    }
+
     fetchDashboardData(id);
   }, [router]);
 
@@ -334,6 +454,12 @@ export default function DashboardPage() {
       ) {
         const normalized = sessionsResult.sessions.map(normalizeSession);
         setSessions(normalized);
+
+        // Extract paused / in-progress sessions for the "Continue" section
+        const paused = sessionsResult.sessions.filter(
+          (s) => s.status === 'paused' || s.status === 'in_progress'
+        );
+        setPausedSessions(paused);
       } else {
         setUsingFallback(true);
         setSessions(MOCK_SESSIONS);
@@ -357,6 +483,43 @@ export default function DashboardPage() {
       setLoading(false);
     }
   }
+
+  // Fetch notifications for parent/admin users
+  useEffect(() => {
+    if (!studentId || !isParentOrAdmin()) return;
+    getParentNotifications().then(res => {
+      if (res?.notifications) setNotifications(res.notifications);
+    }).catch(() => {});
+  }, [studentId]);
+
+  const handleMarkNotificationRead = async (id) => {
+    try {
+      await markNotificationRead(id);
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    } catch {}
+  };
+
+  // ---------------------------------------------------------------------------
+  // Resume a paused session — navigates the parent into the session page so
+  // they can hand the device to the child to continue where they left off.
+  // ---------------------------------------------------------------------------
+  const handleResumeSession = useCallback(async (session) => {
+    setResumingSessionId(session.id);
+    try {
+      await resumeSession(session.id);
+    } catch (err) {
+      console.warn('Resume session API failed (continuing with redirect):', err);
+    }
+    setItem('bookId', session.bookId || session.book_id || '');
+    setItem('bookTitle', session.bookTitle || session.book_title || '');
+
+    const params = new URLSearchParams({
+      bookId: session.bookId || session.book_id || '',
+      bookTitle: session.bookTitle || session.book_title || '',
+      sessionId: session.id,
+    });
+    router.push(`/session?${params.toString()}`);
+  }, [router]);
 
   // ---------------------------------------------------------------------------
   // Derived stats
@@ -394,6 +557,65 @@ export default function DashboardPage() {
           role="status"
         >
           Showing example data. Connect to the internet to see your real progress.
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------------ */}
+      {/* 0. Incomplete Sessions — shown when child has a paused review       */}
+      {/* ------------------------------------------------------------------ */}
+      {pausedSessions.length > 0 && (
+        <section aria-label="Incomplete review sessions">
+          <div className="flex items-center gap-2 mb-3">
+            <span aria-hidden="true" className="text-base">📌</span>
+            <h2 className="text-base font-extrabold" style={{ color: G.textDark }}>
+              Incomplete Review
+            </h2>
+            <span
+              className="text-xs font-bold px-2 py-0.5 rounded-full"
+              style={{ backgroundColor: '#FFF8E0', color: '#A8822E', border: '1px solid rgba(212,168,67,0.35)' }}
+            >
+              {pausedSessions.length}
+            </span>
+          </div>
+          <div className="space-y-2">
+            {pausedSessions.map((session) => (
+              <PausedSessionCard
+                key={session.id}
+                session={session}
+                onResume={handleResumeSession}
+                resuming={resumingSessionId === session.id}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Notification Bell + Panel (parent/admin only)                       */}
+      {/* ------------------------------------------------------------------ */}
+      {isParentOrAdmin() && (
+        <div className="relative">
+          <div className="flex justify-end">
+            <BellButton count={unreadCount} onClick={() => setShowNotifications(!showNotifications)} />
+          </div>
+          {showNotifications && (
+            <div className="absolute right-0 top-12 z-50 w-80 max-h-80 overflow-y-auto bg-white rounded-2xl border border-[#E8DEC8] shadow-xl p-3 space-y-2">
+              <h3 className="text-sm font-bold" style={{ color: G.textDark }}>Notifications</h3>
+              {notifications.length === 0 ? (
+                <p className="text-xs text-center py-4" style={{ color: G.textMid }}>No notifications yet</p>
+              ) : (
+                notifications.slice(0, 10).map(n => (
+                  <div key={n.id}
+                    className={`p-2 rounded-xl text-xs cursor-pointer transition-colors ${n.read ? 'bg-white' : 'bg-[#FFF8E0]'}`}
+                    onClick={() => handleMarkNotificationRead(n.id)}
+                  >
+                    <p className="font-semibold" style={{ color: G.textDark }}>{n.title || 'Notification'}</p>
+                    <p style={{ color: G.textMid }}>{n.message || n.body || ''}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </div>
       )}
 

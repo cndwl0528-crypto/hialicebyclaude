@@ -778,6 +778,281 @@ textarea.ghibli-focus:focus {
   letter-spacing: 0.03em;
 }
 
+/* ===== Print / PDF Report Styles ===== */
+/* Used by /review and /parent pages for browser print-to-PDF */
+
+/* Default: hide print-only elements on screen */
+.print-only {
+  display: none !important;
+}
+
+@media print {
+  /* ── Reset screen chrome ──────────────────────────────────────── */
+  html, body {
+    background: white !important;
+    color: #111 !important;
+    font-size: 11pt !important;
+    line-height: 1.55 !important;
+  }
+
+  /* ── Hide navigation and non-report UI ──────────────────────────── */
+  nav,
+  .no-print,
+  .OfflineBanner,
+  button:not(.print-include) {
+    display: none !important;
+  }
+
+  /* ── Show print-only elements ──────────────────────────────────── */
+  .print-only {
+    display: block !important;
+  }
+
+  /* ── Print report header ──────────────────────────────────────── */
+  .print-report-header {
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 2px solid #3D6B3D;
+    padding-bottom: 12px;
+    margin-bottom: 20px;
+  }
+
+  .print-report-header .print-logo {
+    font-size: 18pt;
+    font-weight: 900;
+    color: #3D6B3D !important;
+    letter-spacing: -0.02em;
+  }
+
+  .print-report-header .print-meta {
+    text-align: right;
+    font-size: 9pt;
+    color: #555 !important;
+    line-height: 1.4;
+  }
+
+  /* ── Print report footer (fixed at bottom of each page) ────────── */
+  .print-report-footer {
+    display: block !important;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    border-top: 1px solid #ccc;
+    padding-top: 6px;
+    text-align: center;
+    font-size: 8pt;
+    color: #888 !important;
+    background: white !important;
+  }
+
+  /* ── Section containers ────────────────────────────────────────── */
+  .print-section {
+    page-break-inside: avoid;
+    margin-bottom: 20px;
+    border: 1px solid #ddd;
+    border-radius: 6pt;
+    padding: 14px 16px;
+  }
+
+  .print-section h2,
+  .print-section h3 {
+    font-size: 12pt !important;
+    font-weight: 800 !important;
+    color: #1a1a1a !important;
+    margin: 0 0 8px 0 !important;
+    border-bottom: 1px solid #e0e0e0;
+    padding-bottom: 5px;
+  }
+
+  .print-section p,
+  .print-section li,
+  .print-section td {
+    font-size: 10pt !important;
+    color: #222 !important;
+  }
+
+  /* Force page break before a section when marked */
+  .print-page-break {
+    page-break-before: always;
+  }
+
+  /* ── Score bar (print-safe) ────────────────────────────────────── */
+  .print-score-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .print-score-bar .bar-track {
+    flex: 1;
+    height: 8px;
+    background: #e0e0e0 !important;
+    border-radius: 4px;
+    overflow: hidden;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .print-score-bar .bar-fill {
+    height: 100%;
+    background: #3D6B3D !important;
+    border-radius: 4px;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .print-score-bar .bar-label {
+    font-size: 11pt !important;
+    font-weight: 800 !important;
+    color: #3D6B3D !important;
+    min-width: 42px;
+    text-align: right;
+  }
+
+  /* ── Stat grid for summary numbers ────────────────────────────── */
+  .print-stat-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  .print-stat-cell {
+    border: 1px solid #ddd;
+    border-radius: 5pt;
+    padding: 10px;
+    text-align: center;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .print-stat-cell .stat-value {
+    font-size: 18pt !important;
+    font-weight: 900 !important;
+    color: #3D6B3D !important;
+    display: block;
+  }
+
+  .print-stat-cell .stat-label {
+    font-size: 8pt !important;
+    color: #555 !important;
+    display: block;
+    margin-top: 2px;
+  }
+
+  /* ── Vocabulary list ────────────────────────────────────────────── */
+  .print-vocab-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .print-vocab-list li {
+    padding: 6px 0;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: baseline;
+  }
+
+  .print-vocab-list li:last-child {
+    border-bottom: none;
+  }
+
+  .print-vocab-word {
+    font-weight: 800;
+    font-size: 11pt !important;
+    color: #1a1a1a !important;
+  }
+
+  .print-vocab-pos {
+    font-size: 8pt !important;
+    color: #666 !important;
+    font-style: italic;
+  }
+
+  .print-vocab-sentence {
+    font-size: 9pt !important;
+    color: #444 !important;
+    flex-basis: 100%;
+    padding-left: 4px;
+  }
+
+  /* ── Conversation log ───────────────────────────────────────────── */
+  .print-conversation {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    space-y: 8px;
+  }
+
+  .print-conversation li {
+    padding: 6px 8px;
+    border-radius: 4pt;
+    margin-bottom: 6px;
+    font-size: 9.5pt !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .print-conversation li.alice-turn {
+    background: #f0f7f0 !important;
+    border-left: 3px solid #5C8B5C;
+  }
+
+  .print-conversation li.student-turn {
+    background: #fafafa !important;
+    border-left: 3px solid #D4A843;
+    margin-left: 20px;
+  }
+
+  .print-conversation .speaker-label {
+    font-weight: 800;
+    font-size: 8pt !important;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: block;
+    margin-bottom: 2px;
+  }
+
+  /* ── Ghibli card flattens for print ────────────────────────────── */
+  .ghibli-card {
+    box-shadow: none !important;
+    border: 1px solid #ddd !important;
+    border-radius: 6pt !important;
+    background: white !important;
+  }
+
+  /* ── Remove decorative background gradients ────────────────────── */
+  .ghibli-bg,
+  .hialice-hero,
+  .hialice-panel,
+  .banner-gradient,
+  .profile-gradient {
+    background: white !important;
+  }
+
+  /* ── Tighten max-width for readability on A4 ──────────────────── */
+  main {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* ── Ensure coloured fills render in print ────────────────────── */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* ── Add bottom margin so content clears the fixed footer ──────── */
+  body > * {
+    margin-bottom: 40px;
+  }
+}
+
 /* ===== Skeleton loader ===== */
 @keyframes skeleton-shimmer {
   0% { background-position: -200% 0; }

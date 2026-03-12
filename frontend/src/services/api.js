@@ -1,11 +1,89 @@
 /**
- * HiMax API Client
- * Fetch wrapper with error handling and mock fallback data for development
+ * api.js
+ * HiAlice — API Client
+ *
+ * Production-ready fetch layer with:
+ *   - A shared apiFetch helper (credentials, auth token, timeout, error throwing)
+ *   - USE_MOCK flag: when NEXT_PUBLIC_USE_MOCK=true every function returns mock
+ *     data immediately without touching the network.
+ *   - In production (USE_MOCK=false) real API calls are made and failures are
+ *     thrown — no silent mock fallback.
+ *
+ * Endpoint alignment with backend (backend/src/app.js mounts all routes under
+ * /api, so apiFetch prepends /api automatically):
+ *
+ *   Auth          POST /auth/register, /auth/parent-login, /auth/child-select
+ *                 POST /auth/children, /auth/logout, /auth/refresh
+ *                 GET  /auth/me
+ *   Books         GET  /books, /books/:id
+ *                 GET  /books/recommendations/:studentId
+ *   Sessions      POST /sessions/start
+ *                 POST /sessions/:id/message          (singular, matches backend)
+ *                 POST /sessions/:id/complete
+ *                 GET  /sessions/:id/review
+ *                 GET  /sessions/:id/feedback
+ *                 GET  /sessions/:id/stage-scores
+ *                 PUT  /sessions/:id/pause
+ *                 PUT  /sessions/:id/resume
+ *                 GET  /sessions/student/:studentId
+ *                 GET  /sessions/student/:studentId/highlights
+ *                 POST /sessions/:id/prediction
+ *                 PUT  /sessions/prediction/:predictionId/verify
+ *                 GET  /sessions/student/:studentId/portfolio
+ *   Vocabulary    GET  /vocabulary/:studentId
+ *                 GET  /vocabulary/:studentId/due-today
+ *                 GET  /vocabulary/:studentId/stats
+ *                 POST /vocabulary/:studentId/practice-result
+ *   Notifications GET  /notifications
+ *                 POST /notifications/preferences
+ *                 PATCH /notifications/:id/read
+ *   Admin         GET  /admin/students/:id/analytics
+ *   Safety        GET  /safety/logs, /safety/stats
+ *                 POST /safety/review/:logId
+ *   COPPA         POST /coppa/verify-intent, /coppa/verify-confirm
+ *                 GET  /coppa/status/:email
  */
 
 import { API_BASE, API_TIMEOUT } from '@/lib/constants';
-import { MOCK_BOOK_CATALOG, normalizeMockBook } from '@/lib/mockBookCatalog';
 import { clearPersistedSession, getItem } from '@/lib/clientStorage';
+import {
+  mockParentRegister,
+  mockParentLogin,
+  mockAddChild,
+  mockChildSelect,
+  mockGetBooks,
+  MOCK_BOOK_DETAIL,
+  mockStartSession,
+  mockSendMessage,
+  mockCompleteSession,
+  mockSessionReview,
+  MOCK_SESSION_FEEDBACK,
+  mockStudentProgress,
+  mockVocabulary,
+  MOCK_VOCAB_STATS,
+  MOCK_VOCAB_DUE_TODAY,
+  mockParentNotifications,
+  mockUpdateNotificationPrefs,
+  mockSafetyLogs,
+  mockSafetyStats,
+  mockReviewSafetyLog,
+  MOCK_STUDENT_ANALYTICS,
+  mockPredictionPortfolio,
+} from './mockData';
+
+// ---------------------------------------------------------------------------
+// Global flags
+// ---------------------------------------------------------------------------
+
+/**
+ * When true every API function returns mock data without hitting the network.
+ * Set NEXT_PUBLIC_USE_MOCK=true in .env.local or CI environment to enable.
+ */
+const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === 'true';
+
+// ---------------------------------------------------------------------------
+// Session helpers
+// ---------------------------------------------------------------------------
 
 export function clearClientSession() {
   if (typeof window === 'undefined') return;
@@ -18,8 +96,23 @@ export function clearClientSession() {
   document.cookie = 'token=; Max-Age=0; path=/';
 }
 
+// ---------------------------------------------------------------------------
+// Shared fetch helper
+// ---------------------------------------------------------------------------
+
 /**
- * Base fetch wrapper with timeout, auth token injection, and error handling
+ * Core fetch wrapper used by every public API function.
+ *
+ * Features:
+ *   - Prepends API_BASE + /api to every endpoint path
+ *   - Injects Bearer token from sessionStorage when present
+ *   - Enforces a configurable timeout via AbortController
+ *   - Throws on any non-2xx HTTP status (clears session on 401/403)
+ *   - Throws a typed timeout error on AbortError
+ *
+ * @param {string} endpoint  — path relative to /api, e.g. "/auth/me"
+ * @param {RequestInit & { timeout?: number }} options
+ * @returns {Promise<any>}  parsed JSON response body
  */
 async function apiFetch(endpoint, options = {}) {
   const url = `${API_BASE}/api${endpoint}`;
@@ -46,6 +139,7 @@ async function apiFetch(endpoint, options = {}) {
     clearTimeout(timeoutId);
 
     if (!response.ok) {
+      // Auto-clear local session on auth failure
       if (
         typeof window !== 'undefined' &&
         (response.status === 401 || response.status === 403)
@@ -63,684 +157,123 @@ async function apiFetch(endpoint, options = {}) {
     return await response.json();
   } catch (error) {
     clearTimeout(timeoutId);
+
     if (error.name === 'AbortError') {
       const timeoutError = new Error('Request timed out. Please try again.');
       timeoutError.isTimeout = true;
       throw timeoutError;
     }
-    console.error(`API request failed: ${endpoint}`, error);
+
+    // Re-throw everything else — callers decide whether to surface the error
     throw error;
   }
 }
 
+// ---------------------------------------------------------------------------
+// Auth
+// ---------------------------------------------------------------------------
+
 /**
- * Parent registration
+ * Register a new parent account.
  * POST /auth/register
+ *
+ * @param {string} email
+ * @param {string} password
+ * @param {string} displayName
  */
 export async function parentRegister(email, password, displayName) {
-  try {
-    const response = await apiFetch('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify({ email, password, displayName }),
-    });
-    return response;
-  } catch (error) {
-    console.error('Parent register failed:', error);
-    if (process.env.NODE_ENV === 'development') {
-      return {
-        success: true,
-        parent: {
-          id: 'parent-' + Date.now(),
-          email,
-          display_name: displayName,
-        },
-        token: 'mock-token-' + Date.now(),
-        children: [],
-      };
-    }
-    throw error;
-  }
+  if (USE_MOCK) return mockParentRegister(email, displayName);
+
+  return apiFetch('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({ email, password, displayName }),
+  });
 }
 
 /**
- * Add a child to the parent account
- * POST /auth/children
- */
-export async function addChild(name, age, avatarEmoji) {
-  try {
-    const response = await apiFetch('/auth/children', {
-      method: 'POST',
-      body: JSON.stringify({ name, age, avatarEmoji }),
-    });
-    return response;
-  } catch (error) {
-    console.error('Add child failed:', error);
-    if (process.env.NODE_ENV === 'development') {
-      let level = 'beginner';
-      if (age >= 12) level = 'advanced';
-      else if (age >= 9) level = 'intermediate';
-      return {
-        success: true,
-        student: {
-          id: 'student-' + Date.now(),
-          name,
-          age,
-          level,
-          avatarEmoji: avatarEmoji || '🧒',
-        },
-      };
-    }
-    throw error;
-  }
-}
-
-/**
- * Parent authentication
+ * Email + password login.
  * POST /auth/parent-login
+ *
+ * @param {string} email
+ * @param {string} password
  */
 export async function parentLogin(email, password) {
-  try {
-    const response = await apiFetch('/auth/parent-login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    });
-    return response;
-  } catch (error) {
-    console.error('Parent login failed:', error);
-    // Mock fallback for development
-    if (process.env.NODE_ENV === 'development') {
-      return {
-        success: true,
-        parent: {
-          id: 'parent-001',
-          email,
-          name: 'Parent User',
-        },
-        token: 'mock-token-' + Date.now(),
-      };
-    }
-    throw error;
-  }
+  if (USE_MOCK) return mockParentLogin(email);
+
+  return apiFetch('/auth/parent-login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  });
 }
 
 /**
- * Select student
- * POST /students/:studentId/select
+ * Add a child to the authenticated parent's account.
+ * POST /auth/children
+ *
+ * @param {string} name
+ * @param {number} age
+ * @param {string|undefined} avatarEmoji
+ */
+export async function addChild(name, age, avatarEmoji) {
+  if (USE_MOCK) return mockAddChild(name, age, avatarEmoji);
+
+  return apiFetch('/auth/children', {
+    method: 'POST',
+    body: JSON.stringify({ name, age, avatarEmoji }),
+  });
+}
+
+/**
+ * Select a child and receive a student-scoped JWT.
+ * POST /auth/child-select
+ *
+ * @param {string} studentId
  */
 export async function childSelect(studentId) {
-  try {
-    const response = await apiFetch('/auth/child-select', {
-      method: 'POST',
-      body: JSON.stringify({ studentId }),
-    });
-    return response;
-  } catch (error) {
-    console.error('Child select failed:', error);
-    // Mock fallback
-    if (process.env.NODE_ENV === 'development') {
-      return {
-        success: true,
-        student: {
-          id: studentId,
-          name: 'John',
-          age: 8,
-          level: 'beginner',
-        },
-        session: {
-          id: 'session-' + Date.now(),
-          studentId,
-          startedAt: new Date().toISOString(),
-        },
-      };
-    }
-    throw error;
-  }
+  if (USE_MOCK) return mockChildSelect(studentId);
+
+  return apiFetch('/auth/child-select', {
+    method: 'POST',
+    body: JSON.stringify({ studentId }),
+  });
 }
 
 /**
- * Get books list
- * GET /books?level=beginner
- */
-export async function getBooks(level = null) {
-  try {
-    const query = level ? `?level=${level}` : '';
-    const response = await apiFetch(`/books${query}`);
-    return response;
-  } catch (error) {
-    console.error('Get books failed:', error);
-    // Mock fallback
-    if (process.env.NODE_ENV === 'development') {
-      const normalizedLevel = level?.toLowerCase();
-      return {
-        success: true,
-        books: MOCK_BOOK_CATALOG
-          .map(normalizeMockBook)
-          .filter((book) => !normalizedLevel || book.level.toLowerCase() === normalizedLevel),
-      };
-    }
-    throw error;
-  }
-}
-
-/**
- * Get single book details
- * GET /books/:bookId
- */
-export async function getBook(bookId) {
-  try {
-    const response = await apiFetch(`/books/${bookId}`);
-    return response;
-  } catch (error) {
-    console.error('Get book failed:', error);
-    // Mock fallback
-    if (process.env.NODE_ENV === 'development') {
-      return {
-        success: true,
-        book: {
-          id: bookId,
-          title: 'The Very Hungry Caterpillar',
-          author: 'Eric Carle',
-          level: 'beginner',
-          genre: 'Picture Book',
-          coverEmoji: '🐛',
-          description: 'A classic picture book about transformation',
-          pageCount: 32,
-          summary:
-            'Follow a tiny caterpillar as it eats its way through the week...',
-        },
-      };
-    }
-    throw error;
-  }
-}
-
-/**
- * Start a new session
- * POST /sessions
- */
-export async function startSession(studentId, bookId) {
-  try {
-    const response = await apiFetch('/sessions', {
-      method: 'POST',
-      body: JSON.stringify({ studentId, bookId }),
-    });
-    return response;
-  } catch (error) {
-    console.error('Start session failed:', error);
-    // Mock fallback
-    if (process.env.NODE_ENV === 'development') {
-      return {
-        success: true,
-        session: {
-          id: 'session-' + Date.now(),
-          studentId,
-          bookId,
-          stage: 'title',
-          startedAt: new Date().toISOString(),
-          turns: 0,
-        },
-      };
-    }
-    throw error;
-  }
-}
-
-/**
- * Send message in session
- * POST /sessions/:sessionId/messages
- */
-export async function sendMessage(sessionId, content, stage) {
-  try {
-    const response = await apiFetch(`/sessions/${sessionId}/messages`, {
-      method: 'POST',
-      body: JSON.stringify({
-        content,
-        stage,
-        timestamp: new Date().toISOString(),
-      }),
-    });
-    return response;
-  } catch (error) {
-    console.error('Send message failed:', error);
-    // Mock fallback
-    if (process.env.NODE_ENV === 'development') {
-      const mockResponses = {
-        title:
-          'That\'s a great observation! What else does the title tell you about the book?',
-        introduction:
-          'Interesting! Can you describe what the character looks like?',
-        body: 'That\'s your first reason. Can you tell me your second reason?',
-        conclusion:
-          'What a wonderful reflection! This shows how much you understood the book.',
-      };
-
-      return {
-        success: true,
-        message: {
-          id: 'msg-' + Date.now(),
-          sessionId,
-          speaker: 'student',
-          content,
-          stage,
-          timestamp: new Date().toISOString(),
-        },
-        response: {
-          id: 'resp-' + Date.now(),
-          sessionId,
-          speaker: 'alice',
-          content: mockResponses[stage] || 'Tell me more!',
-          stage,
-          timestamp: new Date().toISOString(),
-          grammarScore: Math.floor(Math.random() * 40 + 60),
-        },
-      };
-    }
-    throw error;
-  }
-}
-
-/**
- * Complete session
- * POST /sessions/:sessionId/complete
- */
-export async function completeSession(sessionId, feedback = {}) {
-  try {
-    const response = await apiFetch(`/sessions/${sessionId}/complete`, {
-      method: 'POST',
-      body: JSON.stringify({
-        ...feedback,
-        completedAt: new Date().toISOString(),
-      }),
-    });
-    return response;
-  } catch (error) {
-    console.error('Complete session failed:', error);
-    // Mock fallback
-    if (process.env.NODE_ENV === 'development') {
-      return {
-        success: true,
-        session: {
-          id: sessionId,
-          completedAt: new Date().toISOString(),
-          levelScore: Math.floor(Math.random() * 40 + 60),
-          grammarScore: Math.floor(Math.random() * 40 + 60),
-        },
-      };
-    }
-    throw error;
-  }
-}
-
-/**
- * Get session review
- * GET /sessions/:sessionId/review
- */
-export async function getSessionReview(sessionId) {
-  try {
-    const response = await apiFetch(`/sessions/${sessionId}/review`);
-    return response;
-  } catch (error) {
-    console.error('Get session review failed:', error);
-    // Mock fallback
-    if (process.env.NODE_ENV === 'development') {
-      return {
-        success: true,
-        review: {
-          sessionId,
-          bookTitle: 'The Very Hungry Caterpillar',
-          level: 'beginner',
-          completedAt: new Date().toISOString(),
-          duration: 1200, // seconds
-          turns: 8,
-          levelScore: 78,
-          grammarScore: 82,
-          wordCloud: {
-            caterpillar: 5,
-            hungry: 4,
-            butterfly: 3,
-            beautiful: 2,
-            leaves: 2,
-          },
-          vocabulary: [
-            { id: 1, word: 'caterpillar', pos: 'noun', contextSentence: 'The caterpillar ate through one apple.', synonyms: ['larva', 'grub'], antonyms: [], masteryLevel: 2, useCount: 3 },
-            { id: 2, word: 'cocoon', pos: 'noun', contextSentence: 'He built a cocoon around himself.', synonyms: ['chrysalis', 'shell'], antonyms: [], masteryLevel: 1, useCount: 1 },
-            { id: 3, word: 'metamorphosis', pos: 'noun', contextSentence: 'The metamorphosis was amazing.', synonyms: ['transformation', 'change'], antonyms: [], masteryLevel: 1, useCount: 1 },
-          ],
-          messages: [
-            { speaker: 'alice', content: "Hi there! Let's talk about The Very Hungry Caterpillar. What was your favorite part?" },
-            { speaker: 'student', content: "I liked when the caterpillar ate so many things!" },
-            { speaker: 'alice', content: "That's a great observation! Why do you think the caterpillar was so hungry?" },
-            { speaker: 'student', content: "Because he was growing and needed energy to become a beautiful butterfly." },
-          ],
-        },
-      };
-    }
-    throw error;
-  }
-}
-
-/**
- * Get vocabulary list
- * GET /students/:studentId/vocabulary?sessionId=optional
- */
-export async function getVocabulary(studentId, sessionId = null) {
-  try {
-    const query = sessionId ? `?sessionId=${sessionId}` : '';
-    const response = await apiFetch(`/students/${studentId}/vocabulary${query}`);
-    return response;
-  } catch (error) {
-    console.error('Get vocabulary failed:', error);
-    // Mock fallback
-    if (process.env.NODE_ENV === 'development') {
-      return {
-        success: true,
-        vocabulary: {
-          studentId,
-          sessionId,
-          words: [
-            {
-              id: 'word-001',
-              word: 'caterpillar',
-              pos: 'noun',
-              contextSentence: 'The caterpillar was very hungry.',
-              synonyms: ['larva', 'grub'],
-              antonyms: [],
-              firstUsed: new Date(Date.now() - 86400000).toISOString(),
-              masteryLevel: 2,
-              useCount: 5,
-            },
-            {
-              id: 'word-002',
-              word: 'metamorphosis',
-              pos: 'noun',
-              contextSentence: 'The metamorphosis happens in the cocoon.',
-              synonyms: ['transformation', 'change'],
-              antonyms: [],
-              firstUsed: new Date().toISOString(),
-              masteryLevel: 1,
-              useCount: 1,
-            },
-          ],
-          totalWords: 34,
-          newWords: 8,
-          reviewWords: 26,
-        },
-      };
-    }
-    throw error;
-  }
-}
-
-/**
- * Get student progress
- * GET /students/:studentId/progress
- */
-export async function getStudentProgress(studentId) {
-  try {
-    const response = await apiFetch(`/students/${studentId}/progress`);
-    return response;
-  } catch (error) {
-    console.error('Get student progress failed:', error);
-    // Mock fallback
-    if (process.env.NODE_ENV === 'development') {
-      return {
-        success: true,
-        progress: {
-          studentId,
-          totalBooksRead: 12,
-          totalSessions: 24,
-          averageLevelScore: 78,
-          averageGrammarScore: 82,
-          vocabularySize: 156,
-          weeklyReadingGoal: 3,
-          weeklyReadingProgress: 2,
-          streak: 5,
-          badges: ['reader', 'speaker', 'grammar-master'],
-        },
-      };
-    }
-    throw error;
-  }
-}
-
-// ==================== Sessions ====================
-
-/**
- * Get all sessions for a student
- * GET /sessions/student/:studentId
- */
-export async function getStudentSessions(studentId) {
-  try {
-    const response = await apiFetch(`/sessions/student/${studentId}`);
-    return response;
-  } catch (error) {
-    console.error('Get student sessions failed:', error);
-    if (process.env.NODE_ENV === 'development') {
-      return {
-        success: true,
-        sessions: [],
-      };
-    }
-    throw error;
-  }
-}
-
-/**
- * Get stage scores for a session
- * GET /sessions/:sessionId/stage-scores
- */
-export async function getSessionStageScores(sessionId) {
-  try {
-    const response = await apiFetch(`/sessions/${sessionId}/stage-scores`);
-    return response;
-  } catch (error) {
-    console.error('Get session stage scores failed:', error);
-    if (process.env.NODE_ENV === 'development') {
-      return {
-        success: true,
-        stageScores: [],
-      };
-    }
-    throw error;
-  }
-}
-
-/**
- * Pause session (Save & Exit)
- * PUT /sessions/:sessionId/pause
- */
-export async function pauseSession(sessionId) {
-  try {
-    const response = await apiFetch(`/sessions/${sessionId}/pause`, {
-      method: 'PUT',
-    });
-    return response;
-  } catch (error) {
-    console.error('Pause session failed:', error);
-    if (process.env.NODE_ENV === 'development') {
-      return { success: true, sessionId };
-    }
-    throw error;
-  }
-}
-
-/**
- * Resume a paused session
- * PUT /sessions/:sessionId/resume
- */
-export async function resumeSession(sessionId) {
-  try {
-    const response = await apiFetch(`/sessions/${sessionId}/resume`, {
-      method: 'PUT',
-    });
-    return response;
-  } catch (error) {
-    console.error('Resume session failed:', error);
-    if (process.env.NODE_ENV === 'development') {
-      return { success: true, sessionId };
-    }
-    throw error;
-  }
-}
-
-/**
- * Get AI-generated personal feedback for a completed session
- * GET /sessions/:sessionId/feedback
- */
-export async function getSessionFeedback(sessionId) {
-  try {
-    const response = await apiFetch(`/sessions/${sessionId}/feedback`);
-    return response;
-  } catch (error) {
-    console.error('Get session feedback failed:', error);
-    if (process.env.NODE_ENV === 'development') {
-      return {
-        success: true,
-        ai_feedback: 'You did such a wonderful job today! Your ideas were creative and your vocabulary is growing so fast. Keep reading and sharing your thoughts!',
-      };
-    }
-    throw error;
-  }
-}
-
-/**
- * Record an emotion reaction to an Alice message (fire-and-forget analytics)
- * POST /sessions/:sessionId/emotion
- */
-export async function recordEmotionReaction(sessionId, data) {
-  try {
-    const response = await apiFetch(`/sessions/${sessionId}/emotion`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-    return response;
-  } catch (error) {
-    // Silent failure — emotion reactions are non-critical analytics
-    console.warn('Record emotion reaction failed (non-critical):', error);
-    return { success: false };
-  }
-}
-
-// ==================== Vocabulary ====================
-
-/**
- * Get vocabulary for a student
- * GET /vocabulary/:studentId
- */
-export async function getStudentVocabulary(studentId) {
-  try {
-    const response = await apiFetch(`/vocabulary/${studentId}`);
-    return response;
-  } catch (error) {
-    console.error('Get student vocabulary failed:', error);
-    if (process.env.NODE_ENV === 'development') {
-      return {
-        success: true,
-        words: [],
-        totalWords: 0,
-        newWords: 0,
-        reviewWords: 0,
-      };
-    }
-    throw error;
-  }
-}
-
-/**
- * Get words due for review today (spaced repetition queue)
- * GET /vocabulary/:studentId/due-today
- */
-export async function getVocabDueToday(studentId) {
-  try {
-    const response = await apiFetch(`/vocabulary/${studentId}/due-today`);
-    return response;
-  } catch (error) {
-    console.error('Get vocab due today failed:', error);
-    if (process.env.NODE_ENV === 'development') {
-      return { success: true, words: [], count: 0 };
-    }
-    throw error;
-  }
-}
-
-/**
- * Get vocabulary statistics for a student
- * GET /vocabulary/:studentId/stats
- */
-export async function getVocabStats(studentId) {
-  try {
-    const response = await apiFetch(`/vocabulary/${studentId}/stats`);
-    return response;
-  } catch (error) {
-    console.error('Get vocab stats failed:', error);
-    if (process.env.NODE_ENV === 'development') {
-      return {
-        success: true,
-        stats: {
-          totalWords: 0,
-          masteredWords: 0,
-          learningWords: 0,
-          dueToday: 0,
-        },
-      };
-    }
-    throw error;
-  }
-}
-
-/**
- * Record a spaced repetition practice result
- * POST /vocabulary/:studentId/practice-result
- */
-export async function recordPracticeResult(
-  studentId,
-  vocabularyId,
-  isCorrect,
-  responseTimeMs
-) {
-  try {
-    const response = await apiFetch(
-      `/vocabulary/${studentId}/practice-result`,
-      {
-        method: 'POST',
-        body: JSON.stringify({ vocabularyId, isCorrect, responseTimeMs }),
-      }
-    );
-    return response;
-  } catch (error) {
-    console.error('Record practice result failed:', error);
-    // Silent failure — don't block UI for analytics calls
-    return { success: false, error: error.message };
-  }
-}
-
-// ==================== Auth ====================
-
-/**
- * Get the currently logged-in user
+ * Get the currently authenticated user.
  * GET /auth/me
  */
 export async function getCurrentUser() {
-  try {
-    const response = await apiFetch('/auth/me');
-    return response;
-  } catch (error) {
-    console.error('Get current user failed:', error);
-    throw error;
+  if (USE_MOCK) {
+    return {
+      user: {
+        type: 'parent',
+        id: 'parent-001',
+        email: 'parent@example.com',
+        display_name: 'Parent User',
+      },
+      children: [],
+    };
   }
+
+  return apiFetch('/auth/me');
 }
 
 /**
- * Log out the current user
+ * Log out the current user and clear local session state.
  * POST /auth/logout
  */
 export async function logout() {
+  if (USE_MOCK) {
+    clearClientSession();
+    return { success: true };
+  }
+
   try {
     const response = await apiFetch('/auth/logout', { method: 'POST' });
     clearClientSession();
     return response;
   } catch (error) {
-    // Even if server call fails, clear local session
+    // Even if the server call fails, clear local state so the user is unblocked
     clearClientSession();
     console.warn('Logout API call failed (session cleared locally):', error);
     return { success: true };
@@ -748,221 +281,695 @@ export async function logout() {
 }
 
 /**
- * Get notifications for the current user
+ * Get parent notification inbox via the auth router.
  * GET /auth/notifications
+ *
+ * Note: The dedicated /notifications route (notificationsRouter) is preferred
+ * for richer responses including prefs.  This thin wrapper is kept for
+ * backwards compatibility with components that call it directly.
  */
 export async function getNotifications() {
-  try {
-    const response = await apiFetch('/auth/notifications');
-    return response;
-  } catch (error) {
-    console.error('Get notifications failed:', error);
-    if (process.env.NODE_ENV === 'development') {
-      return { success: true, notifications: [] };
-    }
-    throw error;
-  }
+  if (USE_MOCK) return { success: true, notifications: [] };
+
+  return apiFetch('/auth/notifications');
 }
 
-// ==================== Admin ====================
+// ---------------------------------------------------------------------------
+// Books
+// ---------------------------------------------------------------------------
 
 /**
- * Get analytics for a specific student (admin)
- * GET /admin/students/:studentId/analytics
+ * List books with optional level filter.
+ * GET /books?level=beginner
+ *
+ * @param {string|null} level
  */
-export async function getStudentAnalytics(studentId) {
-  try {
-    const response = await apiFetch(`/admin/students/${studentId}/analytics`);
-    return response;
-  } catch (error) {
-    console.error('Get student analytics failed:', error);
-    if (process.env.NODE_ENV === 'development') {
-      return {
-        success: true,
-        analytics: {
-          achievements: [],
-          weeklyActivity: [],
-          topWords: [],
-        },
-      };
-    }
-    throw error;
-  }
+export async function getBooks(level = null) {
+  if (USE_MOCK) return mockGetBooks(level);
+
+  const query = level ? `?level=${encodeURIComponent(level)}` : '';
+  return apiFetch(`/books${query}`);
 }
 
-// ==================== Sprint 2-3 Features ====================
+/**
+ * Get a single book by ID.
+ * GET /books/:bookId
+ *
+ * @param {string} bookId
+ */
+export async function getBook(bookId) {
+  if (USE_MOCK) return { success: true, book: { ...MOCK_BOOK_DETAIL, id: bookId } };
+
+  return apiFetch(`/books/${bookId}`);
+}
+
+// ---------------------------------------------------------------------------
+// Sessions
+// ---------------------------------------------------------------------------
 
 /**
- * Get student thinking highlights for parent dashboard
- * GET /sessions/student/:studentId/highlights
+ * Start a new Q&A session.
+ * POST /sessions/start
+ *
+ * NOTE: The backend route is /sessions/start, not /sessions (POST).
+ *
+ * @param {string} studentId
+ * @param {string} bookId
+ */
+export async function startSession(studentId, bookId) {
+  if (USE_MOCK) return mockStartSession(studentId, bookId);
+
+  return apiFetch('/sessions/start', {
+    method: 'POST',
+    body: JSON.stringify({ studentId, bookId }),
+  });
+}
+
+/**
+ * Send a student message and receive Alice's reply.
+ * POST /sessions/:sessionId/message
+ *
+ * NOTE: The backend route uses the singular "message", not "messages".
+ *
+ * @param {string} sessionId
+ * @param {string} content
+ * @param {string} stage
+ */
+export async function sendMessage(sessionId, content, stage) {
+  if (USE_MOCK) return mockSendMessage(sessionId, content, stage);
+
+  return apiFetch(`/sessions/${sessionId}/message`, {
+    method: 'POST',
+    body: JSON.stringify({
+      content,
+      stage,
+      timestamp: new Date().toISOString(),
+    }),
+  });
+}
+
+/**
+ * Mark a session as complete.
+ * POST /sessions/:sessionId/complete
+ *
+ * @param {string} sessionId
+ * @param {object} feedback
+ */
+export async function completeSession(sessionId, feedback = {}) {
+  if (USE_MOCK) return mockCompleteSession(sessionId);
+
+  return apiFetch(`/sessions/${sessionId}/complete`, {
+    method: 'POST',
+    body: JSON.stringify({
+      ...feedback,
+      completedAt: new Date().toISOString(),
+    }),
+  });
+}
+
+/**
+ * Get a full session review with dialogue history and vocabulary.
+ * GET /sessions/:sessionId/review
+ *
+ * @param {string} sessionId
+ */
+export async function getSessionReview(sessionId) {
+  if (USE_MOCK) return mockSessionReview(sessionId);
+
+  return apiFetch(`/sessions/${sessionId}/review`);
+}
+
+/**
+ * Get AI-generated personal feedback for a completed session.
+ * GET /sessions/:sessionId/feedback
+ *
+ * @param {string} sessionId
+ */
+export async function getSessionFeedback(sessionId) {
+  if (USE_MOCK) return { success: true, ai_feedback: MOCK_SESSION_FEEDBACK };
+
+  return apiFetch(`/sessions/${sessionId}/feedback`);
+}
+
+/**
+ * Get per-stage scores for a session.
+ * GET /sessions/:sessionId/stage-scores
+ *
+ * @param {string} sessionId
+ */
+export async function getSessionStageScores(sessionId) {
+  if (USE_MOCK) return { success: true, stageScores: [] };
+
+  return apiFetch(`/sessions/${sessionId}/stage-scores`);
+}
+
+/**
+ * Pause a session (Save & Exit).
+ * PUT /sessions/:sessionId/pause
+ *
+ * @param {string} sessionId
+ */
+export async function pauseSession(sessionId) {
+  if (USE_MOCK) return { success: true, sessionId };
+
+  return apiFetch(`/sessions/${sessionId}/pause`, { method: 'PUT' });
+}
+
+/**
+ * Resume a previously paused session.
+ * PUT /sessions/:sessionId/resume
+ *
+ * @param {string} sessionId
+ */
+export async function resumeSession(sessionId) {
+  if (USE_MOCK) return { success: true, sessionId };
+
+  return apiFetch(`/sessions/${sessionId}/resume`, { method: 'PUT' });
+}
+
+/**
+ * Get all sessions for a student.
+ * GET /sessions/student/:studentId
+ *
+ * @param {string} studentId
+ */
+export async function getStudentSessions(studentId) {
+  if (USE_MOCK) return { success: true, sessions: [] };
+
+  return apiFetch(`/sessions/student/${studentId}`);
+}
+
+/**
+ * Get thinking highlights for a student (parent dashboard).
+ * GET /sessions/student/:studentId/highlights?limit=5
+ *
+ * @param {string} studentId
+ * @param {number} limit
  */
 export async function getStudentHighlights(studentId, limit = 5) {
-  try {
-    const response = await apiFetch(`/sessions/student/${studentId}/highlights?limit=${limit}`);
-    return response;
-  } catch (error) {
-    console.error('Get student highlights failed:', error);
-    if (process.env.NODE_ENV === 'development') {
-      return { highlights: [], growthSummary: null };
-    }
-    throw error;
-  }
+  if (USE_MOCK) return { highlights: [], growthSummary: null };
+
+  return apiFetch(
+    `/sessions/student/${studentId}/highlights?limit=${limit}`
+  );
 }
 
 /**
- * Save a student prediction during a session
+ * Save a student prediction during a session.
  * POST /sessions/:sessionId/prediction
+ *
+ * @param {string} sessionId
+ * @param {string} predictionText
+ * @param {string} predictionType
+ * @param {string} stage
+ * @param {number} confidenceBefore
  */
-export async function savePrediction(sessionId, predictionText, predictionType, stage, confidenceBefore) {
+export async function savePrediction(
+  sessionId,
+  predictionText,
+  predictionType,
+  stage,
+  confidenceBefore
+) {
+  if (USE_MOCK) return { prediction: null };
+
   try {
-    const response = await apiFetch(`/sessions/${sessionId}/prediction`, {
+    return await apiFetch(`/sessions/${sessionId}/prediction`, {
       method: 'POST',
       body: JSON.stringify({ predictionText, predictionType, stage, confidenceBefore }),
     });
-    return response;
   } catch (error) {
+    // Non-critical enrichment feature — log and return a safe empty value
     console.error('Save prediction failed:', error);
     return { prediction: null, error: error.message };
   }
 }
 
 /**
- * Verify a prediction
+ * Verify a student prediction.
  * PUT /sessions/prediction/:predictionId/verify
+ *
+ * @param {string} predictionId
+ * @param {boolean} wasCorrect
+ * @param {string} verificationText
+ * @param {number} confidenceAfter
  */
-export async function verifyPrediction(predictionId, wasCorrect, verificationText, confidenceAfter) {
+export async function verifyPrediction(
+  predictionId,
+  wasCorrect,
+  verificationText,
+  confidenceAfter
+) {
+  if (USE_MOCK) return { success: true };
+
   try {
-    const response = await apiFetch(`/sessions/prediction/${predictionId}/verify`, {
+    return await apiFetch(`/sessions/prediction/${predictionId}/verify`, {
       method: 'PUT',
       body: JSON.stringify({ wasCorrect, verificationText, confidenceAfter }),
     });
-    return response;
   } catch (error) {
+    // Non-critical enrichment feature
     console.error('Verify prediction failed:', error);
     return { success: false, error: error.message };
   }
 }
 
 /**
- * Get student prediction portfolio
+ * Get a student's prediction portfolio.
  * GET /sessions/student/:studentId/portfolio
+ *
+ * @param {string} studentId
  */
 export async function getPredictionPortfolio(studentId) {
+  if (USE_MOCK) return mockPredictionPortfolio(studentId);
+
+  return apiFetch(`/sessions/student/${studentId}/portfolio`);
+}
+
+/**
+ * Record an emotion reaction to an Alice message (fire-and-forget analytics).
+ * This endpoint does not yet exist on the backend; the call is silently
+ * suppressed so no session is disrupted.
+ *
+ * @param {string} sessionId
+ * @param {object} data
+ */
+export async function recordEmotionReaction(sessionId, data) {
+  if (USE_MOCK) return { success: false };
+
+  // Emotion reactions are non-critical analytics.  We attempt the call but
+  // never surface errors to the user — a missing endpoint on the backend
+  // results in a silent no-op rather than a thrown error.
   try {
-    const response = await apiFetch(`/sessions/student/${studentId}/portfolio`);
-    return response;
+    return await apiFetch(`/sessions/${sessionId}/emotion`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   } catch (error) {
-    console.error('Get prediction portfolio failed:', error);
-    if (process.env.NODE_ENV === 'development') {
-      return { portfolio: { total_predictions: 0 }, recentPredictions: [] };
-    }
-    throw error;
+    console.warn('Record emotion reaction failed (non-critical):', error);
+    return { success: false };
   }
 }
 
 /**
- * Create COPPA VPC payment intent
+ * Request a question rephrase when a student is stuck.
+ * This endpoint does not yet exist on the backend; a safe fallback message is
+ * returned so the session UI is never blocked.
+ *
+ * @param {string} sessionId
+ * @param {string} originalQuestion
+ * @param {string} stage
+ */
+export async function requestRephrase(sessionId, originalQuestion, stage) {
+  if (USE_MOCK) {
+    return {
+      content:
+        "Let me ask that in a simpler way! Was it more EXCITING or more SURPRISING?",
+      isMock: true,
+    };
+  }
+
+  try {
+    return await apiFetch(`/sessions/${sessionId}/rephrase`, {
+      method: 'POST',
+      body: JSON.stringify({ originalQuestion, stage }),
+    });
+  } catch (error) {
+    console.error('Rephrase request failed:', error);
+    // Return a safe fallback so the UI is not blocked
+    return {
+      content:
+        "Let me ask that in a simpler way! Was it more EXCITING or more SURPRISING?",
+      isMock: true,
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Student progress
+// ---------------------------------------------------------------------------
+
+/**
+ * Get aggregated progress for a student.
+ *
+ * The backend exposes rich analytics at GET /admin/students/:studentId/analytics.
+ * The legacy GET /students/:studentId/progress path does not exist; this
+ * function maps to the analytics endpoint and normalises the shape for callers
+ * that expect a { progress } object.
+ *
+ * GET /admin/students/:studentId/analytics
+ *
+ * @param {string} studentId
+ */
+export async function getStudentProgress(studentId) {
+  if (USE_MOCK) return mockStudentProgress(studentId);
+
+  const data = await apiFetch(`/admin/students/${studentId}/analytics`);
+
+  // Normalise analytics payload into the { progress } shape that components expect
+  const a = data.analytics || data;
+  return {
+    success: true,
+    progress: {
+      studentId,
+      totalBooksRead: a.student?.total_books_read ?? a.totalBooksRead ?? 0,
+      totalSessions: a.recentSessions?.length ?? a.totalSessions ?? 0,
+      averageLevelScore: a.averageLevelScore ?? 0,
+      averageGrammarScore: a.averageGrammarScore ?? 0,
+      vocabularySize: a.vocabSummary?.totalWords ?? a.vocabularySize ?? 0,
+      weeklyReadingGoal: a.weeklyReadingGoal ?? 3,
+      weeklyReadingProgress: a.weeklyReadingProgress ?? 0,
+      streak: a.student?.current_streak ?? a.streak ?? 0,
+      badges: a.achievements ?? a.badges ?? [],
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Vocabulary
+// ---------------------------------------------------------------------------
+
+/**
+ * Get vocabulary for a student filtered optionally by session.
+ * GET /students/:studentId/vocabulary?sessionId=...
+ *
+ * NOTE: This legacy path maps to the vocabulary router endpoint
+ * GET /vocabulary/:studentId (with optional ?sessionId query param).
+ *
+ * @param {string} studentId
+ * @param {string|null} sessionId
+ */
+export async function getVocabulary(studentId, sessionId = null) {
+  if (USE_MOCK) return mockVocabulary(studentId, sessionId);
+
+  const query = sessionId ? `?sessionId=${sessionId}` : '';
+  return apiFetch(`/vocabulary/${studentId}${query}`);
+}
+
+/**
+ * Get all vocabulary words for a student.
+ * GET /vocabulary/:studentId
+ *
+ * @param {string} studentId
+ */
+export async function getStudentVocabulary(studentId) {
+  if (USE_MOCK) {
+    return {
+      success: true,
+      words: [],
+      totalWords: 0,
+      newWords: 0,
+      reviewWords: 0,
+    };
+  }
+
+  return apiFetch(`/vocabulary/${studentId}`);
+}
+
+/**
+ * Get words due for spaced-repetition review today.
+ * GET /vocabulary/:studentId/due-today
+ *
+ * @param {string} studentId
+ */
+export async function getVocabDueToday(studentId) {
+  if (USE_MOCK) return MOCK_VOCAB_DUE_TODAY;
+
+  return apiFetch(`/vocabulary/${studentId}/due-today`);
+}
+
+/**
+ * Get vocabulary statistics for a student.
+ * GET /vocabulary/:studentId/stats
+ *
+ * @param {string} studentId
+ */
+export async function getVocabStats(studentId) {
+  if (USE_MOCK) return MOCK_VOCAB_STATS;
+
+  return apiFetch(`/vocabulary/${studentId}/stats`);
+}
+
+/**
+ * Record a spaced-repetition practice result.
+ * POST /vocabulary/:studentId/practice-result
+ *
+ * @param {string} studentId
+ * @param {string} vocabularyId
+ * @param {boolean} isCorrect
+ * @param {number} responseTimeMs
+ */
+export async function recordPracticeResult(
+  studentId,
+  vocabularyId,
+  isCorrect,
+  responseTimeMs
+) {
+  if (USE_MOCK) return { success: true };
+
+  try {
+    return await apiFetch(`/vocabulary/${studentId}/practice-result`, {
+      method: 'POST',
+      body: JSON.stringify({ vocabularyId, isCorrect, responseTimeMs }),
+    });
+  } catch (error) {
+    // Practice result recording is non-critical analytics — never block UI
+    console.error('Record practice result failed:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Notifications
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch parent notification inbox with optional unread filter.
+ * GET /notifications?unreadOnly=true
+ *
+ * Returns: { notifications, unreadCount, prefs }
+ *
+ * @param {boolean} unreadOnly
+ */
+export async function getParentNotifications(unreadOnly = false) {
+  if (USE_MOCK) return mockParentNotifications();
+
+  const query = unreadOnly ? '?unreadOnly=true' : '';
+  return apiFetch(`/notifications${query}`);
+}
+
+/**
+ * Save (upsert) parent notification preferences.
+ * POST /notifications/preferences
+ *
+ * @param {{ emailEnabled: boolean, sessionAlerts: boolean, weeklyReport: boolean, notificationEmail: string }} prefs
+ */
+export async function updateNotificationPrefs(prefs) {
+  if (USE_MOCK) return mockUpdateNotificationPrefs(prefs);
+
+  return apiFetch('/notifications/preferences', {
+    method: 'POST',
+    body: JSON.stringify(prefs),
+  });
+}
+
+/**
+ * Mark a single notification as read, or all when id === 'all'.
+ * PATCH /notifications/:id/read
+ *
+ * @param {string} id
+ */
+export async function markNotificationRead(id) {
+  if (USE_MOCK) return { success: true };
+
+  return apiFetch(`/notifications/${id}/read`, { method: 'PATCH' });
+}
+
+// ---------------------------------------------------------------------------
+// Admin
+// ---------------------------------------------------------------------------
+
+/**
+ * Get rich analytics for a student (admin only).
+ * GET /admin/students/:studentId/analytics
+ *
+ * @param {string} studentId
+ */
+export async function getStudentAnalytics(studentId) {
+  if (USE_MOCK) return MOCK_STUDENT_ANALYTICS;
+
+  return apiFetch(`/admin/students/${studentId}/analytics`);
+}
+
+// ---------------------------------------------------------------------------
+// Safety Monitor
+// ---------------------------------------------------------------------------
+
+/**
+ * Retrieve paginated safety log entries (admin only).
+ * GET /safety/logs?page=1&limit=20&days=7&flagType=&source=&reviewed=
+ *
+ * @param {number} page
+ * @param {number} limit
+ * @param {{ flagType?: string, source?: string, reviewed?: string, days?: number }} filters
+ */
+export async function getSafetyLogs(page = 1, limit = 20, filters = {}) {
+  if (USE_MOCK) return mockSafetyLogs(page, limit, filters);
+
+  const params = new URLSearchParams({ page, limit });
+  if (filters.days)     params.set('days', filters.days);
+  if (filters.flagType) params.set('flagType', filters.flagType);
+  if (filters.source)   params.set('source', filters.source);
+  if (filters.reviewed !== undefined && filters.reviewed !== '')
+    params.set('reviewed', filters.reviewed);
+
+  return apiFetch(`/safety/logs?${params.toString()}`);
+}
+
+/**
+ * Retrieve safety statistics for the last N days (admin only).
+ * GET /safety/stats?days=7
+ *
+ * @param {number} days
+ */
+export async function getSafetyStats(days = 7) {
+  if (USE_MOCK) return mockSafetyStats(days);
+
+  return apiFetch(`/safety/stats?days=${days}`);
+}
+
+/**
+ * Mark a safety log entry as reviewed.
+ * POST /safety/review/:logId
+ *
+ * @param {number|string} logId
+ */
+export async function reviewSafetyLog(logId) {
+  if (USE_MOCK) return mockReviewSafetyLog(logId);
+
+  return apiFetch(`/safety/review/${logId}`, { method: 'POST' });
+}
+
+// ---------------------------------------------------------------------------
+// COPPA
+// ---------------------------------------------------------------------------
+
+/**
+ * Create a COPPA Verifiable Parental Consent payment intent.
  * POST /coppa/verify-intent
+ *
+ * @param {string} parentEmail
+ * @param {string} parentName
  */
 export async function createCoppaIntent(parentEmail, parentName) {
-  try {
-    const response = await apiFetch('/coppa/verify-intent', {
-      method: 'POST',
-      body: JSON.stringify({ parentEmail, parentName }),
-    });
-    return response;
-  } catch (error) {
-    console.error('COPPA intent creation failed:', error);
-    throw error;
+  if (USE_MOCK) {
+    return {
+      success: true,
+      clientSecret: 'mock_secret_' + Date.now(),
+      paymentIntentId: 'mock_pi_' + Date.now(),
+    };
   }
+
+  return apiFetch('/coppa/verify-intent', {
+    method: 'POST',
+    body: JSON.stringify({ parentEmail, parentName }),
+  });
 }
 
 /**
- * Confirm COPPA VPC verification
+ * Confirm a COPPA VPC payment and mark the parent as verified.
  * POST /coppa/verify-confirm
+ *
+ * @param {string} paymentIntentId
+ * @param {string} parentEmail
+ * @param {string} parentName
  */
-export async function confirmCoppaVerification(paymentIntentId, parentEmail, parentName) {
-  try {
-    const response = await apiFetch('/coppa/verify-confirm', {
-      method: 'POST',
-      body: JSON.stringify({ paymentIntentId, parentEmail, parentName }),
-    });
-    return response;
-  } catch (error) {
-    console.error('COPPA verification failed:', error);
-    throw error;
+export async function confirmCoppaVerification(
+  paymentIntentId,
+  parentEmail,
+  parentName
+) {
+  if (USE_MOCK) {
+    return { success: true, verified: true };
   }
+
+  return apiFetch('/coppa/verify-confirm', {
+    method: 'POST',
+    body: JSON.stringify({ paymentIntentId, parentEmail, parentName }),
+  });
 }
 
 /**
- * Check COPPA VPC status
+ * Check COPPA verification status for an email address.
  * GET /coppa/status/:email
+ *
+ * @param {string} email
  */
 export async function getCoppaStatus(email) {
+  if (USE_MOCK) return { verified: false };
+
   try {
-    const response = await apiFetch(`/coppa/status/${encodeURIComponent(email)}`);
-    return response;
+    return await apiFetch(`/coppa/status/${encodeURIComponent(email)}`);
   } catch (error) {
     console.error('COPPA status check failed:', error);
     return { verified: false };
   }
 }
 
-/**
- * Request question rephrase when student is stuck
- * POST /sessions/:sessionId/rephrase
- */
-export async function requestRephrase(sessionId, originalQuestion, stage) {
-  try {
-    const response = await apiFetch(`/sessions/${sessionId}/rephrase`, {
-      method: 'POST',
-      body: JSON.stringify({ originalQuestion, stage }),
-    });
-    return response;
-  } catch (error) {
-    console.error('Rephrase request failed:', error);
-    return {
-      content: "Let me ask that in a simpler way! Was it more EXCITING or more SURPRISING?",
-      isMock: true,
-    };
-  }
-}
+// ---------------------------------------------------------------------------
+// Default export (namespace object for convenience)
+// ---------------------------------------------------------------------------
 
 const api = {
+  // Auth
   parentRegister,
   addChild,
   parentLogin,
   childSelect,
+  getCurrentUser,
+  logout,
+  getNotifications,
+  // Books
   getBooks,
   getBook,
+  // Sessions
   startSession,
   sendMessage,
   completeSession,
   getSessionReview,
-  getVocabulary,
-  getStudentProgress,
-  getStudentSessions,
+  getSessionFeedback,
   getSessionStageScores,
   pauseSession,
   resumeSession,
-  getSessionFeedback,
-  recordEmotionReaction,
-  getStudentVocabulary,
-  getVocabDueToday,
-  getVocabStats,
-  recordPracticeResult,
-  getCurrentUser,
-  logout,
-  getNotifications,
-  getStudentAnalytics,
+  getStudentSessions,
   getStudentHighlights,
   savePrediction,
   verifyPrediction,
   getPredictionPortfolio,
+  recordEmotionReaction,
+  requestRephrase,
+  // Student
+  getStudentProgress,
+  // Vocabulary
+  getVocabulary,
+  getStudentVocabulary,
+  getVocabDueToday,
+  getVocabStats,
+  recordPracticeResult,
+  // Notifications
+  getParentNotifications,
+  updateNotificationPrefs,
+  markNotificationRead,
+  // Admin
+  getStudentAnalytics,
+  // Safety
+  getSafetyLogs,
+  getSafetyStats,
+  reviewSafetyLog,
+  // COPPA
   createCoppaIntent,
   confirmCoppaVerification,
   getCoppaStatus,
-  requestRephrase,
 };
 
 export default api;

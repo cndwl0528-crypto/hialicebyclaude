@@ -8,7 +8,7 @@
 
 export const STAGE_GUIDE = {
   warm_connection: {
-    label: 'Warm Connection',
+    label: "Let's Say Hi!",
     guideQuestion: 'What kind of stories do you enjoy?',
     description: 'Let\'s warm up and get ready to talk about books!',
     example: 'e.g. I really love adventure stories because they are so exciting.',
@@ -16,7 +16,7 @@ export const STAGE_GUIDE = {
     color: '#FF6B6B',
   },
   title: {
-    label: 'Title',
+    label: 'About This Book',
     guideQuestion: 'What is this book about?',
     description: 'Share what you think the book is about',
     example: 'e.g. This book is about a caterpillar that becomes a butterfly.',
@@ -24,7 +24,7 @@ export const STAGE_GUIDE = {
     color: '#4A90D9',
   },
   introduction: {
-    label: 'Introduction',
+    label: 'Meet the Characters',
     guideQuestion: 'Who is your favorite character? Why?',
     description: 'Tell me about the characters and setting',
     example: 'e.g. I would choose the caterpillar because it is brave.',
@@ -32,7 +32,7 @@ export const STAGE_GUIDE = {
     color: '#8B5CF6',
   },
   body: {
-    label: 'Body',
+    label: 'Think Deeper',
     guideQuestion: 'Tell me 3 things about the story',
     description: 'Share your thoughts with 3 reasons',
     icon: '💭',
@@ -56,7 +56,7 @@ export const STAGE_GUIDE = {
     ],
   },
   conclusion: {
-    label: 'Conclusion',
+    label: 'My Thoughts',
     guideQuestion: 'How do you feel about this book?',
     description: 'Share your final thoughts and feelings',
     example: 'e.g. Reading this book was really fun and I learned a lot.',
@@ -64,7 +64,7 @@ export const STAGE_GUIDE = {
     color: '#27AE60',
   },
   cross_book: {
-    label: 'Cross Book',
+    label: 'Connect the Stories',
     guideQuestion: 'Does this book remind you of another book you have read?',
     description: 'Connect this story to other books you know and love',
     example: 'e.g. This book reminds me of Charlotte\'s Web because both stories have animal friends.',

@@ -33,7 +33,7 @@ function ConsentForm() {
         })
       });
       if (!r.ok) throw new Error('Consent recording failed');
-      router.push('/');
+      router.push('/login?view=addChild');
     } catch (e) {
       setError('Failed to record consent. Please try again.');
     } finally {

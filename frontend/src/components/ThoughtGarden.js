@@ -208,7 +208,7 @@ export default function ThoughtGarden({ thoughts = [], studentName = '', compact
         <div className="text-center py-8">
           <span className="text-4xl mb-3 block">🌱</span>
           <p className="text-gray-500">Your garden is waiting for its first thought!</p>
-          <p className="text-sm text-gray-400 mt-1">Complete a reading session to plant your first seed.</p>
+          <p className="text-sm text-gray-400 mt-1">Complete a review session to plant your first seed.</p>
         </div>
       ) : (
         <div className="flex flex-wrap gap-4 justify-center py-4">

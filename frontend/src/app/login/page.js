@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { parentLogin, parentRegister, childSelect } from '@/services/api';
+import { parentLogin, parentRegister, childSelect, addChild } from '@/services/api';
 import { isParentOrAdmin } from '@/lib/constants';
 import { getItem, setItem } from '@/lib/clientStorage';
 
@@ -49,6 +49,14 @@ function LoginPageInner() {
   const [studentSearch, setStudentSearch] = useState('');
   const [children,      setChildren]      = useState(MOCK_CHILDREN);
 
+  // ── PIN authentication state ─────────────────────────────────────────────
+  // selectedChild holds the child that was tapped; once PIN is verified it
+  // gets passed to the actual handleSelectStudent logic.
+  const [selectedChild, setSelectedChild] = useState(null);
+  const [pinDigits,     setPinDigits]     = useState(['', '', '', '']);
+  const [pinError,      setPinError]      = useState('');
+  const pinRefs = [useRef(null), useRef(null), useRef(null), useRef(null)];
+
   // ── Parent-login state ───────────────────────────────────────────────────
   const [parentEmail,    setParentEmail]    = useState('');
   const [parentPassword, setParentPassword] = useState('');
@@ -63,10 +71,17 @@ function LoginPageInner() {
   const [showRegConfirm,     setShowRegConfirm]     = useState(false);
   const [successMessage,     setSuccessMessage]     = useState('');
 
+  // ── Add-child state ────────────────────────────────────────────────────
+  const AVATAR_OPTIONS = ['👧', '👦', '🧒', '👶', '🐱', '🐶', '🦊', '🐼'];
+  const [childName,   setChildName]   = useState('');
+  const [childAge,    setChildAge]    = useState('');
+  const [childAvatar, setChildAvatar] = useState('👧');
+
   // Sync viewState with ?view= query param (e.g. router.push('/login?view=register'))
   useEffect(() => {
     const view = params.get('view');
     if (view === 'register' && viewState !== 'register') setViewState('register');
+    if (view === 'addChild' && viewState !== 'addChild') setViewState('addChild');
   }, [params]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Helpers ──────────────────────────────────────────────────────────────
@@ -83,13 +98,24 @@ function LoginPageInner() {
     setShowRegPassword(false);
     setShowRegConfirm(false);
     setSuccessMessage('');
+    setChildName('');
+    setChildAge('');
+    setChildAvatar('👧');
+    // Reset PIN state
+    setSelectedChild(null);
+    setPinDigits(['', '', '', '']);
+    setPinError('');
   };
 
   const goTo = (view) => {
     resetAllForms();
     setViewState(view);
-    // Keep URL clean – remove the query param when navigating away from register
-    if (view !== 'register') {
+    // Keep URL clean – remove the query param when navigating away from special views
+    if (view === 'register') {
+      router.replace('/login?view=register', { scroll: false });
+    } else if (view === 'addChild') {
+      router.replace('/login?view=addChild', { scroll: false });
+    } else {
       router.replace('/login', { scroll: false });
     }
   };
@@ -99,7 +125,71 @@ function LoginPageInner() {
     c.name.toLowerCase().includes(studentSearch.toLowerCase())
   );
 
-  const handleSelectStudent = async (child) => {
+  // Step 1 — child taps their name card: show PIN entry instead of logging in
+  const handleSelectStudent = (child) => {
+    setSelectedChild(child);
+    setPinDigits(['', '', '', '']);
+    setPinError('');
+    // Focus the first digit box on the next render tick
+    setTimeout(() => { pinRefs[0].current?.focus(); }, 50);
+  };
+
+  // Step 2 — PIN digit input handler: auto-advance, auto-submit on last digit
+  const handlePinDigitChange = (index, value) => {
+    // Accept only a single numeric character
+    const digit = value.replace(/\D/g, '').slice(-1);
+    const next = [...pinDigits];
+    next[index] = digit;
+    setPinDigits(next);
+    setPinError('');
+
+    if (digit && index < 3) {
+      // Advance focus to the next box
+      pinRefs[index + 1].current?.focus();
+    }
+    if (index === 3 && digit) {
+      // All four digits entered — trigger validation
+      handlePinSubmit(next);
+    }
+  };
+
+  // Backspace support: move focus back when a box is cleared
+  const handlePinKeyDown = (index, e) => {
+    if (e.key === 'Backspace' && !pinDigits[index] && index > 0) {
+      pinRefs[index - 1].current?.focus();
+    }
+  };
+
+  // Step 3 — validate PIN and proceed to session setup
+  const handlePinSubmit = async (digits = pinDigits) => {
+    const pin = digits.join('');
+    if (pin.length < 4) {
+      setPinError('Please enter all 4 digits.');
+      return;
+    }
+
+    // -----------------------------------------------------------------
+    // TODO (real validation): replace the block below with an API call
+    // once backend PIN storage is implemented:
+    //   const result = await verifyStudentPin(selectedChild.id, pin);
+    //   if (!result.valid) { setPinError('Wrong PIN. Try again!'); return; }
+    // -----------------------------------------------------------------
+    // Mock check: any 4-digit entry is accepted for now.
+    const isCorrect = pin.length === 4; // placeholder — always true
+
+    if (!isCorrect) {
+      setPinError('Wrong PIN. Try again!');
+      setPinDigits(['', '', '', '']);
+      setTimeout(() => { pinRefs[0].current?.focus(); }, 50);
+      return;
+    }
+
+    // PIN accepted — proceed with the actual session setup
+    await completeStudentLogin(selectedChild);
+  };
+
+  // Step 4 — the original login logic, now called after PIN is verified
+  const completeStudentLogin = async (child) => {
     setIsLoading(true);
     setError('');
     try {
@@ -123,6 +213,13 @@ function LoginPageInner() {
     }
   };
 
+  // "Not you? Go back" — return to the children list without fully resetting
+  const handleCancelPin = () => {
+    setSelectedChild(null);
+    setPinDigits(['', '', '', '']);
+    setPinError('');
+  };
+
   // ── Parent login ──────────────────────────────────────────────────────────
   const handleParentLogin = async (e) => {
     e.preventDefault();
@@ -136,6 +233,9 @@ function LoginPageInner() {
       const result = await parentLogin(parentEmail, parentPassword);
       if (!result || !result.token) throw new Error('Invalid server response.');
 
+      // Primary auth is now via httpOnly cookie (set automatically by the
+      // server response). We still persist the token in client storage as a
+      // backward-compatible fallback for API clients that cannot send cookies.
       setItem('token', result.token);
       setItem('parentId', result.parent?.id || '');
       setItem('parentEmail', result.parent?.email || parentEmail);
@@ -143,9 +243,11 @@ function LoginPageInner() {
 
       if (result.children && result.children.length > 0) {
         setItem('children', JSON.stringify(result.children));
+        router.push('/dashboard');
+      } else {
+        // No children registered yet — guide parent to add a child
+        goTo('addChild');
       }
-
-      router.push('/dashboard');
     } catch (err) {
       setError('Incorrect email or password. Please try again.');
     } finally {
@@ -174,6 +276,9 @@ function LoginPageInner() {
       const result = await parentRegister(regEmail, regPassword, regName);
       if (!result || !result.token) throw new Error('Registration failed.');
 
+      // Primary auth is now via httpOnly cookie (set automatically by the
+      // server response). We still persist the token in client storage as a
+      // backward-compatible fallback for API clients that cannot send cookies.
       setItem('token', result.token);
       setItem('parentId', result.parent?.id || '');
       setItem('parentEmail', result.parent?.email || regEmail);
@@ -182,6 +287,45 @@ function LoginPageInner() {
       router.push(`/consent?email=${encodeURIComponent(regEmail)}`);
     } catch (err) {
       setError(err.message || 'Registration failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ── Add Child ────────────────────────────────────────────────────────────
+  const handleAddChild = async (e) => {
+    e.preventDefault();
+    if (!childName.trim() || !childAge) {
+      setError('Please enter your child\'s name and age.');
+      return;
+    }
+    setIsLoading(true);
+    setError('');
+    try {
+      const result = await addChild(childName.trim(), Number(childAge), childAvatar);
+      const newChild = result?.student || result?.child || {
+        id: Date.now(),
+        name: childName.trim(),
+        age: Number(childAge),
+        level: Number(childAge) <= 8 ? 'Beginner' : Number(childAge) <= 11 ? 'Intermediate' : 'Advanced',
+        avatar: childAvatar,
+      };
+
+      // Update local children list
+      setChildren((prev) => [...prev, newChild]);
+
+      // Also persist to storage
+      const stored = getItem('children');
+      const existing = stored ? JSON.parse(stored) : [];
+      existing.push(newChild);
+      setItem('children', JSON.stringify(existing));
+
+      setSuccessMessage(`${newChild.name} has been added!`);
+      setChildName('');
+      setChildAge('');
+      setChildAvatar('👧');
+    } catch (err) {
+      setError(err.message || 'Failed to add child. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -399,90 +543,236 @@ function LoginPageInner() {
         <div className="w-full max-w-md animate-fade-in">
           <div className="hialice-option-card p-7" style={{ ['--accent-color']: '#5C8B5C' }}>
 
-            {/* Panel header */}
-            <div className="text-center mb-6">
-              <div className="text-4xl mb-2">🧒</div>
-              <h2 className="text-2xl font-extrabold text-[#3D2E1E]">Who are you?</h2>
-              <p className="text-sm font-semibold text-[#6B5744] mt-1">
-                Pick your name and we will help you find the book you read.
-              </p>
-            </div>
+            {/* ── PIN entry — shown after a child taps their name ────────── */}
+            {selectedChild ? (
+              <div className="animate-fade-in">
 
-            {/* Search / name filter */}
-            <div className="mb-4 relative">
-              <label htmlFor="student-search" className="sr-only">Search by name</label>
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6B5744] text-sm pointer-events-none">
-                🔍
-              </span>
-              <input
-                id="student-search"
-                type="text"
-                value={studentSearch}
-                onChange={(e) => setStudentSearch(e.target.value)}
-                className={INPUT_CLASS + ' pl-9'}
-                placeholder="Type your name..."
-                autoComplete="off"
-              />
-            </div>
+                {/* Child identity badge */}
+                <div className="text-center mb-7">
+                  <div
+                    className="inline-flex items-center justify-center w-20 h-20 rounded-3xl text-5xl mb-3 shadow-md"
+                    style={{ background: 'linear-gradient(135deg, #C8E6C9, #A5D6A7)' }}
+                    aria-hidden="true"
+                  >
+                    {selectedChild.avatar}
+                  </div>
+                  <h2 className="text-2xl font-extrabold text-[#3D2E1E]">
+                    Hi, {selectedChild.name}!
+                  </h2>
+                  <p className="text-sm font-semibold text-[#6B5744] mt-1">
+                    Enter your 4-digit PIN to continue
+                  </p>
+                </div>
 
-            {/* Children list */}
-            <div className="space-y-3 mb-4">
-              {filteredChildren.length === 0 ? (
-                <p className="text-center py-6 text-[#6B5744] font-semibold text-sm">
-                  No profiles found. Ask a parent to add you!
-                </p>
-              ) : (
-                filteredChildren.map((child) => {
-                  const badge = LEVEL_BADGE[child.level] || { bg: '#E8DEC8', text: '#6B5744' };
-                  return (
-                    <button
-                      key={child.id}
-                      onClick={() => handleSelectStudent(child)}
+                {/* 4 digit boxes */}
+                <div className="flex justify-center gap-3 mb-5" role="group" aria-label="4-digit PIN entry">
+                  {pinDigits.map((digit, i) => (
+                    <input
+                      key={i}
+                      ref={pinRefs[i]}
+                      id={`pin-digit-${i}`}
+                      type="password"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={1}
+                      value={digit}
+                      onChange={(e) => handlePinDigitChange(i, e.target.value)}
+                      onKeyDown={(e) => handlePinKeyDown(i, e)}
+                      aria-label={`PIN digit ${i + 1}`}
+                      className={
+                        'w-16 h-16 text-center text-3xl font-extrabold rounded-2xl border-2 ' +
+                        'focus:outline-none focus:ring-2 focus:ring-[#5C8B5C] focus:border-transparent ' +
+                        'transition-all duration-200 bg-[#FFFCF3] text-[#3D2E1E] ' +
+                        (pinError
+                          ? 'border-[#D4736B] bg-[#FEF2F1]'
+                          : digit
+                          ? 'border-[#5C8B5C] bg-[#E8F5E8]'
+                          : 'border-[#D6C9A8]')
+                      }
                       disabled={isLoading}
-                      className="w-full flex items-center gap-4 p-4 rounded-2xl border-2
-                                 border-[#E8DEC8] bg-[#FFFCF3]
-                                 hover:border-[#5C8B5C] hover:bg-[#E8F5E8]
-                                 hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(92,139,92,0.15)]
-                                 transition-all duration-200 text-left
-                                 disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                      <span className="text-4xl flex-shrink-0">{child.avatar}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-extrabold text-[#3D2E1E] text-base truncate">
-                          {child.name}
-                        </p>
-                        <p className="text-xs font-semibold text-[#6B5744]">
-                          Age {child.age}
-                        </p>
-                      </div>
-                      {isParentOrAdmin() && (
-                        <span
-                          className="flex-shrink-0 px-3 py-1 rounded-full text-xs font-bold"
-                          style={{ backgroundColor: badge.bg, color: badge.text }}
-                        >
-                          {child.level}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })
-              )}
-            </div>
+                    />
+                  ))}
+                </div>
 
-            {/* Loading indicator */}
-            {isLoading && (
-              <p className="text-center text-sm font-semibold text-[#5C8B5C] mb-3 shimmer">
-                Starting session...
-              </p>
-            )}
+                {/* PIN error message */}
+                {pinError && (
+                  <div
+                    role="alert"
+                    className="text-[#D4736B] text-sm font-semibold text-center mb-4 px-4 py-3 rounded-xl bg-[#FEF2F1] border border-[#F5C6C2]"
+                  >
+                    {pinError}
+                  </div>
+                )}
 
-            {error && (
-              <div role="alert" className="text-[#D4736B] text-sm font-semibold text-center mb-3 px-4 py-3 rounded-xl bg-[#FEF2F1] border border-[#F5C6C2]">
-                {error}
+                {/* Loading state */}
+                {isLoading && (
+                  <p className="text-center text-sm font-semibold text-[#5C8B5C] mb-4 shimmer">
+                    Starting session...
+                  </p>
+                )}
+
+                {/* Submit PIN button */}
+                <button
+                  type="button"
+                  onClick={() => handlePinSubmit()}
+                  disabled={isLoading || pinDigits.some((d) => !d)}
+                  className="w-full min-h-[52px] py-3 rounded-2xl bg-[#3D6B3D] text-white font-extrabold text-base
+                             hover:bg-[#2E5230] hover:-translate-y-0.5
+                             shadow-[0_4px_12px_rgba(61,107,61,0.35)]
+                             transition-all disabled:opacity-50 disabled:cursor-not-allowed
+                             focus-visible:ring-2 focus-visible:ring-[#3D6B3D] focus-visible:ring-offset-2
+                             flex items-center justify-center gap-2 mb-3"
+                >
+                  {isLoading ? (
+                    <>
+                      <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" aria-hidden="true" />
+                      Signing in...
+                    </>
+                  ) : (
+                    <>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                      </svg>
+                      Let me in!
+                    </>
+                  )}
+                </button>
+
+                {/* Forgot PIN helper */}
+                <p className="text-center text-xs text-[#6B5744] font-semibold mb-4">
+                  Forgot your PIN?{' '}
+                  <span className="text-[#D4A843] font-bold">Ask a parent</span>{' '}
+                  to help you.
+                </p>
+
+                {/* "Not you?" — return to name list */}
+                <button
+                  type="button"
+                  onClick={handleCancelPin}
+                  disabled={isLoading}
+                  className="w-full min-h-[48px] py-3 rounded-2xl bg-[#EDE5D4] text-[#6B5744] font-bold
+                             hover:bg-[#D6C9A8] transition-all hover:-translate-y-0.5
+                             flex items-center justify-center gap-2
+                             focus-visible:ring-2 focus-visible:ring-[#6B5744]
+                             disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <line x1="19" y1="12" x2="5" y2="12" />
+                    <polyline points="12 19 5 12 12 5" />
+                  </svg>
+                  Not you? Go back
+                </button>
+
               </div>
+            ) : (
+              <>
+                {/* ── Children list — shown when no child is selected ─────── */}
+
+                {/* Panel header */}
+                <div className="text-center mb-6">
+                  <div className="text-4xl mb-2">🧒</div>
+                  <h2 className="text-2xl font-extrabold text-[#3D2E1E]">Who are you?</h2>
+                  <p className="text-sm font-semibold text-[#6B5744] mt-1">
+                    Pick your name and we will help you find the book you read.
+                  </p>
+                </div>
+
+                {/* Search / name filter */}
+                <div className="mb-4 relative">
+                  <label htmlFor="student-search" className="sr-only">Search by name</label>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6B5744] text-sm pointer-events-none">
+                    🔍
+                  </span>
+                  <input
+                    id="student-search"
+                    type="text"
+                    value={studentSearch}
+                    onChange={(e) => setStudentSearch(e.target.value)}
+                    className={INPUT_CLASS + ' pl-9'}
+                    placeholder="Type your name..."
+                    autoComplete="off"
+                  />
+                </div>
+
+                {/* Children list */}
+                <div className="space-y-3 mb-4">
+                  {filteredChildren.length === 0 ? (
+                    <p className="text-center py-6 text-[#6B5744] font-semibold text-sm">
+                      No profiles found. Ask a parent to add you!
+                    </p>
+                  ) : (
+                    filteredChildren.map((child) => {
+                      const badge = LEVEL_BADGE[child.level] || { bg: '#E8DEC8', text: '#6B5744' };
+                      return (
+                        <button
+                          key={child.id}
+                          onClick={() => handleSelectStudent(child)}
+                          disabled={isLoading}
+                          className="w-full flex items-center gap-4 p-4 rounded-2xl border-2
+                                     border-[#E8DEC8] bg-[#FFFCF3]
+                                     hover:border-[#5C8B5C] hover:bg-[#E8F5E8]
+                                     hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(92,139,92,0.15)]
+                                     transition-all duration-200 text-left
+                                     disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                          <span className="text-4xl flex-shrink-0">{child.avatar}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-extrabold text-[#3D2E1E] text-base truncate">
+                              {child.name}
+                            </p>
+                            <p className="text-xs font-semibold text-[#6B5744]">
+                              Age {child.age}
+                            </p>
+                          </div>
+                          {isParentOrAdmin() && (
+                            <span
+                              className="flex-shrink-0 px-3 py-1 rounded-full text-xs font-bold"
+                              style={{ backgroundColor: badge.bg, color: badge.text }}
+                            >
+                              {child.level}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })
+                  )}
+
+                  {/* Add Child card — visible to parents */}
+                  {isParentOrAdmin() && (
+                    <button
+                      onClick={() => goTo('addChild')}
+                      className="w-full flex items-center gap-4 p-4 rounded-2xl border-2 border-dashed
+                                 border-[#D6C9A8] bg-[#FFFCF3]
+                                 hover:border-[#5C8B5C] hover:bg-[#E8F5E8]
+                                 hover:-translate-y-0.5 transition-all duration-200 text-left"
+                    >
+                      <span className="text-3xl flex-shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center bg-[#E8F5E8]">➕</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-extrabold text-[#5C8B5C] text-base">Add a Child</p>
+                        <p className="text-xs font-semibold text-[#6B5744]">Register a new child profile</p>
+                      </div>
+                    </button>
+                  )}
+                </div>
+
+                {/* Loading indicator */}
+                {isLoading && (
+                  <p className="text-center text-sm font-semibold text-[#5C8B5C] mb-3 shimmer">
+                    Starting session...
+                  </p>
+                )}
+
+                {error && (
+                  <div role="alert" className="text-[#D4736B] text-sm font-semibold text-center mb-3 px-4 py-3 rounded-xl bg-[#FEF2F1] border border-[#F5C6C2]">
+                    {error}
+                  </div>
+                )}
+
+                <BackButton />
+              </>
             )}
 
-            <BackButton />
           </div>
         </div>
       )}
@@ -796,6 +1086,138 @@ function LoginPageInner() {
                 Sign in
               </button>
             </p>
+
+            <BackButton />
+          </div>
+        </div>
+      )}
+
+      {/* ================================================================
+          ADD CHILD VIEW
+         ================================================================ */}
+      {viewState === 'addChild' && (
+        <div className="w-full max-w-md animate-fade-in">
+          <div className="hialice-option-card p-7" style={{ ['--accent-color']: '#5C8B5C' }}>
+
+            <div className="text-center mb-6">
+              <div className="text-4xl mb-2">👶</div>
+              <h2 className="text-2xl font-extrabold text-[#3D2E1E]">Add Your Child</h2>
+              <p className="text-sm font-semibold text-[#6B5744] mt-1">
+                Create a profile for your child to start learning
+              </p>
+            </div>
+
+            <form onSubmit={handleAddChild} noValidate className="space-y-4">
+
+              {/* Child name */}
+              <div>
+                <label htmlFor="child-name" className="block text-sm font-bold text-[#6B5744] mb-1.5">
+                  Child&apos;s Name
+                </label>
+                <input
+                  id="child-name"
+                  type="text"
+                  value={childName}
+                  onChange={(e) => setChildName(e.target.value)}
+                  className={INPUT_CLASS}
+                  placeholder="e.g. Emma"
+                  autoComplete="off"
+                />
+              </div>
+
+              {/* Age dropdown */}
+              <div>
+                <label htmlFor="child-age" className="block text-sm font-bold text-[#6B5744] mb-1.5">
+                  Age
+                </label>
+                <select
+                  id="child-age"
+                  value={childAge}
+                  onChange={(e) => setChildAge(e.target.value)}
+                  className={INPUT_CLASS + ' appearance-none cursor-pointer'}
+                >
+                  <option value="">Select age...</option>
+                  {[6, 7, 8, 9, 10, 11, 12, 13].map((age) => (
+                    <option key={age} value={age}>{age} years old</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Avatar selection */}
+              <div>
+                <label className="block text-sm font-bold text-[#6B5744] mb-2">
+                  Choose an Avatar
+                </label>
+                <div className="grid grid-cols-4 gap-2">
+                  {AVATAR_OPTIONS.map((emoji) => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      onClick={() => setChildAvatar(emoji)}
+                      className={`text-3xl p-3 rounded-2xl border-2 transition-all duration-200
+                        ${childAvatar === emoji
+                          ? 'border-[#5C8B5C] bg-[#E8F5E8] scale-110 shadow-md'
+                          : 'border-[#E8DEC8] bg-[#FFFCF3] hover:border-[#D6C9A8]'
+                        }`}
+                      aria-label={`Select avatar ${emoji}`}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Level hint (read-only) */}
+              {childAge && (
+                <div className="text-xs font-semibold text-[#6B5744] bg-[#F5F0E8] px-4 py-2 rounded-xl">
+                  Level will be automatically assigned based on age.
+                </div>
+              )}
+
+              {error && (
+                <div role="alert" className="text-[#D4736B] text-sm font-semibold px-4 py-3 rounded-xl bg-[#FEF2F1] border border-[#F5C6C2]">
+                  {error}
+                </div>
+              )}
+
+              {successMessage && (
+                <div role="status" className="text-[#3D6B3D] text-sm font-semibold px-4 py-3 rounded-xl bg-[#E8F5E8] border border-[#A5D6A7]">
+                  {successMessage}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={isLoading || !childName.trim() || !childAge}
+                className="w-full min-h-[52px] py-3 rounded-2xl bg-[#5C8B5C] text-white font-extrabold text-base
+                           hover:bg-[#4A7A4A] hover:-translate-y-0.5
+                           shadow-[0_4px_12px_rgba(92,139,92,0.35)]
+                           transition-all disabled:opacity-60 disabled:cursor-not-allowed
+                           focus-visible:ring-2 focus-visible:ring-[#5C8B5C] focus-visible:ring-offset-2
+                           flex items-center justify-center gap-2"
+              >
+                {isLoading ? (
+                  <>
+                    <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" aria-hidden="true" />
+                    Adding child...
+                  </>
+                ) : 'Add Child'}
+              </button>
+            </form>
+
+            {/* After adding at least one child, show option to go to student select */}
+            {children.length > MOCK_CHILDREN.length && (
+              <button
+                type="button"
+                onClick={() => goTo('student')}
+                className="mt-3 w-full min-h-[48px] py-3 rounded-2xl bg-[#D4A843] text-white font-extrabold text-base
+                           hover:bg-[#A8822E] hover:-translate-y-0.5
+                           shadow-[0_4px_12px_rgba(212,168,67,0.35)]
+                           transition-all flex items-center justify-center gap-2"
+              >
+                Done — Choose a Student
+              </button>
+            )}
 
             <BackButton />
           </div>

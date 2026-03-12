@@ -21,12 +21,12 @@ const DEPTH_STYLES = {
 };
 
 const STAGE_LABELS = {
-  warm_connection: 'Warm-up',
-  title: 'Title',
-  introduction: 'Characters',
-  body: 'Discussion',
-  conclusion: 'Reflection',
-  cross_book: 'Cross-Book',
+  warm_connection: "Let's Say Hi! 🌟",
+  title: 'About This Book 📖',
+  introduction: 'Meet the Characters 👤',
+  body: 'Think Deeper 💭',
+  conclusion: 'My Thoughts ⭐',
+  cross_book: 'Connect the Stories 🔗',
 };
 
 function QuoteCard({ highlight, index }) {
@@ -138,9 +138,9 @@ export default function ChildInsightCard({
         {displayHighlights.length === 0 ? (
           <div className="text-center py-6">
             <span className="text-3xl block mb-2">📖</span>
-            <p className="text-gray-500 text-sm">No reading highlights yet.</p>
+            <p className="text-gray-500 text-sm">No review highlights yet.</p>
             <p className="text-gray-400 text-xs mt-1">
-              Highlights appear after your child completes a reading session.
+              Highlights appear after your child completes a review session.
             </p>
           </div>
         ) : (

@@ -144,6 +144,11 @@ export default function RootLayout({ children }) {
     userRole === 'admin' ||
     userRole === 'super_admin';
 
+  const isTeacherOrAdmin =
+    userRole === 'teacher' ||
+    userRole === 'admin' ||
+    userRole === 'super_admin';
+
   const navLinks = [
     ...(isLoggedIn
       ? [
@@ -156,10 +161,20 @@ export default function RootLayout({ children }) {
       : [{ href: '/?landing=1', label: 'Home', icon: '🏠' }]),
     // Only shown when the logged-in user has a parent or admin role.
     ...(isParentOrAdmin ? [{ href: '/parent', label: 'Parent', icon: '👪' }] : []),
+    // Only shown when the logged-in user has a teacher or admin role.
+    ...(isTeacherOrAdmin ? [{ href: '/teacher', label: 'Class', icon: '📚' }] : []),
   ];
 
   const mobileNavLinks = isLoggedIn
-    ? isParentOrAdmin
+    ? isTeacherOrAdmin
+      ? [
+          { href: '/books', label: 'Start', icon: '🚀' },
+          { href: '/review', label: 'Studio', icon: '⭐' },
+          { href: '/vocabulary', label: 'Words', icon: '📖' },
+          { href: '/library', label: 'Library', icon: '📚' },
+          { href: '/teacher', label: 'Class', icon: '📚' },
+        ]
+      : isParentOrAdmin
       ? [
           { href: '/books', label: 'Start', icon: '🚀' },
           { href: '/review', label: 'Studio', icon: '⭐' },

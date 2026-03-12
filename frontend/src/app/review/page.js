@@ -48,13 +48,30 @@ const MOCK_REVIEW = {
   achievements: [],
 };
 
+// Maps internal stage keys (from API/DB) to child-friendly display labels
+const STAGE_DISPLAY_NAMES = {
+  warm_connection: "Let's Say Hi! 🌟",
+  title: 'About This Book 📖',
+  introduction: 'Meet the Characters 👤',
+  body: 'Think Deeper 💭',
+  conclusion: 'My Thoughts ⭐',
+  cross_book: 'Connect the Stories 🔗',
+  // Legacy capitalized keys (older API responses or mock data)
+  'Warm Connection': "Let's Say Hi! 🌟",
+  Title: 'About This Book 📖',
+  Introduction: 'Meet the Characters 👤',
+  Body: 'Think Deeper 💭',
+  Conclusion: 'My Thoughts ⭐',
+  'Cross Book': 'Connect the Stories 🔗',
+};
+
 const MOCK_STAGE_BREAKDOWN = [
-  { stage: 'Warm Connection', completed: true, wordCount: 2, grammarScore: 85, duration: 120 },
-  { stage: 'Title', completed: true, wordCount: 3, grammarScore: 80, duration: 150 },
-  { stage: 'Introduction', completed: true, wordCount: 4, grammarScore: 78, duration: 180 },
-  { stage: 'Body', completed: true, wordCount: 5, grammarScore: 82, duration: 240 },
-  { stage: 'Conclusion', completed: true, wordCount: 3, grammarScore: 85, duration: 160 },
-  { stage: 'Cross Book', completed: true, wordCount: 2, grammarScore: 80, duration: 100 },
+  { stage: 'warm_connection', completed: true, wordCount: 2, grammarScore: 85, duration: 120 },
+  { stage: 'title', completed: true, wordCount: 3, grammarScore: 80, duration: 150 },
+  { stage: 'introduction', completed: true, wordCount: 4, grammarScore: 78, duration: 180 },
+  { stage: 'body', completed: true, wordCount: 5, grammarScore: 82, duration: 240 },
+  { stage: 'conclusion', completed: true, wordCount: 3, grammarScore: 85, duration: 160 },
+  { stage: 'cross_book', completed: true, wordCount: 2, grammarScore: 80, duration: 100 },
 ];
 
 const POS_COLORS = {
@@ -80,6 +97,14 @@ export default function ReviewPage() {
   const [showConfetti, setShowConfetti] = useState(false);
   const [showAchievementModal, setShowAchievementModal] = useState(false);
   const [aiFeedback, setAiFeedback] = useState(null);
+
+  // Print handler — opens the browser print dialog.
+  // The @media print rules in globals.css handle the visual layout.
+  const handlePrint = () => {
+    if (typeof window !== 'undefined') {
+      window.print();
+    }
+  };
 
   useEffect(() => {
     const fetchReview = async () => {
@@ -330,15 +355,163 @@ export default function ReviewPage() {
             onClick={() => router.push('/books')}
             className="px-6 py-3 bg-[#5C8B5C] text-white rounded-2xl font-bold hover:-translate-y-0.5 transition-all"
           >
-            Go to Start
+            Go to Library
           </button>
         </div>
       </div>
     );
   }
 
+  // Format today's date for the print header
+  const printDate = new Date().toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+
   return (
     <div className="py-8">
+
+      {/* ── PRINT-ONLY: Report header — hidden on screen, visible when printing ── */}
+      <div className="print-only print-report-header" aria-hidden="true">
+        <div className="print-logo">HiMax — Learning Report</div>
+        <div className="print-meta">
+          <strong>{review?.studentName || 'Student'}</strong><br />
+          {review?.bookTitle && <span>Book: {review.bookTitle}<br /></span>}
+          {printDate}
+        </div>
+      </div>
+
+      {/* ── PRINT-ONLY: Structured report sections rendered for print ─────────── */}
+      {/* These are invisible in the browser but appear in the printed PDF */}
+      <div className="print-only" aria-hidden="true">
+
+        {/* Score Summary */}
+        <div className="print-section">
+          <h2>Session Summary</h2>
+          <div className="print-stat-grid">
+            <div className="print-stat-cell">
+              <span className="stat-value">{review?.grammarScore ?? 0}%</span>
+              <span className="stat-label">Grammar Score</span>
+            </div>
+            <div className="print-stat-cell">
+              <span className="stat-value">{vocabulary.length}</span>
+              <span className="stat-label">Words Encountered</span>
+            </div>
+            <div className="print-stat-cell">
+              <span className="stat-value">{conversation.length}</span>
+              <span className="stat-label">Conversation Turns</span>
+            </div>
+          </div>
+          {review?.grammarScore != null && (
+            <div style={{ marginTop: '12px' }}>
+              <div className="print-score-bar">
+                <div className="bar-track">
+                  <div className="bar-fill" style={{ width: `${review.grammarScore}%` }} />
+                </div>
+                <span className="bar-label">{review.grammarScore}%</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* AI Feedback */}
+        {aiFeedback && (
+          <div className="print-section">
+            <h2>HiMax AI Feedback</h2>
+            <p style={{ fontStyle: 'italic' }}>&ldquo;{aiFeedback}&rdquo;</p>
+          </div>
+        )}
+
+        {/* Vocabulary List */}
+        {vocabulary.length > 0 && (
+          <div className="print-section">
+            <h2>Vocabulary Learned ({vocabulary.length} words)</h2>
+            <ul className="print-vocab-list">
+              {vocabulary.map((v, idx) => (
+                <li key={v.id || idx}>
+                  <span className="print-vocab-word">{v.word}</span>
+                  <span className="print-vocab-pos">({v.pos || 'noun'})</span>
+                  {v.contextSentence && (
+                    <span className="print-vocab-sentence">&ldquo;{v.contextSentence}&rdquo;</span>
+                  )}
+                  {(v.synonyms || []).length > 0 && (
+                    <span className="print-vocab-sentence" style={{ color: '#3D6B3D' }}>
+                      Synonyms: {v.synonyms.slice(0, 3).join(', ')}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Stage Breakdown */}
+        {stageBreakdown.length > 0 && (
+          <div className="print-section print-page-break">
+            <h2>Session Stage Breakdown</h2>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9.5pt' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid #ccc' }}>
+                  <th style={{ textAlign: 'left', padding: '4px 6px' }}>Stage</th>
+                  <th style={{ textAlign: 'center', padding: '4px 6px' }}>Status</th>
+                  <th style={{ textAlign: 'center', padding: '4px 6px' }}>Grammar</th>
+                  <th style={{ textAlign: 'center', padding: '4px 6px' }}>Words</th>
+                  <th style={{ textAlign: 'center', padding: '4px 6px' }}>Duration</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stageBreakdown.map((stage, idx) => (
+                  <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
+                    <td style={{ padding: '4px 6px' }}>
+                      {STAGE_DISPLAY_NAMES[stage.stage] || stage.stage}
+                    </td>
+                    <td style={{ padding: '4px 6px', textAlign: 'center' }}>
+                      {stage.completed ? 'Complete' : 'Incomplete'}
+                    </td>
+                    <td style={{ padding: '4px 6px', textAlign: 'center' }}>
+                      {stage.grammarScore > 0 ? `${stage.grammarScore}%` : '—'}
+                    </td>
+                    <td style={{ padding: '4px 6px', textAlign: 'center' }}>
+                      {stage.wordCount > 0 ? stage.wordCount : '—'}
+                    </td>
+                    <td style={{ padding: '4px 6px', textAlign: 'center' }}>
+                      {stage.duration > 0
+                        ? `${Math.floor(stage.duration / 60)}m ${stage.duration % 60}s`
+                        : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Conversation Summary */}
+        {conversation.length > 0 && (
+          <div className="print-section">
+            <h2>Conversation Summary</h2>
+            <ul className="print-conversation">
+              {conversation.map((msg, idx) => (
+                <li
+                  key={idx}
+                  className={msg.speaker === 'alice' ? 'alice-turn' : 'student-turn'}
+                >
+                  <span className="speaker-label">
+                    {msg.speaker === 'alice' ? 'HiMax AI' : review?.studentName || 'Student'}
+                  </span>
+                  {msg.content}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      {/* ── PRINT-ONLY: Footer ─────────────────────────────────────────────── */}
+      <div className="print-only print-report-footer" aria-hidden="true">
+        Generated by Hi Alice Reading Program &bull; himax.app &bull; {printDate}
+      </div>
 
       {/* P3-UX-02: Confetti celebration on session complete */}
       <ConfettiCelebration
@@ -553,7 +726,7 @@ export default function ReviewPage() {
               <div key={idx} className="border border-[#E8DEC8] rounded-2xl p-4 bg-[#F5F0E8]">
                 <div className="flex items-center justify-between mb-3">
                   <div>
-                    <h4 className="font-extrabold text-[#3D2E1E]">{stage.stage}</h4>
+                    <h4 className="font-extrabold text-[#3D2E1E]">{STAGE_DISPLAY_NAMES[stage.stage] || stage.stage}</h4>
                     {stage.duration > 0 && (
                       <p className="text-sm text-[#6B5744] font-medium">
                         {Math.floor(stage.duration / 60)}m {stage.duration % 60}s
@@ -746,14 +919,172 @@ export default function ReviewPage() {
         />
       </div>
 
+      {/* Parent Guide — visible to parents and admins only */}
+      {isParentOrAdmin() && (
+        <details className="mb-6 print:block" open={false}>
+          <summary className="list-none cursor-pointer">
+            <div className="flex items-center justify-between px-6 py-4 bg-[#F5F0E8] border-2 border-[#D4A843] rounded-3xl hover:bg-[#EDE5D4] transition-colors select-none">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl" aria-hidden="true">📋</span>
+                <span className="text-lg font-extrabold text-[#3D2E1E]">Parent Guide</span>
+                <span className="px-3 py-0.5 bg-[#D4A843] text-white text-xs font-bold rounded-full uppercase tracking-wide">
+                  For Parents
+                </span>
+              </div>
+              <span className="text-[#6B5744] font-bold text-sm">
+                How to extend this learning at home ▼
+              </span>
+            </div>
+          </summary>
+
+          <div className="mt-2 border-2 border-[#D4A843] border-t-0 rounded-b-3xl bg-[#F5F0E8] p-6 space-y-6 print:border-t-2">
+
+            {/* Discussion Questions */}
+            <div>
+              <h4 className="font-extrabold text-[#3D2E1E] mb-3 flex items-center gap-2">
+                <span aria-hidden="true">💬</span> Discussion Questions
+              </h4>
+              <ul className="space-y-2">
+                <li className="flex gap-2 text-sm text-[#3D2E1E]">
+                  <span className="text-[#D4A843] font-bold flex-shrink-0">-</span>
+                  <span>
+                    &ldquo;What was your favorite part of <em className="not-italic font-bold">{review.bookTitle}</em>?&rdquo;
+                  </span>
+                </li>
+                <li className="flex gap-2 text-sm text-[#3D2E1E]">
+                  <span className="text-[#D4A843] font-bold flex-shrink-0">-</span>
+                  <span>
+                    &ldquo;Can you tell me about the main character in your own words?&rdquo;
+                  </span>
+                </li>
+                <li className="flex gap-2 text-sm text-[#3D2E1E]">
+                  <span className="text-[#D4A843] font-bold flex-shrink-0">-</span>
+                  <span>
+                    &ldquo;What would happen if <em className="not-italic font-bold">{review.bookTitle}</em> had a different ending?&rdquo;
+                  </span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Activities */}
+            <div>
+              <h4 className="font-extrabold text-[#3D2E1E] mb-3 flex items-center gap-2">
+                <span aria-hidden="true">📝</span> Activities
+              </h4>
+              <ul className="space-y-2">
+                {[
+                  'Draw your favorite scene from the book',
+                  `Write a short letter to the main character of ${review.bookTitle}`,
+                  "Find 3 new words from today's session and use them in sentences",
+                ].map((activity, idx) => (
+                  <li key={idx} className="flex gap-2 text-sm text-[#3D2E1E]">
+                    <span className="text-[#D4A843] font-bold flex-shrink-0">-</span>
+                    <span>{activity}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Vocabulary Mission */}
+            <div>
+              <h4 className="font-extrabold text-[#3D2E1E] mb-3 flex items-center gap-2">
+                <span aria-hidden="true">🎯</span> This Week&apos;s Vocabulary Mission
+              </h4>
+              {vocabulary.length > 0 ? (
+                <>
+                  <div className="space-y-2 mb-3">
+                    {vocabulary.slice(0, 5).map((vocab, idx) => (
+                      <div
+                        key={vocab.id || idx}
+                        className="flex items-start gap-3 p-3 bg-white rounded-xl border border-[#E8DEC8]"
+                      >
+                        <span className="font-extrabold text-[#D4A843] min-w-[24px] text-sm">
+                          {idx + 1}.
+                        </span>
+                        <div>
+                          <span className="font-extrabold text-[#3D2E1E]">{vocab.word}</span>
+                          {vocab.contextSentence && (
+                            <p className="text-xs text-[#6B5744] italic mt-0.5">
+                              &ldquo;{vocab.contextSentence}&rdquo;
+                            </p>
+                          )}
+                          {(vocab.synonyms || []).length > 0 && (
+                            <p className="text-xs text-[#5C8B5C] mt-0.5">
+                              Similar words: {vocab.synonyms.slice(0, 2).join(', ')}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-sm text-[#6B5744] italic font-semibold">
+                    &ldquo;Try to use these words in everyday conversation!&rdquo;
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-[#6B5744]">
+                  No vocabulary data available for this session.
+                </p>
+              )}
+            </div>
+
+            {/* Session Summary for Parents */}
+            <div>
+              <h4 className="font-extrabold text-[#3D2E1E] mb-3 flex items-center gap-2">
+                <span aria-hidden="true">📊</span> Session Summary for Parents
+              </h4>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3 bg-white rounded-xl border border-[#E8DEC8] text-center">
+                  <div className="text-2xl font-extrabold text-[#D4A843]">
+                    {conversation.length}
+                  </div>
+                  <p className="text-xs font-bold text-[#6B5744] mt-1 leading-tight">
+                    Total Conversation Turns
+                  </p>
+                </div>
+                <div className="p-3 bg-white rounded-xl border border-[#E8DEC8] text-center">
+                  <div className="text-2xl font-extrabold text-[#5C8B5C]">
+                    {vocabulary.length}
+                  </div>
+                  <p className="text-xs font-bold text-[#6B5744] mt-1 leading-tight">
+                    New Words Encountered
+                  </p>
+                </div>
+                <div className="p-3 bg-white rounded-xl border border-[#E8DEC8] text-center">
+                  <div className="text-2xl font-extrabold text-[#5C8B5C]">
+                    {review.grammarScore || 0}%
+                  </div>
+                  <p className="text-xs font-bold text-[#6B5744] mt-1 leading-tight">
+                    Grammar Accuracy
+                  </p>
+                </div>
+                <div className="p-3 bg-white rounded-xl border border-[#E8DEC8] text-center">
+                  <div className="text-base font-extrabold text-[#6B5744] leading-tight">
+                    {stageBreakdown.length > 0
+                      ? stageBreakdown.filter((s) => s.completed).length === stageBreakdown.length
+                        ? 'All stages complete'
+                        : `${stageBreakdown.filter((s) => s.completed).length}/${stageBreakdown.length} stages`
+                      : review.studentLevel || 'Beginner'}
+                  </div>
+                  <p className="text-xs font-bold text-[#6B5744] mt-1 leading-tight">
+                    Thinking Depth
+                  </p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </details>
+      )}
+
       {/* Action Buttons */}
-      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 sm:justify-center">
+      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 sm:justify-center no-print">
         <button
           onClick={() => router.push('/books')}
           className="flex-1 sm:flex-initial min-h-[52px] px-8 py-3 bg-[#5C8B5C] text-white rounded-2xl hover:bg-[#3D6B3D] transition-all font-bold hover:-translate-y-0.5 shadow-[0_4px_12px_rgba(92,139,92,0.3)] focus-visible:ring-2 focus-visible:ring-[#3D6B3D] flex items-center justify-center gap-2"
         >
           <span aria-hidden="true">🚀</span>
-          Start Another Book
+          Review Another Book
         </button>
         <button
           onClick={() => router.push('/vocabulary')}
@@ -768,6 +1099,32 @@ export default function ReviewPage() {
         >
           <span aria-hidden="true">👤</span>
           View Profile
+        </button>
+
+        {/* Download Report button — triggers browser print dialog */}
+        <button
+          onClick={handlePrint}
+          aria-label="Download or print this learning report as PDF"
+          className="flex-1 sm:flex-initial min-h-[52px] px-8 py-3 bg-[#3D2E1E] text-white rounded-2xl hover:bg-[#6B5744] transition-all font-bold hover:-translate-y-0.5 shadow-[0_4px_12px_rgba(61,46,30,0.3)] focus-visible:ring-2 focus-visible:ring-[#3D2E1E] flex items-center justify-center gap-2"
+        >
+          {/* Printer SVG icon */}
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <polyline points="6 9 6 2 18 2 18 9" />
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+            <rect x="6" y="14" width="12" height="8" />
+          </svg>
+          Download Report
         </button>
       </div>
     </div>

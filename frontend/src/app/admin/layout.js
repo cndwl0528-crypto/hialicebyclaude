@@ -10,10 +10,12 @@ export default function AdminLayout({ children }) {
 
   const adminLinks = [
     { href: '/admin', label: 'Dashboard', icon: '📊' },
+    { href: '/admin/analytics', label: 'Analytics', icon: '📉' },
     { href: '/admin/students', label: 'Students', icon: '👨‍🎓' },
     { href: '/admin/books', label: 'Books', icon: '📚' },
     { href: '/admin/reports', label: 'Reports', icon: '📈' },
     { href: '/admin/prompts', label: 'AI Prompts', icon: '🤖' },
+    { href: '/admin/experiments', label: 'Experiments', icon: '🧪' },
   ];
 
   const isActive = (href) => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   getStudentSessions,
@@ -10,7 +10,11 @@ import {
 } from '@/services/api';
 import LoadingCard from '@/components/LoadingCard';
 import { isParentOrAdmin } from '@/lib/constants';
-import { getItem } from '@/lib/clientStorage';
+import { getItem, setItem } from '@/lib/clientStorage';
+
+// ---------------------------------------------------------------------------
+// Static Mock Data
+// ---------------------------------------------------------------------------
 
 const MOCK_STUDENT = {
   id: 'demo-1',
@@ -18,22 +22,162 @@ const MOCK_STUDENT = {
   age: 7,
   level: 'Beginner',
   avatar: '👧',
-  current_streak: 0,
+  current_streak: 5,
 };
 
 const MOCK_SESSIONS = [
-  { id: 1, bookTitle: 'The Very Hungry Caterpillar', date: '2026-03-08', levelScore: 85, grammarScore: 78, wordsLearned: 18, duration: 12, stages: { Title: 85, Introduction: 80, Body: 78, Conclusion: 85 } },
-  { id: 2, bookTitle: 'Where the Wild Things Are', date: '2026-03-07', levelScore: 88, grammarScore: 82, wordsLearned: 22, duration: 15, stages: { Title: 88, Introduction: 85, Body: 82, Conclusion: 88 } },
-  { id: 3, bookTitle: 'Winnie-the-Pooh', date: '2026-03-06', levelScore: 80, grammarScore: 75, wordsLearned: 20, duration: 14, stages: { Title: 80, Introduction: 78, Body: 75, Conclusion: 80 } },
+  { id: 1, bookTitle: 'The Very Hungry Caterpillar', date: '2026-03-08', levelScore: 85, grammarScore: 78, wordsLearned: 18, duration: 12, stages: { 'About This Book': 85, 'Meet the Characters': 80, 'Think Deeper': 78, 'My Thoughts': 85 } },
+  { id: 2, bookTitle: 'Where the Wild Things Are', date: '2026-03-07', levelScore: 88, grammarScore: 92, wordsLearned: 22, duration: 8, stages: { 'About This Book': 88, 'Meet the Characters': 85, 'Think Deeper': 92, 'My Thoughts': 88 } },
+  { id: 3, bookTitle: 'Winnie-the-Pooh', date: '2026-03-06', levelScore: 80, grammarScore: 75, wordsLearned: 20, duration: 14, stages: { 'About This Book': 80, 'Meet the Characters': 78, 'Think Deeper': 75, 'My Thoughts': 80 } },
 ];
 
 const AVATAR_OPTIONS = ['👧', '👦', '🧒', '👩', '🧑', '😊', '🌟', '🎓'];
 
+// ---------------------------------------------------------------------------
+// Gamification Constants
+// ---------------------------------------------------------------------------
+
+/** XP level thresholds and names */
+const XP_LEVELS = [
+  { level: 1, xpRequired: 0,    name: 'Seedling',         icon: '🌱' },
+  { level: 2, xpRequired: 300,  name: 'Sprout',           icon: '🌿' },
+  { level: 3, xpRequired: 700,  name: 'Sapling',          icon: '🪴' },
+  { level: 4, xpRequired: 1200, name: 'Young Tree',        icon: '🌳' },
+  { level: 5, xpRequired: 2000, name: 'Tall Tree',         icon: '🌲' },
+  { level: 6, xpRequired: 3000, name: 'Wise Oak',          icon: '🍂' },
+  { level: 7, xpRequired: 5000, name: 'Enchanted Forest',  icon: '🌌' },
+];
+
 /**
- * Mirrors the ACHIEVEMENT_CATALOGUE from AchievementUnlock.jsx.
- * Keyed by the same achievement_type strings so earned badges can
- * be resolved to display metadata without importing the component.
+ * Compute total XP from session array.
+ * Base 100 per session + bonuses derived from session data.
  */
+function computeXP(sessions) {
+  return sessions.reduce((total, s) => {
+    let xp = 100; // base
+    // +50 deep thinking: Think Deeper stage score >= 80
+    const thinkScore = s.stages?.['Think Deeper'] ?? s.stages?.body ?? 0;
+    if (thinkScore >= 80) xp += 50;
+    // +30 new vocabulary: learned >= 15 words
+    if ((s.wordsLearned || 0) >= 15) xp += 30;
+    // +20 grammar accuracy: grammarScore > 80
+    if ((s.grammarScore || 0) > 80) xp += 20;
+    return total + xp;
+  }, 0);
+}
+
+/** Return current level data and next-level data based on total XP */
+function getXPLevel(totalXP) {
+  let current = XP_LEVELS[0];
+  for (const lv of XP_LEVELS) {
+    if (totalXP >= lv.xpRequired) current = lv;
+    else break;
+  }
+  const nextIdx = current.level < XP_LEVELS.length ? current.level : null; // XP_LEVELS is 1-indexed
+  const next = nextIdx !== null ? XP_LEVELS[nextIdx] : null;
+  const xpIntoLevel = totalXP - current.xpRequired;
+  const xpNeeded = next ? next.xpRequired - current.xpRequired : 1;
+  const progressPct = next ? Math.min(Math.round((xpIntoLevel / xpNeeded) * 100), 100) : 100;
+  return { current, next, progressPct, xpIntoLevel, xpNeeded };
+}
+
+// ---------------------------------------------------------------------------
+// Story Chapters
+// ---------------------------------------------------------------------------
+
+const STORY_CHAPTERS = [
+  {
+    id: 1,
+    title: "Alice Discovers the Library",
+    sessionsRequired: 3,
+    content: `Deep in the heart of the Enchanted Forest, there stood a library unlike any other. Its walls were made of twisted oak, its shelves carved from ancient cedar. One quiet morning, Alice pushed open the heavy wooden door and gasped.
+
+Books floated gently near the ceiling. Their pages rustled like leaves in a warm breeze, and soft golden light poured from the spaces between their spines. A kind librarian with round spectacles and a green cardigan smiled from behind her desk.
+
+"Welcome, young reader," she said softly. "Every book here is waiting for someone like you. Which adventure shall we begin?"
+
+Alice reached up and caught a small blue book that drifted toward her. On its cover, fireflies danced around the words: Your Story Starts Here.
+
+And so it did.`,
+  },
+  {
+    id: 2,
+    title: "The Talking Bookworm",
+    sessionsRequired: 6,
+    content: `Alice had been reading quietly for an hour when she heard a tiny voice from the bottom shelf.
+
+"Excuse me," said the voice. "But you're sitting on my favourite page."
+
+She looked down. A small bookworm — green and spectacled — peeked out from between two enormous dictionaries.
+
+"I'm sorry!" Alice said, jumping up.
+
+"No harm done," the bookworm replied cheerfully. "I'm Harold. I've read every book in this library. Twice." He polished his tiny glasses proudly. "Well, almost every book. There's one up on the highest shelf I've never quite reached."
+
+Alice looked up. Far above them, a single glowing book spun slowly in the air.
+
+"What does it say?" she asked.
+
+Harold smiled. "That's for you to discover. But I'll help you get there — one chapter at a time."`,
+  },
+  {
+    id: 3,
+    title: "The Word Garden",
+    sessionsRequired: 9,
+    content: `Behind the library was a garden Alice had never noticed before. The gate was made of pencils tied together with ribbon, and above it hung a sign: The Word Garden — All Readers Welcome.
+
+She stepped inside. Flowers bloomed that were not flowers at all — they were words, written in a hundred colours, growing tall like sunflowers. Some spelled "brave." Others spelled "magnificent" and "curious" and "whimsical."
+
+Harold hopped alongside her on a tiny path. "Every word you learn," he explained, "plants a new seed here. The more you read, the bigger the garden grows."
+
+Alice knelt beside a small sprout. It was still just a seedling. She read the word aloud carefully: "Persevere."
+
+The sprout shivered, then stretched, reaching upward toward the light.
+
+"That one," Harold whispered, "is going to grow very tall indeed."`,
+  },
+  {
+    id: 4,
+    title: "The Grammar Castle",
+    sessionsRequired: 12,
+    content: `At the far edge of the Word Garden stood a great stone castle. Its towers were made of stacked sentences, its windows framed with punctuation marks, and its drawbridge lowered only when you spoke correctly.
+
+"Who goes there?" called a guard with a large comma for a hat.
+
+"Alice," she replied. "I've come to learn."
+
+"Then answer this," said the guard. "Is it: She go to the library — or — She goes to the library?"
+
+Alice thought carefully. "She goes to the library," she said with confidence.
+
+The drawbridge lowered with a deep, satisfying clunk.
+
+Inside, the castle was full of knights who spoke in perfect sentences, and a wise queen who wore a crown made of question marks. "Grammar," said the queen, "is not about being right or wrong. It is about being understood. And you, dear Alice, are learning to be heard very clearly."`,
+  },
+  {
+    id: 5,
+    title: "Alice's Great Speech",
+    sessionsRequired: 15,
+    content: `The day had finally come. Alice stood at the front of the Enchanted Library, facing every character she had ever met: Harold the bookworm, the Grammar Queen, the talking flowers from the Word Garden, and hundreds of books whose pages fluttered like applause.
+
+"Tell us," said Harold, "what you have learned."
+
+Alice took a breath. She thought about every book she had read, every word she had discovered, every story that had surprised her.
+
+"I've learned," she began slowly, "that stories aren't just adventures in books. They're adventures inside your mind. Every time I read, I become a little bit braver, a little bit bigger, and a little bit more — me."
+
+The library was silent for one beautiful moment.
+
+Then every book in every shelf burst open, their pages rising into the air like a thousand white birds, swirling around Alice in a warm, wonderful storm of words.
+
+She had found her voice. And it was extraordinary.`,
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Expanded Badge Catalogue
+// ---------------------------------------------------------------------------
+
 const ACHIEVEMENT_CATALOGUE = {
   'first-book':      { icon: '📚', label: 'First Book!' },
   'five-books':      { icon: '📚', label: 'Bookshelf Builder' },
@@ -51,21 +195,65 @@ const ACHIEVEMENT_CATALOGUE = {
   'bookworm':        { icon: '🐛', label: 'Bookworm' },
 };
 
+/** Full badge definitions with unlock conditions and descriptions */
 const BADGES = [
-  { id: 'first-book', label: 'First Book', emoji: '📚', condition: (sessions) => sessions.length >= 1 },
-  { id: 'five-books', label: '5 Books', emoji: '📖', condition: (sessions) => sessions.length >= 5 },
-  { id: 'word-master', label: 'Word Master', emoji: '📝', condition: (sessions) => sessions.reduce((sum, s) => sum + (s.wordsLearned || 0), 0) >= 50 },
-  { id: 'grammar-pro', label: 'Grammar Pro', emoji: '✨', condition: (sessions) => sessions.length > 0 && sessions.reduce((sum, s) => sum + s.grammarScore, 0) / sessions.length >= 90 },
-  { id: 'streak-3', label: '3-Day Streak', emoji: '🔥', condition: (sessions) => {
-    if (sessions.length < 3) return false;
-    const dates = sessions.slice(0, 3).map((s) => new Date(s.date));
-    for (let i = 0; i < dates.length - 1; i++) {
-      const diff = (dates[i].getTime() - dates[i + 1].getTime()) / (1000 * 60 * 60 * 24);
-      if (diff !== 1) return false;
-    }
-    return true;
-  }},
+  {
+    id: 'first-review',
+    label: 'First Review',
+    description: 'Complete your very first session',
+    emoji: '📚',
+    condition: (sessions) => sessions.length >= 1,
+  },
+  {
+    id: 'bookworm',
+    label: 'Bookworm',
+    description: 'Complete 5 review sessions',
+    emoji: '🐛',
+    condition: (sessions) => sessions.length >= 5,
+  },
+  {
+    id: 'word-collector',
+    label: 'Word Collector',
+    description: 'Learn 50 new words',
+    emoji: '💡',
+    condition: (sessions) => sessions.reduce((sum, s) => sum + (s.wordsLearned || 0), 0) >= 50,
+  },
+  {
+    id: 'grammar-star',
+    label: 'Grammar Star',
+    description: '3 sessions with >90% grammar accuracy',
+    emoji: '✨',
+    condition: (sessions) => sessions.filter((s) => (s.grammarScore || 0) > 90).length >= 3,
+  },
+  {
+    id: 'deep-thinker',
+    label: 'Deep Thinker',
+    description: '3 sessions with strong deep thinking',
+    emoji: '🤔',
+    condition: (sessions) => sessions.filter((s) => {
+      const score = s.stages?.['Think Deeper'] ?? s.stages?.body ?? 0;
+      return score >= 80;
+    }).length >= 3,
+  },
+  {
+    id: 'streak-master',
+    label: 'Streak Master',
+    description: '7 consecutive days active',
+    emoji: '🔥',
+    condition: (sessions, streak) => streak >= 7,
+  },
+  {
+    id: 'speed-reader',
+    label: 'Speed Reader',
+    description: 'Complete a session in under 10 minutes',
+    emoji: '⚡',
+    condition: (sessions) => sessions.some((s) => (s.duration || 999) < 10 && (s.duration || 0) > 0),
+  },
 ];
+
+// ---------------------------------------------------------------------------
+// Ghibli Palette
+// ---------------------------------------------------------------------------
 
 const GHIBLI = {
   primary: '#5C8B5C',
@@ -79,25 +267,19 @@ const GHIBLI = {
   textMid: '#6B5744',
 };
 
+// ---------------------------------------------------------------------------
+// Helper: normalise API session shape
+// ---------------------------------------------------------------------------
+
 function normalizeSession(s) {
-  // Normalise API response fields to match the UI's expected shape.
-  // Backend GET /sessions/student/:studentId returns camelCase fields:
-  // { id, bookTitle, bookLevel, stage, isComplete, startedAt, completedAt, grammarScore, levelScore }
   const startedAt = s.startedAt || s.started_at;
   const completedAt = s.completedAt || s.completed_at;
-
-  // Approximate duration in minutes from started/completed timestamps
   let duration = s.duration || s.durationMinutes || 0;
   if (!duration && startedAt && completedAt) {
     const diffMs = new Date(completedAt).getTime() - new Date(startedAt).getTime();
-    if (diffMs > 0) {
-      duration = Math.round(diffMs / 60000);
-    }
+    if (diffMs > 0) duration = Math.round(diffMs / 60000);
   }
-  if (!duration && s.durationSeconds) {
-    duration = Math.round(s.durationSeconds / 60);
-  }
-
+  if (!duration && s.durationSeconds) duration = Math.round(s.durationSeconds / 60);
   return {
     id: s.id,
     bookTitle: s.bookTitle || s.book_title || s.title || 'Unknown Book',
@@ -112,17 +294,500 @@ function normalizeSession(s) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
+/** Level-up celebration overlay using CSS-only particle burst */
+function LevelUpCelebration({ levelData, onDismiss }) {
+  const particles = Array.from({ length: 24 }, (_, i) => i);
+
+  return (
+    <div
+      className="fixed inset-0 flex items-center justify-center z-50"
+      style={{ background: 'rgba(0,0,0,0.55)' }}
+      onClick={onDismiss}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Level up celebration"
+    >
+      <style>{`
+        @keyframes levelup-burst {
+          0%   { transform: translate(0,0) scale(1); opacity: 1; }
+          100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; }
+        }
+        .levelup-particle {
+          animation: levelup-burst 1.2s cubic-bezier(0.22,1,0.36,1) var(--delay) both;
+        }
+        @keyframes levelup-pop {
+          0%   { transform: scale(0.4); opacity: 0; }
+          60%  { transform: scale(1.08); opacity: 1; }
+          100% { transform: scale(1);   opacity: 1; }
+        }
+        .levelup-card {
+          animation: levelup-pop 0.55s cubic-bezier(0.175,0.885,0.32,1.275) both;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .levelup-particle { animation: none; opacity: 0; }
+          .levelup-card     { animation: none; }
+        }
+      `}</style>
+
+      {/* Burst particles */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none" aria-hidden="true">
+        {particles.map((i) => {
+          const angle = (i / particles.length) * 360;
+          const rad = (angle * Math.PI) / 180;
+          const dist = 80 + Math.random() * 100;
+          const tx = Math.round(Math.cos(rad) * dist);
+          const ty = Math.round(Math.sin(rad) * dist);
+          const colors = ['#D4A843', '#5C8B5C', '#87CEDB', '#EC4899', '#F97316'];
+          const color = colors[i % colors.length];
+          const size = 8 + Math.floor(Math.random() * 8);
+          return (
+            <div
+              key={i}
+              className="levelup-particle absolute rounded-full"
+              style={{
+                width: size,
+                height: size,
+                backgroundColor: color,
+                '--tx': `${tx}px`,
+                '--ty': `${ty}px`,
+                '--delay': `${i * 0.04}s`,
+              }}
+            />
+          );
+        })}
+      </div>
+
+      {/* Card */}
+      <div
+        className="levelup-card relative bg-[#FFFCF3] rounded-3xl p-8 max-w-xs w-full text-center shadow-2xl border-2 border-[#D4A843]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="text-6xl mb-2" aria-hidden="true">{levelData.icon}</div>
+        <p className="text-xs font-extrabold tracking-widest uppercase text-[#D4A843] mb-1">Level Up!</p>
+        <h3 className="text-2xl font-extrabold text-[#3D2E1E] mb-1">Level {levelData.level}</h3>
+        <p className="text-lg font-bold text-[#5C8B5C] mb-4">{levelData.name}</p>
+        <p className="text-sm text-[#6B5744] mb-6">You reached a new level! Keep reading to grow even more.</p>
+        <button
+          onClick={onDismiss}
+          className="w-full min-h-[48px] bg-[#5C8B5C] hover:bg-[#3D6B3D] text-white rounded-2xl font-extrabold text-sm transition-colors focus-visible:ring-2 focus-visible:ring-[#3D6B3D]"
+          autoFocus
+        >
+          Awesome! {levelData.icon}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** XP bar section */
+function XPSection({ totalXP, onLevelUp }) {
+  const { current, next, progressPct, xpIntoLevel, xpNeeded } = getXPLevel(totalXP);
+
+  return (
+    <div className="ghibli-card p-5 sm:p-6 mb-6" aria-label={`Experience points section: Level ${current.level}, ${current.name}`}>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-xl sm:text-2xl font-extrabold text-[#3D2E1E] flex items-center gap-2">
+          <span aria-hidden="true">{current.icon}</span>
+          Experience
+        </h2>
+        <span
+          className="px-3 py-1 rounded-full text-xs font-extrabold text-white"
+          style={{ background: 'linear-gradient(135deg,#5C8B5C,#3D6B3D)' }}
+        >
+          Level {current.level}
+        </span>
+      </div>
+
+      {/* Level name & XP count */}
+      <div className="flex items-end justify-between mb-2">
+        <p className="font-extrabold text-[#5C8B5C] text-lg">{current.name}</p>
+        <p className="text-sm font-bold text-[#6B5744]">
+          {totalXP.toLocaleString()} XP total
+        </p>
+      </div>
+
+      {/* Progress bar */}
+      <div
+        className="w-full rounded-full h-5 overflow-hidden mb-2"
+        style={{ background: '#EDE5D4' }}
+        role="progressbar"
+        aria-valuenow={progressPct}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={`Level progress: ${progressPct}%`}
+      >
+        <div
+          className="h-5 rounded-full transition-all duration-700"
+          style={{
+            width: `${progressPct}%`,
+            background: 'linear-gradient(90deg, #5C8B5C 0%, #3D6B3D 100%)',
+          }}
+        />
+      </div>
+
+      {next ? (
+        <p className="text-xs text-[#6B5744] font-semibold">
+          {xpIntoLevel} / {xpNeeded} XP to <strong>{next.name}</strong> (Level {next.level})
+        </p>
+      ) : (
+        <p className="text-xs text-[#5C8B5C] font-extrabold">Max level reached — Enchanted Forest!</p>
+      )}
+
+      {/* XP breakdown legend */}
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        {[
+          { label: 'Per session', xp: '100 XP' },
+          { label: 'Deep thinking', xp: '+50 XP' },
+          { label: 'New vocab (15+)', xp: '+30 XP' },
+          { label: 'Grammar >80%', xp: '+20 XP' },
+        ].map((item) => (
+          <div
+            key={item.label}
+            className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-[#F5F0E8] text-xs"
+          >
+            <span className="text-[#6B5744] font-semibold">{item.label}</span>
+            <span className="font-extrabold text-[#5C8B5C]">{item.xp}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Story chapter modal */
+function ChapterModal({ chapter, onClose }) {
+  const closeRef = useRef(null);
+
+  useEffect(() => {
+    closeRef.current?.focus();
+    const handler = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="chapter-title"
+    >
+      <div
+        className="relative bg-[#F5F0E8] rounded-3xl max-w-lg w-full max-h-[80vh] overflow-y-auto shadow-2xl border border-[#C4A97D]"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 27px, rgba(196,169,125,0.15) 28px)',
+        }}
+      >
+        {/* Header */}
+        <div
+          className="sticky top-0 flex items-start justify-between p-5 sm:p-6 rounded-t-3xl"
+          style={{ background: 'linear-gradient(135deg, #C4A97D 0%, #A8845A 100%)' }}
+        >
+          <div>
+            <p className="text-xs text-white/80 font-extrabold uppercase tracking-widest mb-1">
+              Chapter {chapter.id}
+            </p>
+            <h3
+              id="chapter-title"
+              className="text-lg sm:text-xl font-extrabold text-white leading-tight"
+            >
+              {chapter.title}
+            </h3>
+          </div>
+          <button
+            ref={closeRef}
+            onClick={onClose}
+            className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/35 text-white font-extrabold text-lg transition-colors focus-visible:ring-2 focus-visible:ring-white ml-3"
+            aria-label="Close chapter"
+          >
+            x
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="p-5 sm:p-6">
+          {chapter.content.split('\n\n').map((para, idx) => (
+            <p key={idx} className="text-[#3D2E1E] leading-relaxed mb-4 last:mb-0 text-sm sm:text-base font-medium">
+              {para}
+            </p>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Alice's Adventure stories section */
+function StorySection({ completedSessions }) {
+  const [openChapter, setOpenChapter] = useState(null);
+
+  const unlocked = STORY_CHAPTERS.filter((ch) => completedSessions >= ch.sessionsRequired);
+  const locked = STORY_CHAPTERS.filter((ch) => completedSessions < ch.sessionsRequired);
+
+  return (
+    <div className="ghibli-card p-5 sm:p-6 mb-6">
+      <h2 className="text-xl sm:text-2xl font-extrabold text-[#3D2E1E] mb-1 flex items-center gap-2">
+        <span aria-hidden="true">📖</span>
+        Alice&apos;s Adventures
+      </h2>
+      <p className="text-xs text-[#6B5744] font-semibold mb-4">
+        Unlock chapters by completing reading sessions
+      </p>
+
+      <div className="space-y-3">
+        {STORY_CHAPTERS.map((chapter) => {
+          const isUnlocked = completedSessions >= chapter.sessionsRequired;
+          return (
+            <div
+              key={chapter.id}
+              className={`rounded-2xl border transition-all duration-200 ${
+                isUnlocked
+                  ? 'border-[#C4A97D] bg-[#F5F0E8] hover:shadow-md cursor-pointer hover:-translate-y-0.5'
+                  : 'border-[#D6C9A8] bg-[#EDE5D4] opacity-60 cursor-not-allowed'
+              }`}
+              style={isUnlocked ? {
+                backgroundImage: 'repeating-linear-gradient(0deg,transparent,transparent 23px,rgba(196,169,125,0.12) 24px)',
+              } : {}}
+              onClick={() => isUnlocked && setOpenChapter(chapter)}
+              role={isUnlocked ? 'button' : undefined}
+              tabIndex={isUnlocked ? 0 : undefined}
+              onKeyDown={(e) => isUnlocked && e.key === 'Enter' && setOpenChapter(chapter)}
+              aria-label={
+                isUnlocked
+                  ? `Read Chapter ${chapter.id}: ${chapter.title}`
+                  : `Chapter ${chapter.id} locked — requires ${chapter.sessionsRequired} sessions`
+              }
+            >
+              <div className="flex items-center gap-4 p-4">
+                {/* Chapter icon */}
+                <div
+                  className="flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center text-2xl font-extrabold"
+                  style={{
+                    background: isUnlocked
+                      ? 'linear-gradient(135deg,#C4A97D,#A8845A)'
+                      : '#C4B89A',
+                    color: isUnlocked ? 'white' : '#8C7B60',
+                  }}
+                  aria-hidden="true"
+                >
+                  {isUnlocked ? '📜' : '🔒'}
+                </div>
+
+                {/* Chapter info */}
+                <div className="flex-1 min-w-0">
+                  <p className={`font-extrabold text-sm leading-tight mb-0.5 ${isUnlocked ? 'text-[#3D2E1E]' : 'text-[#8C7B60]'}`}>
+                    Chapter {chapter.id}: {chapter.title}
+                  </p>
+                  <p className={`text-xs font-semibold ${isUnlocked ? 'text-[#6B5744]' : 'text-[#A09070]'}`}>
+                    {isUnlocked ? 'Tap to read' : `Unlocks after ${chapter.sessionsRequired} sessions`}
+                  </p>
+                </div>
+
+                {/* Status badge */}
+                {isUnlocked && (
+                  <span
+                    className="flex-shrink-0 px-2.5 py-1 rounded-full text-xs font-extrabold"
+                    style={{ background: '#E8F5E8', color: '#3D6B3D' }}
+                  >
+                    Read
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {openChapter && (
+        <ChapterModal chapter={openChapter} onClose={() => setOpenChapter(null)} />
+      )}
+    </div>
+  );
+}
+
+/** Streak counter with fire animation */
+function StreakSection({ currentStreak, bestStreak }) {
+  const isActive = currentStreak > 0;
+
+  return (
+    <div className="ghibli-card p-5 sm:p-6 mb-6">
+      <h2 className="text-xl sm:text-2xl font-extrabold text-[#3D2E1E] mb-4 flex items-center gap-2">
+        <span aria-hidden="true">{isActive ? '🔥' : '💧'}</span>
+        Reading Streak
+      </h2>
+
+      <div className="flex items-center gap-6">
+        {/* Current streak */}
+        <div className="flex-1 text-center py-4 rounded-2xl" style={{ background: isActive ? 'linear-gradient(135deg,#FFF3CD,#FFE082)' : '#F5F0E8' }}>
+          <div
+            className={`text-5xl sm:text-6xl font-extrabold leading-none mb-1 ${isActive ? 'float-animation inline-block' : ''}`}
+            style={{ color: isActive ? '#E65100' : '#A09070' }}
+            aria-hidden="true"
+          >
+            {isActive ? '🔥' : '💧'}
+          </div>
+          <div className="text-4xl sm:text-5xl font-extrabold mt-1" style={{ color: isActive ? '#E65100' : '#6B5744' }}>
+            {currentStreak}
+          </div>
+          <p className="text-xs font-bold mt-1" style={{ color: isActive ? '#BF360C' : '#6B5744' }}>
+            Current Streak
+          </p>
+        </div>
+
+        {/* Divider */}
+        <div className="text-2xl text-[#D6C9A8] font-light" aria-hidden="true">|</div>
+
+        {/* Best streak */}
+        <div className="flex-1 text-center py-4 rounded-2xl bg-[#F5F0E8]">
+          <div className="text-4xl sm:text-5xl font-extrabold text-[#D4A843] leading-none mb-1" aria-hidden="true">
+            {bestStreak >= currentStreak ? bestStreak : currentStreak}
+          </div>
+          <p className="text-xs font-bold text-[#6B5744] mt-1">Best Streak</p>
+          <p className="text-[10px] text-[#9C8B74] font-semibold">days</p>
+        </div>
+      </div>
+
+      {isActive && (
+        <p className="text-center text-xs text-[#BF360C] font-bold mt-3 bg-[#FFF3CD] rounded-xl py-2">
+          You&apos;re on a roll! Keep reading every day to grow your streak.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Enhanced badge grid with descriptions and locked states */
+function BadgeSection({ earnedBadgeIds, sessions, currentStreak, serverAchievements }) {
+  const [showAll, setShowAll] = useState(false);
+
+  const enrichedBadges = BADGES.map((badge) => ({
+    ...badge,
+    earned: badge.condition(sessions, currentStreak),
+  }));
+
+  const earned = enrichedBadges.filter((b) => b.earned);
+  const locked = enrichedBadges.filter((b) => !b.earned);
+  const displayLocked = showAll ? locked : locked.slice(0, 6);
+
+  const totalEarned = earned.length + serverAchievements.length;
+
+  return (
+    <div className="ghibli-card p-5 mb-6">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="font-extrabold text-[#3D2E1E] flex items-center gap-2 text-xl sm:text-2xl">
+          <span aria-hidden="true">🏆</span>
+          Your Badges
+        </h2>
+        <span className="text-xs text-[#6B5744] font-bold bg-[#F5F0E8] px-2.5 py-1 rounded-full">
+          {totalEarned} earned
+        </span>
+      </div>
+
+      {/* Earned badges */}
+      {earned.length > 0 || serverAchievements.length > 0 ? (
+        <div className="grid grid-cols-3 xs:grid-cols-4 sm:grid-cols-5 gap-2 sm:gap-3 mb-5">
+          {earned.map((badge) => (
+            <div
+              key={badge.id}
+              className="flex flex-col items-center gap-1 p-2 sm:p-3 rounded-xl bg-[#E8F5E8] border border-[#C8E6C9]"
+              style={{ boxShadow: '0 0 0 2px #D4A843, 0 4px 12px rgba(212,168,67,0.15)' }}
+              title={badge.description}
+              aria-label={`${badge.label} badge earned — ${badge.description}`}
+            >
+              <span className="text-2xl sm:text-3xl" aria-hidden="true">{badge.emoji}</span>
+              <span className="text-[10px] text-center text-[#3D6B3D] font-extrabold leading-tight">{badge.label}</span>
+            </div>
+          ))}
+          {serverAchievements.map((achievement, idx) => {
+            const meta = ACHIEVEMENT_CATALOGUE[achievement.achievement_type || achievement.id] || {};
+            return (
+              <div
+                key={`server-${idx}`}
+                className="flex flex-col items-center gap-1 p-2 sm:p-3 rounded-xl bg-[#E8F5E8] border border-[#C8E6C9]"
+                style={{ boxShadow: '0 0 0 2px #D4A843, 0 4px 12px rgba(212,168,67,0.15)' }}
+                title={meta.label || achievement.label || 'Achievement'}
+              >
+                <span className="text-2xl sm:text-3xl" aria-hidden="true">{meta.icon || achievement.emoji || '🏅'}</span>
+                <span className="text-[10px] text-center text-[#3D6B3D] font-extrabold leading-tight">
+                  {meta.label || achievement.label || achievement.name || 'Achievement'}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="text-center py-6 mb-5">
+          <div className="text-4xl mb-2" aria-hidden="true">🌱</div>
+          <p className="text-sm font-semibold text-[#6B5744]">Complete sessions to earn badges!</p>
+        </div>
+      )}
+
+      {/* Locked badges */}
+      {locked.length > 0 && (
+        <div>
+          <p className="text-[#6B5744] text-xs font-extrabold mb-2 uppercase tracking-wide">
+            In Progress
+          </p>
+          <div className="grid grid-cols-3 xs:grid-cols-4 sm:grid-cols-5 gap-2 sm:gap-3">
+            {displayLocked.map((badge) => (
+              <div
+                key={badge.id}
+                className="flex flex-col items-center gap-1 p-2 sm:p-3 rounded-xl opacity-40 bg-[#EDE5D4] border border-[#D6C9A8]"
+                title={badge.description}
+                aria-label={`${badge.label} badge — locked: ${badge.description}`}
+              >
+                <span className="text-2xl grayscale" aria-hidden="true">{badge.emoji}</span>
+                <span className="text-[10px] text-center text-[#6B5744] leading-tight">{badge.label}</span>
+                <span className="text-[9px] text-[#9C8B74] leading-tight text-center">{badge.description}</span>
+              </div>
+            ))}
+          </div>
+          {locked.length > 6 && (
+            <button
+              onClick={() => setShowAll((v) => !v)}
+              className="mt-3 w-full text-xs font-bold text-[#5C8B5C] underline underline-offset-2 hover:text-[#3D6B3D] focus-visible:ring-2 focus-visible:ring-[#3D6B3D] rounded"
+            >
+              {showAll ? 'Show less' : `Show ${locked.length - 6} more`}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main Page Component
+// ---------------------------------------------------------------------------
+
 export default function ProfilePage() {
   const router = useRouter();
+
+  // Core data state
   const [student, setStudent] = useState(MOCK_STUDENT);
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [usingFallback, setUsingFallback] = useState(false);
+  const [analyticsAchievements, setAnalyticsAchievements] = useState([]);
+
+  // UI state
   const [expandedSessionId, setExpandedSessionId] = useState(null);
   const [selectedAvatar, setSelectedAvatar] = useState(MOCK_STUDENT.avatar);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
-  const [analyticsAchievements, setAnalyticsAchievements] = useState([]);
 
+  // Gamification state
+  const [showLevelUp, setShowLevelUp] = useState(false);
+  const [levelUpData, setLevelUpData] = useState(null);
+  const [bestStreak, setBestStreak] = useState(0);
+  const [storedXP, setStoredXP] = useState(0);
+
+  // Load stored XP and best streak from localStorage on mount
   useEffect(() => {
     const storedName = getItem('studentName');
     const storedLevel = getItem('studentLevel');
@@ -135,8 +800,33 @@ export default function ProfilePage() {
       level: storedLevel || prev.level,
     }));
 
+    const savedXP = parseInt(localStorage.getItem('hialice_xp') || '0', 10);
+    const savedBest = parseInt(localStorage.getItem('hialice_best_streak') || '0', 10);
+    setStoredXP(savedXP);
+    setBestStreak(savedBest);
+
     fetchProfileData(storedId);
   }, []);
+
+  // Persist XP to localStorage whenever sessions change
+  useEffect(() => {
+    if (sessions.length === 0) return;
+    const newXP = computeXP(sessions);
+    const prevXP = parseInt(localStorage.getItem('hialice_xp') || '0', 10);
+
+    // Detect level-up crossing
+    if (newXP > prevXP) {
+      const { current: prevLevel } = getXPLevel(prevXP);
+      const { current: newLevel } = getXPLevel(newXP);
+      if (newLevel.level > prevLevel.level) {
+        setLevelUpData(newLevel);
+        setShowLevelUp(true);
+      }
+    }
+
+    localStorage.setItem('hialice_xp', String(newXP));
+    setStoredXP(newXP);
+  }, [sessions]);
 
   async function fetchProfileData(studentId) {
     try {
@@ -165,12 +855,9 @@ export default function ProfilePage() {
         setUsingFallback(true);
       }
 
-      // Process sessions — backend returns { sessions: [...], stats: { ... } }
       if (sessionsData && sessionsData.sessions && sessionsData.sessions.length > 0) {
         const normalized = sessionsData.sessions.map(normalizeSession);
         setSessions(normalized);
-
-        // Use aggregate stats from the sessions endpoint to update student info
         if (sessionsData.stats) {
           const apiStats = sessionsData.stats;
           setStudent((prev) => ({
@@ -185,25 +872,16 @@ export default function ProfilePage() {
         setSessions(MOCK_SESSIONS);
       }
 
-      // Process vocabulary stats for total words learned
       if (vocabStatsData && vocabStatsData.stats) {
-        const vStats = vocabStatsData.stats;
-        // Update student's total words from vocab stats endpoint
         setStudent((prev) => ({
           ...prev,
-          totalWordsFromAPI: vStats.totalWords || 0,
+          totalWordsFromAPI: vocabStatsData.stats.totalWords || 0,
         }));
       }
 
-      // Process analytics
       if (analyticsData && analyticsData.analytics) {
         const { achievements, student: analyticsStudent } = analyticsData.analytics;
-
-        if (achievements && achievements.length > 0) {
-          setAnalyticsAchievements(achievements);
-        }
-
-        // Update student streak from server if available
+        if (achievements && achievements.length > 0) setAnalyticsAchievements(achievements);
         if (analyticsStudent && analyticsStudent.current_streak !== undefined) {
           setStudent((prev) => ({
             ...prev,
@@ -221,26 +899,20 @@ export default function ProfilePage() {
   }
 
   const handleLogout = async () => {
-    try {
-      await logout();
-    } catch (e) {
-      console.warn('Logout error:', e);
-    } finally {
-      router.push('/');
-    }
+    try { await logout(); } catch (e) { console.warn('Logout error:', e); }
+    finally { router.push('/'); }
   };
 
-  // Guard against empty sessions for computed values
+  // Derived stats
   const hasSessions = sessions.length > 0;
   const totalBooksRead = sessions.length;
-  // Prefer vocab stats from API; fall back to session-derived count
   const totalWordsLearned = student.totalWordsFromAPI
     || sessions.reduce((sum, s) => sum + (s.wordsLearned || 0), 0);
   const avgGrammarScore = hasSessions
     ? Math.round(sessions.reduce((sum, s) => sum + (s.grammarScore || 0), 0) / sessions.length)
     : 0;
 
-  const calculateStreak = () => {
+  const calculateStreak = useCallback(() => {
     if (!hasSessions) return student.current_streak || 0;
     const sortedSessions = [...sessions].sort((a, b) => new Date(b.date) - new Date(a.date));
     let streak = 1;
@@ -251,9 +923,20 @@ export default function ProfilePage() {
       if (Math.round(diff) === 1) { streak++; } else { break; }
     }
     return Math.max(streak, student.current_streak || 0);
-  };
+  }, [sessions, hasSessions, student.current_streak]);
 
   const currentStreak = calculateStreak();
+
+  // Persist best streak
+  useEffect(() => {
+    if (currentStreak > bestStreak) {
+      const newBest = currentStreak;
+      setBestStreak(newBest);
+      localStorage.setItem('hialice_best_streak', String(newBest));
+    }
+  }, [currentStreak, bestStreak]);
+
+  const totalXP = computeXP(sessions);
 
   const getLevelProgress = () => {
     const levelMap = { Beginner: 1, beginner: 1, Intermediate: 2, intermediate: 2, Advanced: 3, advanced: 3 };
@@ -279,7 +962,6 @@ export default function ProfilePage() {
 
   const weeklyData = getWeeklyData();
   const maxWeeklyBooks = Math.max(...weeklyData, 1);
-
   const getGrammarTrend = () => sessions.slice().reverse().slice(0, 5).map((s) => s.grammarScore || 0);
   const grammarTrend = getGrammarTrend();
 
@@ -308,11 +990,8 @@ export default function ProfilePage() {
 
   const grammarPoints = generateGrammarChart();
 
-  // Merge BADGE conditions with server analytics achievements
-  const earnedBadges = BADGES.filter((badge) => badge.condition(sessions));
-  const unearnedBadges = BADGES.filter((badge) => !badge.condition(sessions));
   const serverAchievements = analyticsAchievements.filter(
-    (a) => !earnedBadges.find((b) => b.id === a.id)
+    (a) => !BADGES.find((b) => b.id === (a.achievement_type || a.id))
   );
 
   const handleAvatarChange = (avatar) => {
@@ -335,6 +1014,14 @@ export default function ProfilePage() {
 
   return (
     <div className="py-4 sm:py-6">
+      {/* Level-up overlay */}
+      {showLevelUp && levelUpData && (
+        <LevelUpCelebration
+          levelData={levelUpData}
+          onDismiss={() => setShowLevelUp(false)}
+        />
+      )}
+
       <div className="w-full">
         {/* Fallback notice */}
         {usingFallback && (
@@ -350,14 +1037,10 @@ export default function ProfilePage() {
 
         {/* Student Profile Card */}
         <div className="rounded-3xl overflow-hidden shadow-[0_6px_28px_rgba(61,46,30,0.12)] mb-6">
-          {/* Gradient header — richer multi-stop */}
           <div
             className="p-6 sm:p-8 relative overflow-hidden"
-            style={{
-              background: 'linear-gradient(135deg, #3D6B3D 0%, #5C8B5C 45%, #87CEDB 100%)',
-            }}
+            style={{ background: 'linear-gradient(135deg, #3D6B3D 0%, #5C8B5C 45%, #87CEDB 100%)' }}
           >
-            {/* Decorative background glow */}
             <div
               className="absolute top-0 right-0 w-48 h-48 rounded-full pointer-events-none"
               style={{
@@ -381,19 +1064,24 @@ export default function ProfilePage() {
                   {student.age && (
                     <p className="text-white/80 mt-0.5 sm:mb-3 text-sm font-semibold">Age {student.age}</p>
                   )}
-                  {isParentOrAdmin() && (
-                    <span className="inline-block mt-2 px-3 sm:px-4 py-1 sm:py-1.5 rounded-full bg-white/20 text-white font-extrabold text-xs sm:text-sm border border-white/30">
-                      {student.level}
+                  {/* XP level badge in header */}
+                  <div className="mt-2 flex items-center gap-2 flex-wrap">
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white/20 text-white font-extrabold text-xs border border-white/30">
+                      {getXPLevel(totalXP).current.icon} {getXPLevel(totalXP).current.name}
                     </span>
-                  )}
+                    {isParentOrAdmin() && (
+                      <span className="inline-block px-3 py-1 rounded-full bg-white/20 text-white font-extrabold text-xs border border-white/30">
+                        {student.level}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {/* Logout Button */}
               <button
                 onClick={handleLogout}
                 className="flex-shrink-0 px-3 sm:px-4 py-2 min-h-[40px] bg-white/15 hover:bg-white/25 border border-white/30 text-white rounded-xl font-bold text-xs sm:text-sm transition-all hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-white"
-                aria-label="Log out of HiMax"
+                aria-label="Log out of HiAlice"
               >
                 Log out
               </button>
@@ -424,13 +1112,13 @@ export default function ProfilePage() {
               </div>
             )}
 
-            {/* Stats Grid — 4-col on sm+, 2-col on xs */}
+            {/* Stats Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
               {[
                 { label: 'Books Read', value: totalBooksRead, color: GHIBLI.primary, icon: '📚' },
                 { label: 'Words Learned', value: totalWordsLearned, color: GHIBLI.success, icon: '💡' },
-                { label: 'Day Streak', value: currentStreak, color: GHIBLI.gold, icon: '🔥' },
-                { label: 'Grammar Avg', value: hasSessions ? `${avgGrammarScore}%` : '—', color: GHIBLI.primary, icon: '✨' },
+                { label: 'Day Streak', value: currentStreak, color: currentStreak > 0 ? '#E65100' : GHIBLI.gold, icon: currentStreak > 0 ? '🔥' : '💧' },
+                { label: 'Total XP', value: `${totalXP.toLocaleString()}`, color: GHIBLI.gold, icon: '⭐' },
               ].map((stat, idx) => (
                 <div key={idx} className="text-center p-3 sm:p-4 rounded-2xl bg-[#F5F0E8]">
                   <div className="text-lg sm:text-xl mb-1" aria-hidden="true">{stat.icon}</div>
@@ -444,101 +1132,51 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Level Progress */}
-        <div className="ghibli-card p-5 sm:p-6 mb-6">
-          <h2 className="text-xl sm:text-2xl font-extrabold text-[#3D2E1E] mb-4 flex items-center gap-2">
-            <span aria-hidden="true">⬆️</span> Level Progress
-          </h2>
-          <div className="flex items-center gap-6">
-            <div className="flex-1">
-              <div className="w-full bg-[#EDE5D4] rounded-full h-4 overflow-hidden">
-                <div
-                  className="h-4 rounded-full transition-all duration-500"
-                  style={{ width: `${levelProgress}%`, backgroundColor: GHIBLI.success }}
-                />
+        {/* XP / Experience Section */}
+        <XPSection totalXP={totalXP} />
+
+        {/* Streak Counter */}
+        <StreakSection currentStreak={currentStreak} bestStreak={bestStreak} />
+
+        {/* Level Progress — only for parents/admins */}
+        {isParentOrAdmin() && (
+          <div className="ghibli-card p-5 sm:p-6 mb-6">
+            <h2 className="text-xl sm:text-2xl font-extrabold text-[#3D2E1E] mb-4 flex items-center gap-2">
+              <span aria-hidden="true">⬆️</span> Level Progress
+            </h2>
+            <div className="flex items-center gap-6">
+              <div className="flex-1">
+                <div className="w-full bg-[#EDE5D4] rounded-full h-4 overflow-hidden">
+                  <div
+                    className="h-4 rounded-full transition-all duration-500"
+                    style={{ width: `${levelProgress}%`, backgroundColor: GHIBLI.success }}
+                  />
+                </div>
+                <p className="text-[#6B5744] text-sm font-semibold mt-2">
+                  {booksNeeded === 0
+                    ? 'Ready to level up!'
+                    : `${levelProgress}% to next level — ${booksNeeded} more books to go`}
+                </p>
               </div>
-              <p className="text-[#6B5744] text-sm font-semibold mt-2">
-                {booksNeeded === 0
-                  ? 'Ready to level up!'
-                  : `${levelProgress}% to next level — ${booksNeeded} more books to go`}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-2xl font-extrabold" style={{ color: GHIBLI.primary }}>
-                {levelProgress}%
-              </p>
+              <div className="text-right">
+                <p className="text-2xl font-extrabold" style={{ color: GHIBLI.primary }}>{levelProgress}%</p>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Achievement Badges */}
-        <div className="ghibli-card p-5 mb-6">
-          <h2 className="font-extrabold text-[#3D2E1E] mb-4 flex items-center gap-2 text-xl sm:text-2xl">
-            <span aria-hidden="true">🏆</span>
-            Your Badges
-            <span className="text-xs text-[#6B5744] font-normal ml-auto">
-              {earnedBadges.length + serverAchievements.length} earned
-            </span>
-          </h2>
+        <BadgeSection
+          earnedBadgeIds={[]}
+          sessions={sessions}
+          currentStreak={currentStreak}
+          serverAchievements={serverAchievements}
+        />
 
-          {/* Compact grid of earned badges — merges local BADGES + server achievements */}
-          <div className="grid grid-cols-3 xs:grid-cols-4 sm:grid-cols-5 gap-2 sm:gap-3 mb-5">
-            {earnedBadges.map((badge) => (
-              <div
-                key={badge.id}
-                className="flex flex-col items-center gap-1 p-2 sm:p-3 rounded-xl bg-[#E8F5E8] border border-[#C8E6C9]"
-                title={badge.label}
-                aria-label={`${badge.label} badge earned`}
-              >
-                <span className="text-2xl sm:text-3xl" aria-hidden="true">{badge.emoji}</span>
-                <span className="text-[10px] text-center text-[#3D6B3D] font-bold leading-tight">{badge.label}</span>
-              </div>
-            ))}
-            {serverAchievements.map((achievement, idx) => {
-              const meta = ACHIEVEMENT_CATALOGUE[achievement.achievement_type || achievement.id] || {};
-              return (
-                <div
-                  key={`server-${idx}`}
-                  className="flex flex-col items-center gap-1 p-2 sm:p-3 rounded-xl bg-[#E8F5E8] border border-[#C8E6C9]"
-                  title={meta.label || achievement.label || achievement.name || 'Achievement'}
-                >
-                  <span className="text-2xl sm:text-3xl" aria-hidden="true">{meta.icon || achievement.emoji || '🏅'}</span>
-                  <span className="text-[10px] text-center text-[#3D6B3D] font-bold leading-tight">
-                    {meta.label || achievement.label || achievement.name || 'Achievement'}
-                  </span>
-                </div>
-              );
-            })}
-            {earnedBadges.length === 0 && serverAchievements.length === 0 && (
-              <div className="col-span-full text-center py-6">
-                <div className="text-4xl mb-2" aria-hidden="true">🌱</div>
-                <p className="text-sm font-semibold text-[#6B5744]">Complete sessions to earn badges!</p>
-              </div>
-            )}
-          </div>
+        {/* Alice's Adventures Stories */}
+        <StorySection completedSessions={sessions.length} />
 
-          {/* Locked / in-progress badges */}
-          {unearnedBadges.length > 0 && (
-            <div>
-              <p className="text-[#6B5744] text-xs font-extrabold mb-2 uppercase tracking-wide">In Progress</p>
-              <div className="grid grid-cols-3 xs:grid-cols-4 sm:grid-cols-5 gap-2 sm:gap-3">
-                {unearnedBadges.map((badge) => (
-                  <div
-                    key={badge.id}
-                    className="flex flex-col items-center gap-1 p-2 sm:p-3 rounded-xl opacity-40 bg-[#EDE5D4] border border-[#D6C9A8]"
-                    title={badge.label}
-                    aria-label={`${badge.label} badge — not yet earned`}
-                  >
-                    <span className="text-2xl grayscale" aria-hidden="true">{badge.emoji}</span>
-                    <span className="text-[10px] text-center text-[#6B5744] leading-tight">{badge.label}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Growth Charts — only show when there is real data */}
+        {/* Growth Charts */}
         {hasSessions && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             {/* Books Per Week */}
@@ -631,10 +1269,10 @@ export default function ProfilePage() {
                     value: `${Math.round(sessions.reduce((sum, s) => sum + (s.duration || 0), 0) / sessions.length)} min`,
                   },
                   { label: 'Best Grammar Score', value: `${Math.max(...sessions.map((s) => s.grammarScore || 0))}%` },
-                  {
+                  ...(isParentOrAdmin() ? [{
                     label: 'Avg Level Score',
                     value: `${Math.round(sessions.reduce((sum, s) => sum + (s.levelScore || 0), 0) / sessions.length)}%`,
-                  },
+                  }] : []),
                 ].map((item, idx) => (
                   <div key={idx} className="flex justify-between items-center py-1 border-b border-[#EDE5D4] last:border-0">
                     <span className="text-[#6B5744] font-semibold">{item.label}</span>
@@ -657,7 +1295,7 @@ export default function ProfilePage() {
           {!hasSessions ? (
             <div className="px-6 py-12 text-center text-[#6B5744]">
               <div className="text-5xl mb-4 float-animation inline-block" aria-hidden="true">📚</div>
-              <p className="text-lg font-bold mb-2 text-[#6B5744]">No reading sessions yet.</p>
+              <p className="text-lg font-bold mb-2 text-[#6B5744]">No review sessions yet.</p>
               <p className="text-sm font-medium mb-6">Start your first book to see your history here!</p>
               <button
                 onClick={() => router.push('/books')}
@@ -679,22 +1317,22 @@ export default function ProfilePage() {
                       <h4 className="font-extrabold text-[#3D2E1E] text-base">{session.bookTitle}</h4>
                       <span className="text-[#6B5744] text-sm font-semibold">
                         {new Date(session.date).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric',
+                          month: 'short', day: 'numeric', year: 'numeric',
                         })}
                       </span>
                     </div>
                     <div className="flex gap-6 flex-wrap">
-                      <div className="flex-1">
-                        <div className="flex justify-between mb-1">
-                          <span className="text-xs font-bold text-[#6B5744]">Level Score</span>
-                          <span className="text-xs font-extrabold text-[#5C8B5C]">{session.levelScore}%</span>
+                      {isParentOrAdmin() && (
+                        <div className="flex-1">
+                          <div className="flex justify-between mb-1">
+                            <span className="text-xs font-bold text-[#6B5744]">Level Score</span>
+                            <span className="text-xs font-extrabold text-[#5C8B5C]">{session.levelScore}%</span>
+                          </div>
+                          <div className="w-full bg-[#EDE5D4] rounded-full h-2">
+                            <div className="h-2 rounded-full bg-[#5C8B5C]" style={{ width: `${session.levelScore}%` }} />
+                          </div>
                         </div>
-                        <div className="w-full bg-[#EDE5D4] rounded-full h-2">
-                          <div className="h-2 rounded-full bg-[#5C8B5C]" style={{ width: `${session.levelScore}%` }} />
-                        </div>
-                      </div>
+                      )}
                       <div className="flex-1">
                         <div className="flex justify-between mb-1">
                           <span className="text-xs font-bold text-[#6B5744]">Grammar Score</span>
