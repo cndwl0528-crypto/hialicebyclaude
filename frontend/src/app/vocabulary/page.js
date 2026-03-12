@@ -9,6 +9,7 @@ import {
   recordPracticeResult,
 } from '@/services/api';
 import LoadingCard from '@/components/LoadingCard';
+import { getItem, setItem } from '@/lib/clientStorage';
 
 const MOCK_VOCABULARY = [
   { id: 1, word: 'caterpillar', pos: 'noun', definition: 'A small creature with many legs that becomes a butterfly', contextSentence: 'The caterpillar ate leaves all day.', synonyms: ['larva', 'grub'], antonyms: [], masteryLevel: 2, useCount: 5 },
@@ -112,7 +113,7 @@ export default function VocabularyPage() {
         setLoading(true);
         setUsingFallback(false);
 
-        const studentId = sessionStorage.getItem('studentId');
+        const studentId = getItem('studentId');
 
         if (!studentId) {
           // No studentId — try sessionStorage vocabulary, then mock
@@ -163,7 +164,7 @@ export default function VocabularyPage() {
 
         // Store due IDs for spaced repetition ordering
         if (dueIds.length > 0) {
-          sessionStorage.setItem('dueVocabIds', JSON.stringify(dueIds));
+          setItem('dueVocabIds', JSON.stringify(dueIds));
         }
       } catch (err) {
         console.error('Unexpected error loading vocabulary:', err);
@@ -180,8 +181,8 @@ export default function VocabularyPage() {
 
   function getVocabFromSessionStorage() {
     try {
-      const sessionDataStr = sessionStorage.getItem('lastSessionData');
-      const reviewDataStr = sessionStorage.getItem('lastReviewData');
+      const sessionDataStr = getItem('lastSessionData');
+      const reviewDataStr = getItem('lastReviewData');
 
       if (reviewDataStr) {
         const reviewData = JSON.parse(reviewDataStr);
@@ -204,7 +205,7 @@ export default function VocabularyPage() {
     if (vocabulary.length > 0) {
       let dueIds = [];
       try {
-        const stored = sessionStorage.getItem('dueVocabIds');
+        const stored = getItem('dueVocabIds');
         if (stored) dueIds = JSON.parse(stored);
       } catch (e) {
         // ignore
@@ -270,7 +271,7 @@ export default function VocabularyPage() {
   };
 
   async function sendPracticeResult(isCorrect) {
-    const studentId = sessionStorage.getItem('studentId');
+    const studentId = getItem('studentId');
     if (!studentId) return;
 
     const currentWord = filteredVocabulary[currentWordIndex];

@@ -3,12 +3,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import LoadingCard from '@/components/LoadingCard';
+import { getItem } from '@/lib/clientStorage';
 
 /**
  * ParentDashboard — /parent
  *
  * Displays a summary of each linked child's reading progress, recent sessions,
- * the latest HiAlice AI feedback, and unread parent notifications.
+ * the latest HiMax AI feedback, and unread parent notifications.
  *
  * Auth: requires a valid JWT stored under sessionStorage key "token".
  * The decoded payload must carry role === "parent" (or admin variants).
@@ -26,8 +27,7 @@ export default function ParentDashboard() {
   const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
   // Safely read sessionStorage only on the client.
-  const getToken = () =>
-    typeof window !== 'undefined' ? sessionStorage.getItem('token') : null;
+  const getToken = () => getItem('token');
 
   // ── Fetch parent profile & linked children ─────────────────────────────
   const fetchChildren = useCallback(async () => {
@@ -240,11 +240,11 @@ export default function ParentDashboard() {
             </div>
           </div>
 
-          {/* Latest HiAlice AI feedback */}
+          {/* Latest HiMax AI feedback */}
           {recentSessions[0]?.ai_feedback && (
             <div className="bg-gradient-to-br from-[#FFF8E0] to-[#F5E8A8] border border-[#D4A843]/30 rounded-2xl shadow-md p-5">
               <h3 className="font-bold text-[#6B5744] mb-2 flex items-center gap-2">
-                <span aria-hidden="true">🤖</span> HiAlice&apos;s Latest Feedback
+                <span aria-hidden="true">🤖</span> HiMax&apos;s Latest Feedback
               </h3>
               <p className="text-sm text-[#3D2E1E] italic">
                 &ldquo;{recentSessions[0].ai_feedback}&rdquo;
@@ -309,15 +309,6 @@ export default function ParentDashboard() {
       )}
 
       {/* ── Navigation ─────────────────────────────────────────────────── */}
-      <div className="flex gap-3 mt-6">
-        <button
-          onClick={() => router.push('/')}
-          className="flex-1 bg-[#5C8B5C] text-white rounded-2xl py-3 font-bold hover:bg-[#3D2E1E] transition-colors"
-          style={{ minHeight: '48px' }}
-        >
-          Home
-        </button>
-      </div>
     </div>
   );
 }

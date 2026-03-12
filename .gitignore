@@ -70,3 +70,6 @@ backend/src/alice/README.md
 backend/src/routes/BEFORE_AFTER_COMPARISON.md
 backend/src/routes/SESSIONS_UPDATE.md
 backend/UPDATE_SUMMARY.txt
+
+# Local export snapshots
+_local_exports/

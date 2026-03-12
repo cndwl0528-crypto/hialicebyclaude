@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { parentLogin, parentRegister, childSelect } from '@/services/api';
 import { isParentOrAdmin } from '@/lib/constants';
+import { getItem, setItem } from '@/lib/clientStorage';
 
 // ---------------------------------------------------------------------------
 // Mock data — used when the API has no children registered yet
@@ -102,19 +103,19 @@ function LoginPageInner() {
     setIsLoading(true);
     setError('');
     try {
-      sessionStorage.setItem('studentId',    String(child.id));
-      sessionStorage.setItem('studentName',  child.name);
-      sessionStorage.setItem('studentLevel', child.level);
-      sessionStorage.setItem('studentAge',   String(child.age));
-      sessionStorage.setItem('userRole',     'student');
+      setItem('studentId', String(child.id));
+      setItem('studentName', child.name);
+      setItem('studentLevel', child.level);
+      setItem('studentAge', String(child.age));
+      setItem('userRole', 'student');
       // Ensure a token exists so protected pages don't redirect back to /login
-      if (!sessionStorage.getItem('token')) {
-        sessionStorage.setItem('token', 'student-session-' + child.id);
+      if (!getItem('token')) {
+        setItem('token', 'student-session-' + child.id);
       }
 
       try { await childSelect(child.id); } catch (_) { /* non-critical */ }
 
-      router.push('/dashboard');
+      router.push('/books');
     } catch (err) {
       setError('Could not start session. Please try again.');
     } finally {
@@ -135,13 +136,13 @@ function LoginPageInner() {
       const result = await parentLogin(parentEmail, parentPassword);
       if (!result || !result.token) throw new Error('Invalid server response.');
 
-      sessionStorage.setItem('token',       result.token);
-      sessionStorage.setItem('parentId',    result.parent?.id || '');
-      sessionStorage.setItem('parentEmail', result.parent?.email || parentEmail);
-      sessionStorage.setItem('userRole',    'parent');
+      setItem('token', result.token);
+      setItem('parentId', result.parent?.id || '');
+      setItem('parentEmail', result.parent?.email || parentEmail);
+      setItem('userRole', 'parent');
 
       if (result.children && result.children.length > 0) {
-        sessionStorage.setItem('children', JSON.stringify(result.children));
+        setItem('children', JSON.stringify(result.children));
       }
 
       router.push('/dashboard');
@@ -173,10 +174,10 @@ function LoginPageInner() {
       const result = await parentRegister(regEmail, regPassword, regName);
       if (!result || !result.token) throw new Error('Registration failed.');
 
-      sessionStorage.setItem('token',       result.token);
-      sessionStorage.setItem('parentId',    result.parent?.id || '');
-      sessionStorage.setItem('parentEmail', result.parent?.email || regEmail);
-      sessionStorage.setItem('userRole',    'parent');
+      setItem('token', result.token);
+      setItem('parentId', result.parent?.id || '');
+      setItem('parentEmail', result.parent?.email || regEmail);
+      setItem('userRole', 'parent');
 
       router.push(`/consent?email=${encodeURIComponent(regEmail)}`);
     } catch (err) {
@@ -217,13 +218,7 @@ function LoginPageInner() {
     <div className="min-h-[calc(100vh-120px)] flex flex-col items-center py-6 px-4">
 
       {/* ── Gradient Banner (always visible) ──────────────────────────── */}
-      <div className="w-full max-w-xl text-center px-6 py-10 rounded-3xl mb-6 relative overflow-hidden"
-        style={{
-          background: 'linear-gradient(160deg, #A8DAEA 0%, #C8E6C9 40%, #F5F0E8 100%)',
-          border: '1px solid #C8E6C9',
-          boxShadow: '0 8px 32px rgba(61,46,30,0.10), inset 0 1px 0 rgba(255,255,255,0.6)',
-        }}
-      >
+      <div className="hialice-hero w-full max-w-xl text-center px-6 py-10 rounded-3xl mb-6 relative overflow-hidden">
         {/* Decorative background circles */}
         <div className="absolute top-0 right-0 w-32 h-32 rounded-full opacity-20"
           style={{ background: 'radial-gradient(circle, #87CEDB 0%, transparent 70%)', transform: 'translate(30%, -30%)' }}
@@ -241,13 +236,16 @@ function LoginPageInner() {
           🌿
         </div>
         <h1 className="text-4xl font-extrabold text-[#3D6B3D] mb-1.5 drop-shadow-sm relative z-10 tracking-tight">
-          HiAlice
+          HiMax
         </h1>
-        <p className="text-base font-bold text-[#5C8B5C] relative z-10">
-          English Reading Adventure
+        <p className="text-sm font-extrabold uppercase tracking-[0.2em] text-[#5C8B5C] relative z-10">
+          Welcome Back
         </p>
-        <p className="text-xs font-semibold text-[#6B5744] mt-1.5 relative z-10 opacity-80">
-          AI-powered learning for children aged 6–13
+        <p className="mt-2 text-xl font-extrabold text-[#3D2E1E] relative z-10">
+          Let us find your next reading talk.
+        </p>
+        <p className="text-sm font-semibold text-[#6B5744] mt-2 relative z-10 opacity-90">
+          Choose your profile to continue your reading adventure with Alice.
         </p>
       </div>
 
@@ -273,11 +271,9 @@ function LoginPageInner() {
             ].map((f) => (
               <div
                 key={f.label}
-                className="rounded-2xl py-4 px-2 shadow-sm transition-all hover:-translate-y-0.5"
+                className="hialice-feature-tile py-4 px-2"
                 style={{
                   background: f.color,
-                  border: '1px solid #E8DEC8',
-                  boxShadow: '0 2px 8px rgba(61,46,30,0.06)',
                 }}
               >
                 <div className="text-2xl mb-1.5" aria-hidden="true">{f.icon}</div>
@@ -288,7 +284,7 @@ function LoginPageInner() {
 
           {/* Option cards */}
           <p className="text-center text-sm text-[#6B5744] font-semibold mb-3">
-            How would you like to continue?
+            Choose who is using HiMax today.
           </p>
 
           <div className="flex flex-col gap-3">
@@ -296,10 +292,11 @@ function LoginPageInner() {
             {/* Card 1 — Student */}
             <button
               onClick={() => goTo('student')}
-              className="group ghibli-card is-interactive p-5 flex items-center gap-4 text-left
+              className="hialice-option-card group is-interactive p-5 flex items-center gap-4 text-left
                          min-h-[68px] hover:border-[#5C8B5C] hover:shadow-[0_6px_24px_rgba(92,139,92,0.18)]
                          hover:-translate-y-0.5 transition-all duration-200 cursor-pointer
                          focus-visible:ring-2 focus-visible:ring-[#5C8B5C]"
+              style={{ ['--accent-color']: '#5C8B5C' }}
             >
               <div
                 className="flex-shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center text-2xl
@@ -313,7 +310,7 @@ function LoginPageInner() {
                 <h2 className="text-base font-extrabold text-[#3D2E1E] leading-tight">
                   I&apos;m a Student
                 </h2>
-                <p className="text-xs font-semibold text-[#6B5744] mt-0.5">Select your profile to start reading</p>
+                <p className="text-xs font-semibold text-[#6B5744] mt-0.5">Start with a book you already read</p>
               </div>
               <svg
                 className="flex-shrink-0 text-[#5C8B5C] opacity-40 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all"
@@ -328,10 +325,11 @@ function LoginPageInner() {
             {/* Card 2 — Parent */}
             <button
               onClick={() => goTo('parent')}
-              className="group ghibli-card is-interactive p-5 flex items-center gap-4 text-left
+              className="hialice-option-card group is-interactive p-5 flex items-center gap-4 text-left
                          min-h-[68px] hover:border-[#D4A843] hover:shadow-[0_6px_24px_rgba(212,168,67,0.18)]
                          hover:-translate-y-0.5 transition-all duration-200 cursor-pointer
                          focus-visible:ring-2 focus-visible:ring-[#D4A843]"
+              style={{ ['--accent-color']: '#D4A843' }}
             >
               <div
                 className="flex-shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center text-2xl
@@ -360,10 +358,11 @@ function LoginPageInner() {
             {/* Card 3 — Register */}
             <button
               onClick={() => goTo('register')}
-              className="group ghibli-card is-interactive p-5 flex items-center gap-4 text-left
+              className="hialice-option-card group is-interactive p-5 flex items-center gap-4 text-left
                          min-h-[68px] hover:border-[#87CEDB] hover:shadow-[0_6px_24px_rgba(135,206,219,0.20)]
                          hover:-translate-y-0.5 transition-all duration-200 cursor-pointer
                          focus-visible:ring-2 focus-visible:ring-[#87CEDB]"
+              style={{ ['--accent-color']: '#87CEDB' }}
             >
               <div
                 className="flex-shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center text-2xl
@@ -377,7 +376,7 @@ function LoginPageInner() {
                 <h2 className="text-base font-extrabold text-[#3D2E1E] leading-tight">
                   Create New Account
                 </h2>
-                <p className="text-xs font-semibold text-[#6B5744] mt-0.5">Free to join — start your journey today</p>
+                <p className="text-xs font-semibold text-[#6B5744] mt-0.5">Set up a new learning journey for your family</p>
               </div>
               <svg
                 className="flex-shrink-0 text-[#87CEDB] opacity-40 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all"
@@ -398,14 +397,14 @@ function LoginPageInner() {
          ================================================================ */}
       {viewState === 'student' && (
         <div className="w-full max-w-md animate-fade-in">
-          <div className="ghibli-card p-7">
+          <div className="hialice-option-card p-7" style={{ ['--accent-color']: '#5C8B5C' }}>
 
             {/* Panel header */}
             <div className="text-center mb-6">
               <div className="text-4xl mb-2">🧒</div>
               <h2 className="text-2xl font-extrabold text-[#3D2E1E]">Who are you?</h2>
               <p className="text-sm font-semibold text-[#6B5744] mt-1">
-                Pick your name to start reading
+                Pick your name and we will help you find the book you read.
               </p>
             </div>
 
@@ -493,7 +492,7 @@ function LoginPageInner() {
          ================================================================ */}
       {viewState === 'parent' && (
         <div className="w-full max-w-md animate-fade-in">
-          <div className="ghibli-card p-7">
+          <div className="hialice-option-card p-7" style={{ ['--accent-color']: '#D4A843' }}>
 
             <div className="text-center mb-6">
               <div className="text-4xl mb-2">👪</div>

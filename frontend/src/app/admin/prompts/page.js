@@ -3,7 +3,7 @@
 import { useState } from 'react';
 
 // Mock prompt data
-const DEFAULT_SYSTEM_PROMPT = `You are HiAlice, a warm and encouraging English teacher from the East Coast.
+const DEFAULT_SYSTEM_PROMPT = `You are HiMax, a warm and encouraging English teacher from the East Coast.
 You're talking with a [LEVEL] student who just finished reading "[BOOK_TITLE]".
 
 GUIDELINES:
@@ -153,7 +153,7 @@ export default function PromptsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-extrabold text-[#3D2E1E]">HiAlice AI Prompt Management</h1>
+        <h1 className="text-3xl font-extrabold text-[#3D2E1E]">HiMax AI Prompt Management</h1>
       </div>
 
       {/* Tab Navigation */}
@@ -185,7 +185,7 @@ export default function PromptsPage() {
             style={{ backgroundColor: '#E8F5E8', borderColor: '#C8E6C9' }}
           >
             <p className="text-sm text-[#3D6B3D] font-semibold">
-              This is the main system prompt that controls HiAlice's behavior. It defines the teaching style and tone for all interactions.
+              This is the main system prompt that controls HiMax's behavior. It defines the teaching style and tone for all interactions.
             </p>
           </div>
 
@@ -444,7 +444,7 @@ export default function PromptsPage() {
                   className="p-4 rounded-xl border"
                   style={{ backgroundColor: '#D6E9D6', borderColor: '#C8E6C9' }}
                 >
-                  <p className="text-sm font-bold text-[#6B5744] mb-2">HiAlice Response:</p>
+                  <p className="text-sm font-bold text-[#6B5744] mb-2">HiMax Response:</p>
                   <p className="text-[#3D2E1E] font-semibold">{testResponse}</p>
                 </div>
               )}

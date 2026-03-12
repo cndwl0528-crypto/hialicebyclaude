@@ -47,7 +47,7 @@ export default function OfflinePage() {
 
         {/* Message */}
         <p className="text-gray-600 mb-6">
-          No worries! HiAlice is still here. You can review books you've already
+          No worries! HiMax is still here. You can review books you've already
           loaded, or come back when you have an internet connection.
         </p>
 

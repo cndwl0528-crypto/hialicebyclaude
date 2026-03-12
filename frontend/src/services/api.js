@@ -1,9 +1,22 @@
 /**
- * HiAlice API Client
+ * HiMax API Client
  * Fetch wrapper with error handling and mock fallback data for development
  */
 
 import { API_BASE, API_TIMEOUT } from '@/lib/constants';
+import { MOCK_BOOK_CATALOG, normalizeMockBook } from '@/lib/mockBookCatalog';
+import { clearPersistedSession, getItem } from '@/lib/clientStorage';
+
+export function clearClientSession() {
+  if (typeof window === 'undefined') return;
+
+  clearPersistedSession();
+
+  // Best-effort cleanup for any non-httpOnly auth cookies that may have been
+  // set in older local builds or proxies.
+  document.cookie = 'hialice_token=; Max-Age=0; path=/';
+  document.cookie = 'token=; Max-Age=0; path=/';
+}
 
 /**
  * Base fetch wrapper with timeout, auth token injection, and error handling
@@ -16,8 +29,7 @@ async function apiFetch(endpoint, options = {}) {
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
   // Inject auth token from sessionStorage when available
-  const token =
-    typeof window !== 'undefined' ? sessionStorage.getItem('token') : null;
+  const token = typeof window !== 'undefined' ? getItem('token') : null;
 
   try {
     const response = await fetch(url, {
@@ -34,6 +46,13 @@ async function apiFetch(endpoint, options = {}) {
     clearTimeout(timeoutId);
 
     if (!response.ok) {
+      if (
+        typeof window !== 'undefined' &&
+        (response.status === 401 || response.status === 403)
+      ) {
+        clearClientSession();
+      }
+
       const error = new Error(
         `API Error: ${response.status} ${response.statusText}`
       );
@@ -150,8 +169,9 @@ export async function parentLogin(email, password) {
  */
 export async function childSelect(studentId) {
   try {
-    const response = await apiFetch(`/students/${studentId}/select`, {
+    const response = await apiFetch('/auth/child-select', {
       method: 'POST',
+      body: JSON.stringify({ studentId }),
     });
     return response;
   } catch (error) {
@@ -190,41 +210,12 @@ export async function getBooks(level = null) {
     console.error('Get books failed:', error);
     // Mock fallback
     if (process.env.NODE_ENV === 'development') {
+      const normalizedLevel = level?.toLowerCase();
       return {
         success: true,
-        books: [
-          {
-            id: 'book-001',
-            title: 'The Very Hungry Caterpillar',
-            author: 'Eric Carle',
-            level: 'beginner',
-            genre: 'Picture Book',
-            coverEmoji: '🐛',
-            description:
-              'A classic picture book about transformation and growth',
-            pageCount: 32,
-          },
-          {
-            id: 'book-002',
-            title: 'Charlotte\'s Web',
-            author: 'E.B. White',
-            level: 'intermediate',
-            genre: 'Chapter Book',
-            coverEmoji: '🕷️',
-            description: 'A heartwarming story about friendship',
-            pageCount: 184,
-          },
-          {
-            id: 'book-003',
-            title: 'The Hobbit',
-            author: 'J.R.R. Tolkien',
-            level: 'advanced',
-            genre: 'Fantasy',
-            coverEmoji: '⚔️',
-            description: 'An epic adventure in a magical world',
-            pageCount: 310,
-          },
-        ],
+        books: MOCK_BOOK_CATALOG
+          .map(normalizeMockBook)
+          .filter((book) => !normalizedLevel || book.level.toLowerCase() === normalizedLevel),
       };
     }
     throw error;
@@ -746,15 +737,11 @@ export async function getCurrentUser() {
 export async function logout() {
   try {
     const response = await apiFetch('/auth/logout', { method: 'POST' });
-    if (typeof window !== 'undefined') {
-      sessionStorage.clear();
-    }
+    clearClientSession();
     return response;
   } catch (error) {
     // Even if server call fails, clear local session
-    if (typeof window !== 'undefined') {
-      sessionStorage.clear();
-    }
+    clearClientSession();
     console.warn('Logout API call failed (session cleared locally):', error);
     return { success: true };
   }
@@ -941,7 +928,7 @@ export async function requestRephrase(sessionId, originalQuestion, stage) {
   }
 }
 
-export default {
+const api = {
   parentRegister,
   addChild,
   parentLogin,
@@ -977,3 +964,5 @@ export default {
   getCoppaStatus,
   requestRephrase,
 };
+
+export default api;

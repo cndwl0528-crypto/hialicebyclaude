@@ -1,5 +1,5 @@
 /**
- * HiAlice Constants
+ * HiMax Constants
  * Centralized configuration for levels, stages, colors, and API settings
  */
 
@@ -186,11 +186,11 @@ export const isLastStage = (stageId) => {
  */
 export function isParentOrAdmin() {
   if (typeof window === 'undefined') return false;
-  const role = sessionStorage.getItem('userRole');
+  const role = getItem('userRole');
   return ['parent', 'admin', 'super_admin'].includes(role);
 }
 
-export default {
+const constants = {
   LEVELS,
   STAGES,
   COLORS,
@@ -205,3 +205,6 @@ export default {
   getNextStage,
   isLastStage,
 };
+
+export default constants;
+import { getItem } from './clientStorage';

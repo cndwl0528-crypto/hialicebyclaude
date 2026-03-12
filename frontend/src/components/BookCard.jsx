@@ -118,9 +118,9 @@ export default function BookCard({ book, onClick, compact = false }) {
     <button
       onClick={onClick}
       aria-label={`Review ${book.title} by ${book.author}`}
-      className="book-3d group cursor-pointer focus:outline-none focus-visible:ring-4 focus-visible:ring-[#81C784]/50 w-full text-left"
+      className="book-3d group cursor-pointer focus:outline-none focus-visible:ring-4 focus-visible:ring-[#81C784]/50 w-full h-full text-left"
     >
-      <div className="book-3d-inner relative bg-[#FFFCF3] rounded-lg overflow-visible
+      <div className="book-3d-inner relative bg-[#FFFCF3] rounded-lg overflow-visible h-full flex flex-col
         shadow-[4px_4px_12px_rgba(61,46,30,0.12)]
         group-hover:shadow-[8px_8px_24px_rgba(61,46,30,0.18)]
         transition-shadow duration-300"
@@ -146,7 +146,7 @@ export default function BookCard({ book, onClick, compact = false }) {
         </div>
 
         {/* Content */}
-        <div className="p-3 pb-2">
+        <div className="p-3 pb-2 flex-1 flex flex-col">
           <h3 className="font-serif font-bold text-[#3D2E1E] text-sm mb-0.5 line-clamp-2 leading-snug">
             {book.title}
           </h3>
@@ -184,10 +184,12 @@ export default function BookCard({ book, onClick, compact = false }) {
 
           {/* Progress Bar */}
           <ProgressBar progress={book.progress || 0} />
+
+          <div className="flex-1" />
         </div>
 
         {/* CTA area — visual-only, not a nested button */}
-        <div className="px-3 pb-3 pt-1">
+        <div className="px-3 pb-3 pt-1 mt-auto">
           <div
             className="w-full py-3 bg-[#5C8B5C] text-white rounded-lg font-bold text-sm text-center
               border-2 border-[#5C8B5C]

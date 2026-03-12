@@ -2,29 +2,33 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { getItem, setItem } from '@/lib/clientStorage';
 
 export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const token = sessionStorage.getItem('token');
-      if (token) {
-        router.push('/dashboard');
+      const params = new URLSearchParams(window.location.search);
+      const forceLanding = params.get('landing') === '1';
+      const token = getItem('token');
+      const role = getItem('userRole');
+      if (token && !forceLanding) {
+        router.push(role === 'student' ? '/books' : '/dashboard');
       }
     }
   }, [router]);
 
   const handleDemoMode = () => {
-    sessionStorage.setItem('parentId', 'demo-parent');
-    sessionStorage.setItem('token', 'demo-token');
-    sessionStorage.setItem('parentEmail', 'demo@hialice.com');
-    sessionStorage.setItem('userRole', 'student');
-    sessionStorage.setItem('studentId', '1');
-    sessionStorage.setItem('studentName', 'Alice');
-    sessionStorage.setItem('studentLevel', 'Beginner');
-    sessionStorage.setItem('studentAge', '8');
-    router.push('/dashboard');
+    setItem('parentId', 'demo-parent');
+    setItem('token', 'demo-token');
+    setItem('parentEmail', 'demo@hialice.com');
+    setItem('userRole', 'student');
+    setItem('studentId', '1');
+    setItem('studentName', 'Alice');
+    setItem('studentLevel', 'Beginner');
+    setItem('studentAge', '8');
+    router.push('/books');
   };
 
   const features = [
@@ -65,7 +69,7 @@ export default function Home() {
             🌿
           </div>
           <h1 className="text-5xl font-extrabold text-[#3D6B3D] mb-2 drop-shadow-sm relative z-10 tracking-tight">
-            HiAlice
+            HiMax
           </h1>
           <h2 className="text-xl font-bold text-[#5C8B5C] mb-3 relative z-10">
             English Reading Adventure

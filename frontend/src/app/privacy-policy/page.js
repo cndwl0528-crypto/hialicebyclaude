@@ -3,7 +3,7 @@ export default function PrivacyPolicy() {
   return (
     <div className="min-h-screen bg-[#F5F0E8] py-12 px-4">
       <div className="max-w-2xl mx-auto">
-        <a href="/" className="text-[#5C8B5C] text-sm flex items-center gap-1 mb-6">← Back to Home</a>
+        <a href="/?landing=1" className="text-[#5C8B5C] text-sm flex items-center gap-1 mb-6">← Back to Home</a>
 
         <h1 className="text-3xl font-bold text-[#3D2E1E] mb-2">Privacy Policy</h1>
         <p className="text-sm text-[#6B5744] mb-8">Last updated: March 2026 | Version 1.0</p>
@@ -12,7 +12,7 @@ export default function PrivacyPolicy() {
           <section>
             <h2 className="text-xl font-bold text-[#3D2E1E] mb-3">COPPA Compliance Statement</h2>
             <p className="leading-relaxed">
-              HiAlice is committed to protecting the privacy of children. We comply with the
+              HiMax is committed to protecting the privacy of children. We comply with the
               Children&apos;s Online Privacy Protection Act (COPPA). We do not knowingly collect
               personal information from children under 13 without verifiable parental consent.
             </p>

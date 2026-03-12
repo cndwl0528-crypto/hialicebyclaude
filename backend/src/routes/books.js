@@ -7,20 +7,34 @@ const router = express.Router();
 /**
  * GET /
  * List all books with optional level filter
- * Query: ?level=beginner
+ * Query: ?level=beginner&search=magic
  * Returns: { books: [...] }
  */
 router.get('/', async (req, res) => {
   try {
-    const { level } = req.query;
+    const { level, search } = req.query;
 
     let query = supabase
       .from('books')
-      .select('id, title, author, level, genre, cover_emoji, description');
+      .select('id, title, author, level, genre, cover_emoji, description, synopsis, moral_lesson');
 
     // Apply level filter if provided
     if (level) {
       query = query.eq('level', level.toLowerCase());
+    }
+
+    if (search) {
+      const escapedSearch = search.replace(/[%_]/g, '');
+      query = query.or(
+        [
+          `title.ilike.%${escapedSearch}%`,
+          `author.ilike.%${escapedSearch}%`,
+          `genre.ilike.%${escapedSearch}%`,
+          `description.ilike.%${escapedSearch}%`,
+          `synopsis.ilike.%${escapedSearch}%`,
+          `moral_lesson.ilike.%${escapedSearch}%`,
+        ].join(',')
+      );
     }
 
     const { data: books, error } = await query;

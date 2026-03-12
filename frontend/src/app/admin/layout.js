@@ -92,7 +92,7 @@ export default function AdminLayout({ children }) {
         <div className="bg-[#D6C9A8] shadow-[0_2px_12px_rgba(61,46,30,0.10)] px-6 py-4 border-b border-[#C4B49A] flex items-center justify-between">
           <h1 className="text-2xl font-extrabold text-[#3D2E1E]">
             <span className="mr-2">🌿</span>
-            HiAlice Admin Panel
+            HiMax Admin Panel
           </h1>
           <span className="text-sm text-[#6B5744] font-semibold">v1.0</span>
         </div>

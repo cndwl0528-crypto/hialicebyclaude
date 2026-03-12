@@ -66,10 +66,10 @@ export function PageLoader({ message = "Loading..." }) {
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center">
       <div className="text-center">
-        {/* HiAlice Logo */}
+        {/* HiMax Logo */}
         <div className="mb-8">
           <div className="text-6xl mb-4">📚</div>
-          <h1 className="text-3xl font-bold text-primary mb-2">HiAlice</h1>
+          <h1 className="text-3xl font-bold text-primary mb-2">HiMax</h1>
           <p className="text-gray-600">Reading Companion</p>
         </div>
 

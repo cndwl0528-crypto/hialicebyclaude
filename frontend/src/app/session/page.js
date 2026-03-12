@@ -6,6 +6,7 @@ import useSpeech from '@/hooks/useSpeech';
 import VoiceButton from '@/components/VoiceButton';
 import { STAGE_GUIDE, getCurrentGuideQuestion } from '@/lib/stageQuestions';
 import { pauseSession as apiPauseSession } from '@/services/api';
+import { getItem } from '@/lib/clientStorage';
 import ConfettiCelebration from '@/components/ConfettiCelebration';
 import AchievementUnlock from '@/components/AchievementUnlock';
 
@@ -57,6 +58,13 @@ const WORKSHEET_ROWS = [
   { stage: 'Cross Book', label: 'Cross Book', color: '#9B59B6', icon: '🔗', question: 'Does this book remind you of another book?', example: 'e.g. This book reminds me of Charlotte\'s Web because both have animal friends.' },
 ];
 
+const SOCRATIC_LOADING_PROMPTS = [
+  'That is a thoughtful start. I am shaping the next question for you.',
+  'Let me think about your idea for a moment. I want to ask something that helps you go deeper.',
+  'You said something important. I am finding the next gentle question.',
+  'Nice thinking. I am connecting your answer to the next part of the story.',
+];
+
 function getWorksheetRowIndex(stageIndex, bodyReasonCount) {
   const stage = STAGES[stageIndex];
   if (stage === 'Warm Connection') return 0;
@@ -94,6 +102,7 @@ export default function SessionPage() {
   const [error, setError] = useState(null);
   const [showSkipButton, setShowSkipButton] = useState(false);
   const [worksheetAnswers, setWorksheetAnswers] = useState({});
+  const [loadingPromptIndex, setLoadingPromptIndex] = useState(0);
 
   // Phase 2B: emotion reactions, session timer, timeout warning, AI feedback
   const [emotionHistory, setEmotionHistory] = useState([]);
@@ -109,7 +118,7 @@ export default function SessionPage() {
   // Returns 'beginner' | 'intermediate' | 'advanced'
   const studentLevel = useMemo(() => {
     if (typeof window === 'undefined') return 'intermediate';
-    return sessionStorage.getItem('studentLevel') || 'intermediate';
+    return getItem('studentLevel') || 'intermediate';
   }, []);
 
   // Convenience booleans for level branching
@@ -120,7 +129,7 @@ export default function SessionPage() {
   // useState lazy initialiser runs once so it safely reads sessionStorage on mount.
   const [showTextInput, setShowTextInput] = useState(() => {
     if (typeof window === 'undefined') return true;
-    return (sessionStorage.getItem('studentLevel') || 'intermediate') !== 'beginner';
+    return (getItem('studentLevel') || 'intermediate') !== 'beginner';
   });
 
   // Confetti + achievement state
@@ -139,8 +148,8 @@ export default function SessionPage() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const storedStudentId = sessionStorage.getItem('studentId');
-      const storedStudentName = sessionStorage.getItem('studentName');
+      const storedStudentId = getItem('studentId');
+      const storedStudentName = getItem('studentName');
       setStudentId(storedStudentId);
       setStudentName(storedStudentName);
     }
@@ -183,6 +192,14 @@ export default function SessionPage() {
     }
   }, [elapsedSeconds]);
 
+  useEffect(() => {
+    if (!loading) return;
+    const interval = setInterval(() => {
+      setLoadingPromptIndex((prev) => (prev + 1) % SOCRATIC_LOADING_PROMPTS.length);
+    }, 2200);
+    return () => clearInterval(interval);
+  }, [loading]);
+
   const elapsedTime = useMemo(() => {
     const m = Math.floor(elapsedSeconds / 60);
     const s = elapsedSeconds % 60;
@@ -213,7 +230,7 @@ export default function SessionPage() {
     const id = params.get('bookId');
     const title = params.get('bookTitle') || 'the book';
     const urlSessionId = params.get('sessionId');
-    console.log('[HiAlice] mount: bookId =', id, 'bookTitle =', title, 'sessionId =', urlSessionId);
+    console.log('[HiMax] mount: bookId =', id, 'bookTitle =', title, 'sessionId =', urlSessionId);
     setBookId(id);
     setBookTitle(title);
     // If books page already created a real session, reuse it
@@ -225,30 +242,30 @@ export default function SessionPage() {
   // Kick off the session once bookId is known (set by the mount effect above).
   useEffect(() => {
     if (!bookId) return;
-    console.log('[HiAlice] bookId ready, calling initializeSession:', bookId);
+    console.log('[HiMax] bookId ready, calling initializeSession:', bookId);
     initializeSession();
   }, [bookId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const initializeSession = async () => {
-    console.log('[HiAlice] initializeSession called, bookId:', bookId, 'bookTitle:', bookTitle, 'sessionId:', sessionId);
+    console.log('[HiMax] initializeSession called, bookId:', bookId, 'bookTitle:', bookTitle, 'sessionId:', sessionId);
 
     // Read student info directly from sessionStorage so we don't rely on
     // React state that may still be null if both mount effects haven't flushed.
     const resolvedStudentId =
-      studentId ?? (typeof window !== 'undefined' ? sessionStorage.getItem('studentId') : null);
+      studentId ?? (typeof window !== 'undefined' ? getItem('studentId') : null);
 
     // Also fall back to sessionStorage for bookId/bookTitle in case URL params are absent.
     const resolvedBookId =
-      bookId ?? (typeof window !== 'undefined' ? sessionStorage.getItem('bookId') : null);
+      bookId ?? (typeof window !== 'undefined' ? getItem('bookId') : null);
     const resolvedBookTitle =
-      bookTitle || (typeof window !== 'undefined' ? sessionStorage.getItem('bookTitle') : '') || 'the book';
+      bookTitle || (typeof window !== 'undefined' ? getItem('bookTitle') : '') || 'the book';
 
     try {
       setSessionStartTime(new Date());
 
       // If sessionId was already passed via URL (created by books page), skip creation
       if (sessionId) {
-        console.log('[HiAlice] Reusing session from URL:', sessionId);
+        console.log('[HiMax] Reusing session from URL:', sessionId);
         setApiAvailable(true);
       } else {
         // No sessionId from URL — create one via API
@@ -258,8 +275,8 @@ export default function SessionPage() {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              ...(typeof window !== 'undefined' && sessionStorage.getItem('token')
-                ? { Authorization: `Bearer ${sessionStorage.getItem('token')}` }
+              ...(typeof window !== 'undefined' && getItem('token')
+                ? { Authorization: `Bearer ${getItem('token')}` }
                 : {}),
             },
             body: JSON.stringify({
@@ -312,6 +329,86 @@ export default function SessionPage() {
       setMessages([fallbackMessage]);
     }
   };
+
+  // This callback intentionally follows the latest stage/session helpers.
+  // Keeping it scoped here avoids stale conversation state during stage jumps.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const processApiResponse = useCallback(async (data) => {
+    const aliceMessage = {
+      id: Date.now() + 1,
+      speaker: 'alice',
+      content: data.reply?.content || data.content || data.message,
+      timestamp: new Date(),
+      stage: STAGES[currentStage],
+    };
+
+    setMessages((prev) => [...prev, aliceMessage]);
+    speak(aliceMessage.content);
+
+    if (data.vocabulary && Array.isArray(data.vocabulary)) {
+      setSessionVocabulary((prev) => [...prev, ...data.vocabulary]);
+    }
+
+    if (data.grammarScore !== undefined) {
+      setStageScores((prev) => ({
+        ...prev,
+        [STAGES[currentStage]]: data.grammarScore,
+      }));
+    }
+
+    if (data.shouldAdvance && data.nextStage) {
+      const nextStageIndex = STAGES.indexOf(data.nextStage);
+      if (nextStageIndex > currentStage) {
+        showStageTransitionAnimation(data.nextStage, nextStageIndex);
+      }
+    } else {
+      if (STAGES[currentStage] === 'Body') {
+        setBodyReasonCount((prev) => prev + 1);
+      }
+      setCurrentTurn((prev) => prev + 1);
+    }
+
+    setLoading(false);
+  }, [currentStage, showStageTransitionAnimation, speak]);
+
+  // This callback also needs the latest stage completion helpers so mock flow
+  // stays in sync with the active worksheet stage.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const processMockResponse = useCallback(async (content, reasonCount = 0) => {
+    const aliceMessage = {
+      id: Date.now() + 2,
+      speaker: 'alice',
+      content,
+      timestamp: new Date(),
+      stage: STAGES[currentStage],
+    };
+
+    setMessages((prev) => [...prev, aliceMessage]);
+    speak(content);
+
+    const nextTurn = currentTurn + 1;
+
+    let shouldAdvance = false;
+    if (STAGES[currentStage] === 'Body') {
+      shouldAdvance = reasonCount >= 3;
+      setBodyReasonCount(reasonCount);
+    } else {
+      shouldAdvance = nextTurn >= MAX_TURNS_PER_STAGE;
+    }
+
+    if (shouldAdvance) {
+      const nextStageIndex = currentStage + 1;
+      if (nextStageIndex < STAGES.length) {
+        showStageTransitionAnimation(STAGES[nextStageIndex], nextStageIndex);
+      } else {
+        completeSession();
+      }
+    } else {
+      setCurrentTurn(nextTurn);
+    }
+
+    setLoading(false);
+  }, [currentStage, currentTurn, completeSession, showStageTransitionAnimation, speak]);
 
   const handleSendMessage = useCallback(async (text) => {
     if (!text.trim() || loading) return;
@@ -368,9 +465,6 @@ export default function SessionPage() {
       const stageName = STAGES[stageIndex];
       const stageQuestions = MOCK_AI_RESPONSES[stageName];
 
-      // Index into the mock responses: question[0] is shown either by the
-      // hardcoded greeting (Warm Connection) or by the stage-transition handler
-      // (all other stages), so we respond with question[currentTurn + 1].
       const mockIndex = currentTurn + 1;
       const nextQuestion =
         mockIndex < stageQuestions.length
@@ -388,83 +482,10 @@ export default function SessionPage() {
       setError('Failed to get response. Please try again.');
       setLoading(false);
     }
-  }, [loading, messages, currentStage, bodyReasonCount, apiAvailable, sessionId, currentTurn]);
+  }, [loading, currentStage, bodyReasonCount, apiAvailable, sessionId, currentTurn, processApiResponse, processMockResponse]);
 
-  const processApiResponse = async (data) => {
-    const aliceMessage = {
-      id: Date.now() + 1,
-      speaker: 'alice',
-      content: data.reply?.content || data.content || data.message,
-      timestamp: new Date(),
-      stage: STAGES[currentStage],
-    };
-
-    setMessages((prev) => [...prev, aliceMessage]);
-    speak(aliceMessage.content);
-
-    if (data.vocabulary && Array.isArray(data.vocabulary)) {
-      setSessionVocabulary((prev) => [...prev, ...data.vocabulary]);
-    }
-
-    if (data.grammarScore !== undefined) {
-      setStageScores((prev) => ({
-        ...prev,
-        [STAGES[currentStage]]: data.grammarScore,
-      }));
-    }
-
-    if (data.shouldAdvance && data.nextStage) {
-      const nextStageIndex = STAGES.indexOf(data.nextStage);
-      if (nextStageIndex > currentStage) {
-        showStageTransitionAnimation(data.nextStage, nextStageIndex);
-      }
-    } else {
-      if (STAGES[currentStage] === 'Body') {
-        setBodyReasonCount((prev) => prev + 1);
-      }
-      setCurrentTurn((prev) => prev + 1);
-    }
-
-    setLoading(false);
-  };
-
-  const processMockResponse = async (content, reasonCount = 0) => {
-    const aliceMessage = {
-      id: Date.now() + 2,
-      speaker: 'alice',
-      content,
-      timestamp: new Date(),
-      stage: STAGES[currentStage],
-    };
-
-    setMessages((prev) => [...prev, aliceMessage]);
-    speak(content);
-
-    const nextTurn = currentTurn + 1;
-
-    let shouldAdvance = false;
-    if (STAGES[currentStage] === 'Body') {
-      shouldAdvance = reasonCount >= 3;
-      setBodyReasonCount(reasonCount);
-    } else {
-      shouldAdvance = nextTurn >= MAX_TURNS_PER_STAGE;
-    }
-
-    if (shouldAdvance) {
-      const nextStageIndex = currentStage + 1;
-      if (nextStageIndex < STAGES.length) {
-        showStageTransitionAnimation(STAGES[nextStageIndex], nextStageIndex);
-      } else {
-        completeSession();
-      }
-    } else {
-      setCurrentTurn(nextTurn);
-    }
-
-    setLoading(false);
-  };
-
-  const showStageTransitionAnimation = (stageName, stageIndex) => {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  function showStageTransitionAnimation(stageName, stageIndex) {
     setNextStageName(stageName);
     setShowStageTransition(true);
 
@@ -511,9 +532,10 @@ export default function SessionPage() {
         : `Great! Now let's move to the ${stageName} section. I have some new questions for you.`;
       speak(fullText);
     }, 1500);
-  };
+  }
 
-  const completeSession = async () => {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  async function completeSession() {
     const duration = sessionStartTime
       ? Math.round((new Date() - sessionStartTime) / 1000)
       : 0;
@@ -565,7 +587,7 @@ export default function SessionPage() {
       setSessionComplete(true);
       setShowConfetti(true);
     }
-  };
+  }
 
   const handleSkipToNextStage = () => {
     if (currentStage < STAGES.length - 1) {
@@ -645,7 +667,7 @@ export default function SessionPage() {
         clearTimeout(silenceTimerRef.current);
       }
     };
-  }, [transcript, isListening, handleSendMessage]);
+  }, [transcript, isListening, handleSendMessage, stopListening]);
 
   // Phase 2B: AI Feedback preview card shown immediately after session ends
   if (showAiFeedbackCard && aiFeedback) {
@@ -653,7 +675,7 @@ export default function SessionPage() {
       <div className="min-h-[calc(100vh-120px)] flex items-center justify-center py-12 bg-[#F5F0E8]">
         <div className="ghibli-card p-8 max-w-md text-center animate-fade-in">
           <div className="text-5xl mb-4">🤖</div>
-          <h2 className="text-xl font-extrabold text-[#6B5744] mb-3">A Message from HiAlice</h2>
+          <h2 className="text-xl font-extrabold text-[#6B5744] mb-3">A Message from HiMax</h2>
           <div className="bg-gradient-to-br from-[#FFF8E0] to-[#F5E8A8] border-2 border-[#D4A843]/30 rounded-2xl p-5 mb-6 text-left">
             <p className="text-[#3D2E1E] text-sm leading-relaxed italic">
               &quot;{aiFeedback}&quot;
@@ -697,7 +719,7 @@ export default function SessionPage() {
   }
 
   return (
-    <div className="flex flex-col lg:flex-row h-[calc(100vh-120px)] bg-[#F5F0E8]">
+    <div className="flex min-h-[calc(100dvh-120px)] flex-col bg-[#F5F0E8] lg:h-[calc(100vh-120px)] lg:flex-row">
       {/* Stage Transition Overlay */}
       {showStageTransition && (
         <div className="fixed inset-0 bg-[#3D6B3D] bg-opacity-50 flex items-center justify-center z-50 animate-fade-in">
@@ -773,12 +795,12 @@ export default function SessionPage() {
       )}
 
       {/* ===== LEFT: Worksheet Frame ===== */}
-      <div className="lg:w-80 w-full max-h-[220px] lg:max-h-none lg:h-full bg-[#FFFCF3] border-r border-[#D6C9A8] shadow-[2px_0_12px_rgba(61,46,30,0.06)] flex-shrink-0 overflow-y-auto">
+      <div className="w-full max-h-[260px] overflow-y-auto border-r border-[#D6C9A8] bg-[#FFFCF3] shadow-[2px_0_12px_rgba(61,46,30,0.06)] flex-shrink-0 lg:h-full lg:w-80 lg:max-h-none">
         {/* Worksheet Header */}
-        <div className="bg-[#5C8B5C] text-white px-4 py-3 flex items-center gap-2 sticky top-0 z-10">
+        <div className="bg-[linear-gradient(180deg,#6B9A6B_0%,#5C8B5C_100%)] text-white px-4 py-3 flex items-center gap-2 sticky top-0 z-10">
           <span className="text-xl" aria-hidden="true">📝</span>
           <div>
-            <h2 className="font-extrabold text-sm">Reading Worksheet</h2>
+            <h2 className="font-extrabold text-sm">My Reading Notes</h2>
             <p className="text-xs text-white/80 truncate">{bookTitle || 'Book Title'}</p>
           </div>
           {process.env.NODE_ENV === 'development' && (
@@ -797,7 +819,6 @@ export default function SessionPage() {
           {WORKSHEET_ROWS.map((row, idx) => {
             const isActive = idx === activeRowIndex;
             const isCompleted = idx < activeRowIndex;
-            const isPending = idx > activeRowIndex;
             const answer = worksheetAnswers[idx];
 
             return (
@@ -813,7 +834,7 @@ export default function SessionPage() {
                 }`}
               >
                 {/* Row Header */}
-                <div className="flex items-center gap-2 px-3 py-2">
+                <div className="flex items-center gap-2 px-3 py-3">
                   <span
                     aria-hidden="true"
                     className="inline-flex items-center justify-center w-6 h-6 rounded-full text-white text-xs font-extrabold flex-shrink-0"
@@ -834,37 +855,18 @@ export default function SessionPage() {
                   )}
                 </div>
 
-                {/* Guide Question */}
-                <div className="px-3 pb-2">
-                  <div
-                    className={`relative rounded-xl px-3 py-2 text-xs ${
-                      isActive
-                        ? 'bg-[#FFFCF3] shadow-sm border border-[#C8E6C9]'
-                        : 'bg-[#FFFCF3] bg-opacity-60'
-                    }`}
-                  >
-                    <div
-                      className="absolute -top-1 left-4 w-2 h-2 rotate-45"
-                      style={{
-                        backgroundColor: isActive ? '#FFFCF3' : 'rgba(255,252,243,0.6)',
-                        borderTop: isActive ? '1px solid #C8E6C9' : 'none',
-                        borderLeft: isActive ? '1px solid #C8E6C9' : 'none',
-                      }}
-                    />
-                    <p className={`font-bold ${isActive ? 'text-[#3D2E1E]' : 'text-[#6B5744]'}`}>
-                      {row.question}
-                    </p>
-                    {answer && (
-                      <div className="mt-2 pt-2 border-t border-[#E8DEC8]">
-                        <p className="text-xs text-[#5C8B5C] font-semibold">
-                          {answer.length > 80 ? answer.substring(0, 80) + '...' : answer}
-                        </p>
-                      </div>
-                    )}
-                    {!answer && (
-                      <p className="text-[#6B5744] mt-1 italic text-xs">{row.example}</p>
-                    )}
-                  </div>
+                <div className="px-3 pb-3">
+                  {answer ? (
+                    <div className="rounded-xl border border-[#C8E6C9] bg-[#FFFCF3] px-3 py-2 text-xs font-semibold text-[#5C8B5C] shadow-sm">
+                      {answer.length > 80 ? `${answer.substring(0, 80)}...` : answer}
+                    </div>
+                  ) : (
+                    <div className={`rounded-xl px-3 py-2 text-xs font-semibold ${
+                      isActive ? 'bg-[#FFFCF3] text-[#3D2E1E] border border-[#C8E6C9]' : 'bg-[#FFF8E8] text-[#8D6E63]'
+                    }`}>
+                      {isActive ? 'Alice is talking with you about this part now.' : 'Your conversation will appear here.'}
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -889,24 +891,34 @@ export default function SessionPage() {
       </div>
 
       {/* ===== RIGHT: Chat Area ===== */}
-      <div className="flex-1 flex flex-col min-w-0 pb-[4.5rem] lg:pb-0">
+      <div className="flex-1 flex flex-col min-w-0 pb-[5.75rem] lg:pb-0">
         {/* Session top bar: book title + timer + Save & Exit */}
-        <div className="bg-[#FFFCF3] border-b border-[#D6C9A8] px-4 py-2 flex items-center justify-between flex-shrink-0">
-          <p className="text-xs font-semibold text-[#6B5744] truncate max-w-[45%]">
-            {bookTitle || 'Review Session'}
-          </p>
-          {/* P3-UX-07: Session timer displayed in the top bar */}
-          <div className="flex items-center gap-1.5 bg-[#E8F5E8] px-3 py-1 rounded-full" aria-label={`Session time: ${elapsedTime}`}>
-            <span className="text-sm" aria-hidden="true">⏱️</span>
-            <span className="text-xs font-bold text-[#5C8B5C] tabular-nums">{elapsedTime}</span>
+        <div className="bg-[#FFFCF3] border-b border-[#D6C9A8] px-4 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between flex-shrink-0 shadow-[0_4px_12px_rgba(61,46,30,0.04)]">
+          <div className="min-w-0">
+            <span className="hialice-stage-badge mb-1">
+              <span aria-hidden="true">💬</span>
+              Reading Talk
+            </span>
+            <p className="text-xs font-semibold text-[#6B5744] truncate">
+              {bookTitle || 'Review Session'}
+            </p>
+            <p className="text-[11px] font-semibold text-[#8B7355]">
+              We are exploring your ideas one step at a time.
+            </p>
           </div>
-          <button
-            onClick={handlePauseSession}
-            className="text-xs text-[#6B5744] hover:text-[#5C8B5C] flex items-center gap-1 px-3 py-2 rounded-xl border border-[#D6C9A8] hover:border-[#5C8B5C] transition-all min-h-[44px] font-bold"
-            aria-label="Save and exit session"
-          >
-            Save &amp; Exit
-          </button>
+          <div className="flex items-center justify-between gap-3 sm:justify-end">
+            <div className="flex items-center gap-1.5 bg-[#E8F5E8] px-3 py-1 rounded-full" aria-label={`Session time: ${elapsedTime}`}>
+              <span className="text-sm" aria-hidden="true">⏱️</span>
+              <span className="text-xs font-bold text-[#5C8B5C] tabular-nums">{elapsedTime}</span>
+            </div>
+            <button
+              onClick={handlePauseSession}
+              className="text-xs text-[#6B5744] hover:text-[#5C8B5C] flex items-center gap-1 px-3 py-2 rounded-xl border border-[#D6C9A8] hover:border-[#5C8B5C] transition-all min-h-[44px] font-bold whitespace-nowrap"
+              aria-label="Save and exit session"
+            >
+              Save &amp; Exit
+            </button>
+          </div>
         </div>
 
         {/* Error Banner */}
@@ -1003,12 +1015,15 @@ export default function SessionPage() {
                 <div className="w-8 h-8 rounded-full bg-[#5C8B5C] flex items-center justify-center flex-shrink-0 mt-1">
                   <span className="text-white text-sm font-extrabold">A</span>
                 </div>
-                <div className="bg-[#D6E9D6] px-4 py-3 rounded-2xl rounded-tl-none">
-                  <div className="flex gap-1">
-                    <div className="w-2 h-2 bg-[#5C8B5C] rounded-full animate-bounce" style={{ animationDelay: '0s' }} />
-                    <div className="w-2 h-2 bg-[#5C8B5C] rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
-                    <div className="w-2 h-2 bg-[#5C8B5C] rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
+                  <div className="max-w-xs rounded-2xl rounded-tl-none bg-[#D6E9D6] px-4 py-3 shadow-[0_8px_20px_rgba(92,139,92,0.12)] lg:max-w-md">
+                    <div className="flex gap-1">
+                      <div className="h-2 w-2 rounded-full bg-[#5C8B5C] animate-bounce" style={{ animationDelay: '0s' }} />
+                      <div className="h-2 w-2 rounded-full bg-[#5C8B5C] animate-bounce" style={{ animationDelay: '0.2s' }} />
+                    <div className="h-2 w-2 rounded-full bg-[#5C8B5C] animate-bounce" style={{ animationDelay: '0.4s' }} />
                   </div>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-[#3D2E1E]">
+                    {SOCRATIC_LOADING_PROMPTS[loadingPromptIndex]}
+                  </p>
                 </div>
               </div>
             </div>
@@ -1046,7 +1061,7 @@ export default function SessionPage() {
                   {WORKSHEET_ROWS[activeRowIndex].label}
                 </span>
                 <span className="text-xs text-[#6B5744] flex-1 truncate font-medium ml-1">
-                  — {WORKSHEET_ROWS[activeRowIndex].question}
+                  — conversation in progress
                 </span>
               </>
             )}
@@ -1113,7 +1128,7 @@ export default function SessionPage() {
                 {showTextInput ? 'Hide keyboard' : 'Type instead'}
               </button>
               {showTextInput && (
-                <div className="w-full flex gap-2">
+                <div className="w-full flex flex-col gap-2 sm:flex-row">
                   <input
                     ref={inputRef}
                     type="text"
@@ -1137,7 +1152,7 @@ export default function SessionPage() {
             </div>
           ) : isAdvancedMode ? (
             /* ===== ADVANCED (12-13): Text input prominent, voice button smaller on the side ===== */
-            <div className="flex gap-3 items-end w-full">
+            <div className="flex flex-col gap-3 w-full sm:flex-row sm:items-end">
               <div className="flex flex-col gap-2 flex-1">
                 <div className="flex gap-2">
                   <input
@@ -1161,7 +1176,7 @@ export default function SessionPage() {
                 </div>
               </div>
               {/* Smaller voice button for advanced — available but not primary */}
-              <div className="flex flex-col items-center gap-1 flex-shrink-0">
+              <div className="flex flex-col items-center gap-1 flex-shrink-0 sm:pb-1">
                 <VoiceButton
                   isListening={isListening}
                   onStart={handleVoiceInput}
@@ -1176,7 +1191,7 @@ export default function SessionPage() {
             </div>
           ) : (
             /* ===== INTERMEDIATE (9-11): Both inputs, voice is default/prominent ===== */
-            <div className="flex gap-3 items-end w-full">
+            <div className="flex flex-col gap-3 items-stretch w-full sm:flex-row sm:items-end">
               {/* Voice button on the left — larger and more prominent */}
               <div className="flex flex-col items-center gap-1 flex-shrink-0">
                 <VoiceButton
@@ -1248,4 +1263,3 @@ export default function SessionPage() {
     </div>
   );
 }
-

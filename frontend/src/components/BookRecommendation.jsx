@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import BookCoverIllustration from './BookCoverIllustration';
+import { getItem } from '@/lib/clientStorage';
 
 const STATIC_RECOMMENDATIONS = {
   beginner: [
@@ -28,7 +29,7 @@ async function fetchRecommendations(studentId, studentLevel) {
 
   try {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-    const token = sessionStorage.getItem('authToken') || '';
+    const token = getItem('token') || '';
     const response = await fetch(
       `${apiUrl}/api/books/recommendations/${studentId}`,
       {
@@ -118,7 +119,7 @@ export default function BookRecommendation({
 
     load();
     return () => { cancelled = true; };
-  }, [currentBook?.id, studentId, studentLevel, excludeBookIds.length]);
+  }, [currentBook, studentId, studentLevel, excludeBookIds]);
 
   if (loading) {
     return (

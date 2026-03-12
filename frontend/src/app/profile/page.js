@@ -10,6 +10,7 @@ import {
 } from '@/services/api';
 import LoadingCard from '@/components/LoadingCard';
 import { isParentOrAdmin } from '@/lib/constants';
+import { getItem } from '@/lib/clientStorage';
 
 const MOCK_STUDENT = {
   id: 'demo-1',
@@ -123,9 +124,9 @@ export default function ProfilePage() {
   const [analyticsAchievements, setAnalyticsAchievements] = useState([]);
 
   useEffect(() => {
-    const storedName = sessionStorage.getItem('studentName');
-    const storedLevel = sessionStorage.getItem('studentLevel');
-    const storedId = sessionStorage.getItem('studentId');
+    const storedName = getItem('studentName');
+    const storedLevel = getItem('studentLevel');
+    const storedId = getItem('studentId');
 
     setStudent((prev) => ({
       ...prev,
@@ -392,7 +393,7 @@ export default function ProfilePage() {
               <button
                 onClick={handleLogout}
                 className="flex-shrink-0 px-3 sm:px-4 py-2 min-h-[40px] bg-white/15 hover:bg-white/25 border border-white/30 text-white rounded-xl font-bold text-xs sm:text-sm transition-all hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-white"
-                aria-label="Log out of HiAlice"
+                aria-label="Log out of HiMax"
               >
                 Log out
               </button>
@@ -754,14 +755,6 @@ export default function ProfilePage() {
           >
             <span aria-hidden="true">📚</span>
             Go to Library
-          </button>
-          <button
-            onClick={() => router.push('/')}
-            className="flex-1 sm:flex-initial min-h-[52px] px-8 py-3 rounded-2xl font-extrabold text-base border-2 hover:-translate-y-0.5 transition-all focus-visible:ring-2 focus-visible:ring-[#5C8B5C] flex items-center justify-center gap-2"
-            style={{ backgroundColor: GHIBLI.bg, borderColor: GHIBLI.primary, color: GHIBLI.primary }}
-          >
-            <span aria-hidden="true">🏠</span>
-            Home
           </button>
           <button
             onClick={handleLogout}

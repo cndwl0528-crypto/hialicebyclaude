@@ -50,7 +50,7 @@ function ConsentForm() {
           <h1 className="text-2xl font-bold text-[#3D2E1E]">Parent Consent Required</h1>
           <p className="text-sm text-[#6B5744] mt-1">
             Under COPPA (Children&apos;s Online Privacy Protection Act), we need your consent
-            before your child can use HiAlice.
+            before your child can use HiMax.
           </p>
         </div>
 
@@ -102,7 +102,7 @@ function ConsentForm() {
               id: 'general',
               state: agreed,
               setter: setAgreed,
-              label: 'I am the parent or legal guardian and I consent to my child using HiAlice',
+              label: 'I am the parent or legal guardian and I consent to my child using HiMax',
               required: true
             },
             {

@@ -1,5 +1,7 @@
 'use client';
 
+import Image from 'next/image';
+
 /**
  * BookCoverIllustration — Animated vertical 3:4 book covers for children ages 6-13.
  * Rich SVG illustrations with CSS animation classes defined in globals.css.
@@ -1254,11 +1256,13 @@ export default function BookCoverIllustration({ book, className = '' }) {
   if (book.cover_image) {
     return (
       <div className={`relative overflow-hidden ${className}`}>
-        <img
+        <Image
           src={book.cover_image}
           alt={`${book.title} cover`}
-          className="w-full h-full object-cover"
-          loading="lazy"
+          fill
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 240px"
+          className="object-cover"
+          unoptimized
         />
       </div>
     );

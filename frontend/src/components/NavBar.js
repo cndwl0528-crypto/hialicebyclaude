@@ -5,9 +5,10 @@ import { useEffect } from 'react';
 import Link from 'next/link';
 
 const navLinks = [
-  { href: '/', label: 'Home', icon: '🏠' },
-  { href: '/books', label: 'Library', icon: '📚' },
-  { href: '/review', label: 'Review', icon: '⭐' },
+  { href: '/?landing=1', label: 'Home', icon: '🏠' },
+  { href: '/books', label: 'Start', icon: '🚀' },
+  { href: '/library', label: 'Library', icon: '📚' },
+  { href: '/review', label: 'Studio', icon: '⭐' },
   { href: '/vocabulary', label: 'Words', icon: '📖' },
   { href: '/profile', label: 'Profile', icon: '👤' },
 ];
@@ -39,11 +40,11 @@ export default function NavBar() {
       <nav aria-label="Main navigation" className="bg-[#D6C9A8] shadow-[0_2px_12px_rgba(61,46,30,0.10)] px-4 sm:px-6 py-3 flex items-center justify-between overflow-x-auto ghibli-bg sticky top-0 z-40">
         <div className="flex items-center gap-4">
           <Link
-            href="/"
+            href="/?landing=1"
             className="text-xl font-extrabold text-[#3D6B3D] hover:text-[#5C8B5C] transition-colors flex-shrink-0 flex items-center gap-1"
           >
             <span className="leaf-sway inline-block">🌿</span>
-            <span>HiAlice</span>
+            <span>HiMax</span>
           </Link>
           <div className="hidden md:flex gap-1">
             {navLinks.slice(1).map((link) => (

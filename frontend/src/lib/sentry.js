@@ -1,5 +1,5 @@
 /**
- * Sentry error tracking for HiAlice frontend.
+ * Sentry error tracking for HiMax frontend.
  *
  * Only active when NEXT_PUBLIC_SENTRY_DSN env var is set.
  * When the DSN is absent every export is a safe no-op.

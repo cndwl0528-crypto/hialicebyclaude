@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import LoadingCard from '@/components/LoadingCard';
+import { getItem } from '@/lib/clientStorage';
 
 /**
  * AdminStudentsPage — /admin/students
@@ -63,8 +64,7 @@ export default function AdminStudentsPage() {
   const [deleting, setDeleting] = useState(false);
 
   const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-  const getToken = () =>
-    typeof window !== 'undefined' ? sessionStorage.getItem('token') : null;
+  const getToken = () => getItem('token');
 
   // ── Fetch all students ──────────────────────────────────────────────────
   const fetchStudents = useCallback(async () => {

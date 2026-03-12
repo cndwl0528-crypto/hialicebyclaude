@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { getItem } from '@/lib/clientStorage';
 
 // Mock data
 const MOCK_STATS = {
@@ -142,8 +143,7 @@ export default function AdminDashboard() {
       try {
         setLoading(true);
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const token =
-          typeof window !== 'undefined' ? sessionStorage.getItem('token') : null;
+        const token = getItem('token');
         const response = await fetch(`${apiUrl}/api/admin/dashboard`, {
           signal: AbortSignal.timeout(5000),
           headers: token ? { Authorization: `Bearer ${token}` } : {},

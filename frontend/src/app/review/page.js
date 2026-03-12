@@ -5,7 +5,9 @@ import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { getSessionReview, getSessionStageScores, getBook } from '@/services/api';
 import LoadingCard from '@/components/LoadingCard';
+import ImaginationStudio from '@/components/ImaginationStudio';
 import { isParentOrAdmin } from '@/lib/constants';
+import { getItem } from '@/lib/clientStorage';
 
 // Heavy components loaded dynamically to reduce initial bundle size
 const PrintableWorksheet = dynamic(() => import('@/components/PrintableWorksheet'), {
@@ -136,18 +138,18 @@ export default function ReviewPage() {
             }
           }
           if (!bookTitle) {
-            bookTitle = sessionStorage.getItem('bookTitle') || 'Book';
+            bookTitle = getItem('bookTitle') || 'Book';
           }
 
           // Build a review object matching the UI's expected fields
           const apiReview = {
             sessionId: sess.id,
             studentId: sess.student_id,
-            studentName: sessionStorage.getItem('studentName') || 'Student',
+            studentName: getItem('studentName') || 'Student',
             bookTitle,
             grammarScore: sess.grammar_score ?? sess.grammarScore ?? 0,
             levelScore: sess.level_score ?? sess.levelScore ?? 0,
-            studentLevel: sess.level || sessionStorage.getItem('studentLevel') || 'Beginner',
+            studentLevel: sess.level || getItem('studentLevel') || 'Beginner',
             completedAt: sess.completed_at || sess.completedAt,
             achievements: sess.achievements || [],
           };
@@ -328,7 +330,7 @@ export default function ReviewPage() {
             onClick={() => router.push('/books')}
             className="px-6 py-3 bg-[#5C8B5C] text-white rounded-2xl font-bold hover:-translate-y-0.5 transition-all"
           >
-            Go to Library
+            Go to Start
           </button>
         </div>
       </div>
@@ -383,7 +385,7 @@ export default function ReviewPage() {
           <div className="flex items-start gap-3">
             <div className="text-3xl flex-shrink-0" aria-hidden="true">🤖</div>
             <div>
-              <h3 className="font-bold text-[#6B5744] mb-2">Message from HiAlice</h3>
+              <h3 className="font-bold text-[#6B5744] mb-2">Message from HiMax</h3>
               <p className="text-[#3D2E1E] text-sm leading-relaxed italic">
                 &quot;{aiFeedback}&quot;
               </p>
@@ -461,6 +463,12 @@ export default function ReviewPage() {
           </div>
         </div>
       </div>
+
+      <ImaginationStudio
+        bookTitle={review.bookTitle}
+        studentName={review.studentName}
+        conversation={conversation}
+      />
 
       {/* Word Cloud Section */}
       <div className="ghibli-card p-8 mb-6">
@@ -744,8 +752,8 @@ export default function ReviewPage() {
           onClick={() => router.push('/books')}
           className="flex-1 sm:flex-initial min-h-[52px] px-8 py-3 bg-[#5C8B5C] text-white rounded-2xl hover:bg-[#3D6B3D] transition-all font-bold hover:-translate-y-0.5 shadow-[0_4px_12px_rgba(92,139,92,0.3)] focus-visible:ring-2 focus-visible:ring-[#3D6B3D] flex items-center justify-center gap-2"
         >
-          <span aria-hidden="true">📚</span>
-          Review Another Book
+          <span aria-hidden="true">🚀</span>
+          Start Another Book
         </button>
         <button
           onClick={() => router.push('/vocabulary')}

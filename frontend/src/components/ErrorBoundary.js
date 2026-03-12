@@ -40,13 +40,13 @@ class ErrorBoundary extends React.Component {
       return (
         <div className="min-h-screen bg-background flex items-center justify-center px-4">
           <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
-            {/* HiAlice Branding */}
+            {/* HiMax Branding */}
             <div className="text-6xl mb-4">😊</div>
             <h1 className="text-2xl font-bold text-gray-800 mb-2">
               Oops! Something went wrong
             </h1>
             <p className="text-gray-600 mb-6">
-              Don't worry! HiAlice had a little hiccup. Let's try again.
+              Don't worry! HiMax had a little hiccup. Let's try again.
             </p>
 
             {/* Error Details (Development Only) */}

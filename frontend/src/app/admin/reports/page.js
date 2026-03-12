@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { getItem } from '@/lib/clientStorage';
 
 const DATE_RANGES = ['Last 7 Days', 'Last 30 Days', 'Last 90 Days', 'All Time'];
 
@@ -172,8 +173,7 @@ export default function ReportsPage() {
   const [apiError, setApiError] = useState(null);
 
   const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-  const getToken = () =>
-    typeof window !== 'undefined' ? sessionStorage.getItem('token') : null;
+  const getToken = () => getItem('token');
 
   // -- Fetch students list --
   const fetchStudents = useCallback(async () => {

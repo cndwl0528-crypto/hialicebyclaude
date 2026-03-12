@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getStudentSessions, getVocabStats } from '@/services/api';
 import { isParentOrAdmin, LEVELS } from '@/lib/constants';
+import { getItem } from '@/lib/clientStorage';
+import ReadingJourneyMap from '@/components/ReadingJourneyMap';
 
 // ---------------------------------------------------------------------------
 // Mock fallback data
@@ -273,13 +275,13 @@ export default function DashboardPage() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const id = sessionStorage.getItem('studentId');
-    const name = sessionStorage.getItem('studentName');
-    const age = sessionStorage.getItem('studentAge');
-    const level = sessionStorage.getItem('studentLevel');
+    const id = getItem('studentId');
+    const name = getItem('studentName');
+    const age = getItem('studentAge');
+    const level = getItem('studentLevel');
 
-    const token = sessionStorage.getItem('token');
-    const role = sessionStorage.getItem('userRole');
+    const token = getItem('token');
+    const role = getItem('userRole');
     if (!token) {
       router.push('/login');
       return;
@@ -492,6 +494,8 @@ export default function DashboardPage() {
         </div>
       </section>
 
+      <ReadingJourneyMap />
+
       {/* ------------------------------------------------------------------ */}
       {/* 3. Recent Books Section                                             */}
       {/* ------------------------------------------------------------------ */}
@@ -514,7 +518,7 @@ export default function DashboardPage() {
               className="px-5 py-2.5 rounded-xl font-bold text-sm text-white transition-all hover:-translate-y-0.5"
               style={{ backgroundColor: G.primary, boxShadow: '0 4px 12px rgba(92,139,92,0.3)' }}
             >
-              Go to Library
+              Go to Start
             </button>
           </div>
         ) : (
@@ -555,7 +559,11 @@ export default function DashboardPage() {
         className="ghibli-card p-5"
         aria-label="Worksheet gallery"
       >
-        <SectionHeader title="My Worksheets" />
+        <SectionHeader
+          title="Saved Creations"
+          actionLabel="Open Library"
+          onAction={() => router.push('/library')}
+        />
         {/* Responsive: 3-col on sm+, 2-col on xs */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {MOCK_WORKSHEETS.map((ws, idx) => (
@@ -585,10 +593,10 @@ export default function DashboardPage() {
           onMouseLeave={(e) => {
             e.currentTarget.style.boxShadow = '0 6px 24px rgba(92, 139, 92, 0.45)';
           }}
-          aria-label="Start learning — go to the book library"
+          aria-label="Start learning — go to the book finding flow"
         >
-          <span aria-hidden="true">📚</span>
-          Start Learning
+          <span aria-hidden="true">🚀</span>
+          Go to Start
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <line x1="5" y1="12" x2="19" y2="12" />
             <polyline points="12 5 19 12 12 19" />

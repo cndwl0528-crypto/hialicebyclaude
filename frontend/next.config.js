@@ -80,6 +80,17 @@ const nextConfig = {
     },
   }),
 
+  webpack(config, { dev }) {
+    // The local preview environment has repeatedly suffered from corrupted
+    // filesystem cache artifacts under `/.next/cache`. Disabling webpack's
+    // persistent cache in development makes `next dev` slower on first load,
+    // but much more reliable for iterative UI review.
+    if (dev) {
+      config.cache = false;
+    }
+    return config;
+  },
+
   // Experimental features for better performance
   experimental: {
     optimizePackageImports: ['react-icons']

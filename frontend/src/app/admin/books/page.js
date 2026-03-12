@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { getItem } from '@/lib/clientStorage';
 
 const LEVELS = ['beginner', 'intermediate', 'advanced'];
 const GENRES = ['Picture Book', 'Chapter Book', 'Fantasy', 'Adventure', 'Science Fiction', 'Historical Fiction'];
@@ -50,8 +51,7 @@ export default function BooksPage() {
   const [importResult, setImportResult] = useState(null);
 
   const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-  const getToken = () =>
-    typeof window !== 'undefined' ? sessionStorage.getItem('token') : null;
+  const getToken = () => getItem('token');
 
   // -- Fetch all books --
   const fetchBooks = useCallback(async () => {

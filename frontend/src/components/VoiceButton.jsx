@@ -26,15 +26,24 @@ export default function VoiceButton({
         isListening
           ? 'bg-[#D4736B] hover:bg-[#C0625A] animate-pulse'
           : 'bg-[#5C8B5C] hover:bg-[#3D6B3D]'
-      } text-white shadow-lg hover:shadow-xl active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed`}
+      } text-white shadow-[0_14px_30px_rgba(61,46,30,0.16)] hover:shadow-[0_18px_34px_rgba(61,46,30,0.2)] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed`}
       style={{
         width: `${size}px`,
         height: `${size}px`,
         minWidth: '64px',
         minHeight: '64px',
+        backgroundImage: isListening
+          ? 'linear-gradient(180deg, #E28A84 0%, #D4736B 100%)'
+          : 'linear-gradient(180deg, #7AAE7A 0%, #5C8B5C 100%)',
       }}
       title={isListening ? 'Stop listening' : 'Start listening'}
     >
+      {!isListening && (
+        <div
+          aria-hidden="true"
+          className="absolute -inset-2 rounded-full border border-[#7AC87A]/45"
+        />
+      )}
       <svg
         aria-hidden="true"
         width={Math.floor(size * 0.5)}
