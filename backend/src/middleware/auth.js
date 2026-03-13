@@ -1,12 +1,16 @@
 import jwt from 'jsonwebtoken';
 import { config } from '../lib/config.js';
 
+/** Session duration in hours — configurable via SESSION_DURATION_HOURS env var. */
+const SESSION_DURATION_HOURS = parseInt(process.env.SESSION_DURATION_HOURS, 10) || 24;
+export const SESSION_COOKIE_MAX_AGE = SESSION_DURATION_HOURS * 60 * 60 * 1000;
+
 export const COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
   sameSite: 'lax',
   path: '/',
-  maxAge: 24 * 60 * 60 * 1000, // 24 hours in ms
+  maxAge: SESSION_COOKIE_MAX_AGE,
 };
 
 export const COOKIE_NAME = 'hialice_token';

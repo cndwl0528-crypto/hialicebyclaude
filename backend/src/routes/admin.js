@@ -901,26 +901,44 @@ router.get('/reports/overview', optionalAdminAuth, async (req, res) => {
 
 /**
  * GET /reports/export
- * Export all data as JSON
- * Returns: { students, books, sessions, vocabulary }
+ * Export data as JSON (all tables) or CSV (single table).
+ * Query: ?format=csv&table=students — single-table CSV download
+ *        (no params)               — full JSON export of all tables
  */
 router.get('/reports/export', optionalAdminAuth, async (req, res) => {
   try {
-    const { data: students } = await supabase
-      .from('students')
-      .select('*');
+    const { format, table } = req.query;
+    const validTables = ['students', 'books', 'sessions', 'vocabulary'];
 
-    const { data: books } = await supabase
-      .from('books')
-      .select('*');
+    // --- CSV single-table export ---
+    if (format === 'csv') {
+      if (!table || !validTables.includes(table)) {
+        return res.status(400).json({
+          error: `Invalid or missing table parameter. Must be one of: ${validTables.join(', ')}`,
+        });
+      }
 
-    const { data: sessions } = await supabase
-      .from('sessions')
-      .select('*');
+      const { data, error } = await supabase.from(table).select('*');
+      if (error) throw error;
 
-    const { data: vocabulary } = await supabase
-      .from('vocabulary')
-      .select('*');
+      const csv = toCSV(data || []);
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${table}.csv"`);
+      return res.status(200).send(csv);
+    }
+
+    // --- JSON full export (all tables in parallel) ---
+    const [
+      { data: students },
+      { data: books },
+      { data: sessions },
+      { data: vocabulary },
+    ] = await Promise.all([
+      supabase.from('students').select('*'),
+      supabase.from('books').select('*'),
+      supabase.from('sessions').select('*'),
+      supabase.from('vocabulary').select('*'),
+    ]);
 
     return res.status(200).json({
       success: true,
@@ -1401,9 +1419,14 @@ function toCSV(rows, columns) {
 
   const escapeCSV = (val) => {
     if (val === null || val === undefined) return '';
-    const str = typeof val === 'object' ? JSON.stringify(val) : String(val);
-    // Quote if contains comma, quote, newline
-    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    let str = typeof val === 'object' ? JSON.stringify(val) : String(val);
+    // CSV formula injection defense (CWE-1236): prefix dangerous values so
+    // spreadsheet apps do not interpret them as formulas.
+    if (str.length > 0 && /^[=+\-@\t\r]/.test(str)) {
+      str = "'" + str;
+    }
+    // Quote if contains comma, quote, newline, or single quote
+    if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes("'")) {
       return `"${str.replace(/"/g, '""')}"`;
     }
     return str;

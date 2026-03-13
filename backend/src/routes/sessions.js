@@ -601,7 +601,10 @@ router.post('/:id/complete', optionalAuth, async (req, res) => {
     const stagesWithResponses = new Set(
       studentDialogues.map((d) => d.stage)
     );
-    const levelScore = Math.round((stagesWithResponses.size / 6) * 100);
+    // Derive total stages from all dialogues so old 4-stage and new 6-stage
+    // sessions are scored correctly without hardcoding the denominator.
+    const totalStages = new Set((allDialogues || []).map((d) => d.stage)).size || 6;
+    const levelScore = Math.round((stagesWithResponses.size / totalStages) * 100);
 
     // --- Per-stage score breakdown ---
     const stageBreakdown = computeStageBreakdown(allDialogues || [], studentLevel);

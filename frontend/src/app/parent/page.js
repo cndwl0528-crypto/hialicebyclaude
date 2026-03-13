@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import LoadingCard from '@/components/LoadingCard';
 import { getItem, setItem } from '@/lib/clientStorage';
+import { getToken, API_BASE } from '@/lib/auth';
 import {
   updateNotificationPrefs,
   getParentNotifications,
@@ -121,10 +122,7 @@ export default function ParentDashboard() {
 
   const savedTimerRef = useRef(null);
 
-  const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-
-  // Safely read sessionStorage only on the client.
-  const getToken = () => getItem('token');
+  const API = API_BASE;
 
   // ── Load preferences from clientStorage on mount ──────────────────────────
   useEffect(() => {

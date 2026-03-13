@@ -109,6 +109,12 @@ export async function sendSessionReport(parentEmail, sessionData) {
     completedAt = new Date().toISOString(),
   } = sessionData;
 
+  // Escape user-controlled values to prevent HTML injection in emails
+  const esc = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  const safeStudentName = esc(studentName);
+  const safeBookTitle = esc(bookTitle);
+  const safeAiFeedback = esc(aiFeedback);
+
   const fromAddr = process.env.SMTP_FROM || process.env.SMTP_USER;
   const dateStr = new Date(completedAt).toLocaleDateString('en-US', {
     weekday: 'long',
@@ -117,19 +123,19 @@ export async function sendSessionReport(parentEmail, sessionData) {
     day: 'numeric',
   });
 
-  const subject = `HiAlice: ${studentName} completed a reading session!`;
+  const subject = `HiAlice: ${safeStudentName} completed a reading session!`;
 
   const html = `
     <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
       <div style="background: linear-gradient(135deg, #5C8B5C, #3D6B3D); border-radius: 16px; padding: 24px; margin-bottom: 24px;">
         <h1 style="color: white; margin: 0; font-size: 24px;">HiAlice Session Report</h1>
-        <p style="color: #C8E6C9; margin: 8px 0 0 0;">Great news about ${studentName}!</p>
+        <p style="color: #C8E6C9; margin: 8px 0 0 0;">Great news about ${safeStudentName}!</p>
       </div>
 
       <div style="background: #FFFCF3; border: 1px solid #E8DEC8; border-radius: 12px; padding: 20px; margin-bottom: 16px;">
         <h2 style="color: #3D2E1E; margin: 0 0 12px 0; font-size: 18px;">Session Summary</h2>
-        <p style="color: #6B5744; margin: 4px 0;"><strong>Student:</strong> ${studentName}</p>
-        <p style="color: #6B5744; margin: 4px 0;"><strong>Book:</strong> ${bookTitle}</p>
+        <p style="color: #6B5744; margin: 4px 0;"><strong>Student:</strong> ${safeStudentName}</p>
+        <p style="color: #6B5744; margin: 4px 0;"><strong>Book:</strong> ${safeBookTitle}</p>
         <p style="color: #6B5744; margin: 4px 0;"><strong>Date:</strong> ${dateStr}</p>
       </div>
 
@@ -150,13 +156,13 @@ export async function sendSessionReport(parentEmail, sessionData) {
 
       ${aiFeedback ? `
       <div style="background: #F5F0E8; border-radius: 12px; padding: 16px; margin-bottom: 16px; border-left: 4px solid #5C8B5C;">
-        <p style="color: #6B5744; font-size: 14px; font-style: italic; margin: 0;">"${aiFeedback}"</p>
+        <p style="color: #6B5744; font-size: 14px; font-style: italic; margin: 0;">"${safeAiFeedback}"</p>
         <p style="color: #9B8777; font-size: 12px; margin: 8px 0 0 0;">-- HiAlice</p>
       </div>
       ` : ''}
 
       <div style="text-align: center; padding: 16px; color: #9B8777; font-size: 12px;">
-        <p>Keep encouraging ${studentName} to read and explore!</p>
+        <p>Keep encouraging ${safeStudentName} to read and explore!</p>
         <p style="margin-top: 8px;">HiAlice -- AI English Reading Companion</p>
       </div>
     </div>

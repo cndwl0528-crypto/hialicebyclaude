@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { getItem } from '@/lib/clientStorage';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { getToken, API_BASE } from '@/lib/auth';
 
 const DATE_RANGES = ['Last 7 Days', 'Last 30 Days', 'Last 90 Days', 'All Time'];
 
@@ -172,8 +172,26 @@ export default function ReportsPage() {
 
   const [apiError, setApiError] = useState(null);
 
-  const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-  const getToken = () => getItem('token');
+  // Toast with proper cleanup to prevent memory leaks
+  const [toast, setToast] = useState(null);
+  const toastTimeoutRef = useRef(null);
+
+  const showToast = useCallback((message, type = 'success') => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    setToast({ message, type });
+    toastTimeoutRef.current = setTimeout(() => {
+      setToast(null);
+      toastTimeoutRef.current = null;
+    }, 3500);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    };
+  }, []);
+
+  const API = API_BASE;
 
   // -- Fetch students list --
   const fetchStudents = useCallback(async () => {

@@ -40,12 +40,48 @@ export function sentryErrorHandler(err, req, res, next) {
   next(err);
 }
 
+// ---------------------------------------------------------------------------
+// COPPA PII scrubber — strip child / parent PII before it reaches Sentry.
+// Keys are checked case-insensitively against this set.
+// ---------------------------------------------------------------------------
+const PII_KEYS = new Set([
+  'name', 'email', 'studentname', 'parentname', 'parentemail',
+  'student_name', 'parent_name', 'parent_email',
+  'password', 'token', 'children', 'child',
+]);
+
+function scrubPii(obj) {
+  if (obj === null || obj === undefined) return obj;
+  if (Array.isArray(obj)) return obj.map(scrubPii);
+  if (typeof obj !== 'object') return obj;
+
+  const clean = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (PII_KEYS.has(key.toLowerCase())) {
+      clean[key] = '[REDACTED]';
+    } else if (typeof value === 'object' && value !== null) {
+      clean[key] = scrubPii(value);
+    } else {
+      clean[key] = value;
+    }
+  }
+  return clean;
+}
+
 /**
  * Capture an exception manually.
+ * Any PII keys in `context` are scrubbed before sending to Sentry (COPPA).
  */
-export function captureException(err) {
+export function captureException(err, context) {
   if (Sentry) {
-    Sentry.captureException(err);
+    if (context) {
+      Sentry.withScope((scope) => {
+        scope.setContext('extra', scrubPii(context));
+        Sentry.captureException(err);
+      });
+    } else {
+      Sentry.captureException(err);
+    }
   }
 }
 

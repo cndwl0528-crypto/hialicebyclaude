@@ -7,6 +7,7 @@
  */
 
 import { supabase } from '../lib/supabase.js';
+import { MAX_PRIOR_VOCABULARY } from '../lib/constants.js';
 
 /**
  * Fetch a student's reading history summary for cross-book context injection.
@@ -46,7 +47,7 @@ export async function getCrossBookContext(studentId, currentBookId = null) {
       .in('session_id', sessionIds)
       .gte('mastery_level', 2)
       .order('mastery_level', { ascending: false })
-      .limit(15);
+      .limit(MAX_PRIOR_VOCABULARY);
 
     // Build previous books summary
     const previousBooks = recentSessions.map(s => ({

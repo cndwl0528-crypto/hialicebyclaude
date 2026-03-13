@@ -15,8 +15,10 @@
  */
 
 import express from 'express';
+import jwt from 'jsonwebtoken';
 import { supabase } from '../lib/supabase.js';
 import { generateToken, authMiddleware, COOKIE_OPTIONS, COOKIE_NAME } from '../middleware/auth.js';
+import { config } from '../lib/config.js';
 import { authRateLimiter } from '../middleware/sanitize.js';
 import logger from '../lib/logger.js';
 
@@ -360,20 +362,32 @@ router.post('/refresh', authMiddleware, async (req, res) => {
  *
  * Returns: { success: true }
  */
-router.post('/logout', authMiddleware, async (req, res) => {
+router.post('/logout', async (req, res) => {
   try {
-    // Sign out from Supabase Auth to invalidate any active Supabase sessions.
-    // This is a best-effort call; our JWTs are stateless so the client must
-    // also clear its stored token.
-    const { error } = await supabase.auth.signOut();
-
-    if (error) {
-      // Log but do not surface to client — the signOut is best-effort
-      logger.warn({ error: error.message }, 'Supabase signOut error (non-fatal)');
+    // Minimal auth check: verify caller has some proof of a valid session
+    // before invoking supabase.auth.signOut(). Cookie clearing is always
+    // performed (harmless for unauthenticated requests).
+    let token = req.cookies?.[COOKIE_NAME];
+    if (!token) {
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.split(' ')[1];
+      }
     }
 
-    // Clear the auth cookie — must use the same options that were used to set
-    // it (minus maxAge/expires) so the browser actually removes it.
+    if (token) {
+      try {
+        jwt.verify(token, config.jwt.secret);
+        const { error } = await supabase.auth.signOut();
+        if (error) {
+          logger.warn({ error: error.message }, 'Supabase signOut error (non-fatal)');
+        }
+      } catch (_verifyErr) {
+        // Token invalid/expired — skip remote signOut, still clear cookie
+        logger.debug('Logout: skipping Supabase signOut (token invalid/expired)');
+      }
+    }
+
     res.clearCookie(COOKIE_NAME, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',

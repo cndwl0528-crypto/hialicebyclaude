@@ -1,8 +1,43 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
+
+class AdminErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error('Admin panel error:', error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex items-center justify-center min-h-[400px] p-8">
+          <div className="bg-[#FFFCF3] rounded-2xl shadow-[0_4px_20px_rgba(61,46,30,0.08)] p-8 border border-[#E8DEC8] max-w-md text-center">
+            <h2 className="text-xl font-extrabold text-[#3D2E1E] mb-3">Something went wrong</h2>
+            <p className="text-sm text-[#6B5744] mb-4 font-semibold">
+              An error occurred in the admin panel. Please try refreshing the page.
+            </p>
+            <button
+              onClick={() => this.setState({ hasError: false })}
+              className="px-6 py-3 bg-[#5C8B5C] text-white rounded-xl hover:bg-[#3D6B3D] transition-all font-bold"
+              style={{ minHeight: '48px' }}
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 export default function AdminLayout({ children }) {
   const pathname = usePathname();
@@ -101,7 +136,9 @@ export default function AdminLayout({ children }) {
 
         {/* Content Area */}
         <main className="flex-1 overflow-auto p-6 bg-[#F5F0E8]">
-          {children}
+          <AdminErrorBoundary>
+            {children}
+          </AdminErrorBoundary>
         </main>
       </div>
     </div>
