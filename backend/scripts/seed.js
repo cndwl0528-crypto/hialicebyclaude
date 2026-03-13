@@ -33,8 +33,8 @@ const TEST_ACCOUNTS = [
     password: 'test1234',
     displayName: 'Test Parent',
     children: [
-      { name: 'Alice', age: 8, level: 'beginner', avatar_emoji: '\u{1F430}' },
-      { name: 'Bob', age: 11, level: 'intermediate', avatar_emoji: '\u{1F98A}' },
+      { name: 'Alice', age: 8, level: 'beginner', avatar_emoji: '\u{1F430}', pin: '1234' },
+      { name: 'Bob', age: 11, level: 'intermediate', avatar_emoji: '\u{1F98A}', pin: '5678' },
     ],
   },
   {
@@ -150,6 +150,7 @@ async function seed() {
           age: child.age,
           level: child.level,
           avatar_emoji: child.avatar_emoji,
+          pin_hash: child.pin || '0000',
         })
         .select()
         .single();

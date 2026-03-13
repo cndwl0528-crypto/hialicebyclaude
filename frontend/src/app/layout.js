@@ -60,7 +60,7 @@ export default function RootLayout({ children }) {
     setInitialReady(true);
   }, []);
 
-  // Check login state and role on route change
+  // Sync nav state from local storage on every route change
   useEffect(() => {
     if (typeof window === 'undefined' || !initialReady) return;
 
@@ -75,18 +75,28 @@ export default function RootLayout({ children }) {
       return;
     }
 
+    setIsLoggedIn(true);
+    setUserRole(getItem('userRole'));
+    setUserName(getItem('studentName') || getItem('parentEmail') || '');
+    setNavReady(true);
+  }, [pathname, initialReady]);
+
+  // Validate session with backend ONCE on initial load (not on every nav)
+  const [sessionChecked, setSessionChecked] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !initialReady || sessionChecked) return;
+
+    const token = getItem('token');
+    if (!token) return;
+
     const isDemoOrMockToken =
       ['demo-token', 'mock-token-', 'student-session-'].some((prefix) =>
         token.startsWith(prefix)
       );
 
-    setIsLoggedIn(true);
-    setUserRole(getItem('userRole'));
-    setUserName(getItem('studentName') || getItem('parentEmail') || '');
-    setNavReady(true);
-
-    // Demo/mock tokens are not real JWTs — skip server-side validation.
     if (isDemoOrMockToken) {
+      setSessionChecked(true);
       return;
     }
 
@@ -95,6 +105,7 @@ export default function RootLayout({ children }) {
     getCurrentUser()
       .then((result) => {
         if (cancelled) return;
+        setSessionChecked(true);
 
         const role =
           result?.student ? 'student'
@@ -106,21 +117,27 @@ export default function RootLayout({ children }) {
           setItem('userRole', role);
         }
       })
-      .catch(() => {
+      .catch((err) => {
         if (cancelled) return;
-        clearClientSession();
-        setIsLoggedIn(false);
-        setUserRole(null);
-        setUserName('');
-        if (!['/', '/login', '/consent', '/privacy-policy'].includes(pathname)) {
-          router.replace('/login');
+        setSessionChecked(true);
+
+        // Only clear session on definitive auth failures (401/403)
+        if (err?.status === 401 || err?.status === 403) {
+          clearClientSession();
+          setIsLoggedIn(false);
+          setUserRole(null);
+          setUserName('');
+          if (!['/', '/login', '/consent', '/privacy-policy'].includes(pathname)) {
+            router.replace('/login');
+          }
         }
+        // Transient errors (network, 500, timeout) — keep user logged in
       });
 
     return () => {
       cancelled = true;
     };
-  }, [pathname, router, initialReady]);
+  }, [initialReady, sessionChecked, pathname, router]);
 
   const handleLogout = async () => {
     try {

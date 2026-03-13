@@ -139,13 +139,8 @@ async function apiFetch(endpoint, options = {}) {
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      // Auto-clear local session on auth failure
-      if (
-        typeof window !== 'undefined' &&
-        (response.status === 401 || response.status === 403)
-      ) {
-        clearClientSession();
-      }
+      // Do NOT auto-clear session here — let the caller (layout.js) decide.
+      // Clearing on every 401/403 causes logout during normal navigation.
 
       // Try to extract the server's error message from the JSON body
       let serverMessage = '';
@@ -220,14 +215,41 @@ export async function parentLogin(email, password) {
  * @param {string} name
  * @param {number} age
  * @param {string|undefined} avatarEmoji
+ * @param {string|undefined} pin - 4-digit PIN for child login
  */
-export async function addChild(name, age, avatarEmoji) {
+export async function addChild(name, age, avatarEmoji, pin) {
   if (USE_MOCK) return mockAddChild(name, age, avatarEmoji);
 
   return apiFetch('/auth/children', {
     method: 'POST',
-    body: JSON.stringify({ name, age, avatarEmoji }),
+    body: JSON.stringify({ name, age, avatarEmoji, pin }),
   });
+}
+
+/**
+ * Verify a child's 4-digit PIN and get a student token.
+ * POST /auth/verify-pin
+ *
+ * @param {string} studentId
+ * @param {string} pin
+ */
+export async function verifyStudentPin(studentId, pin) {
+  if (USE_MOCK) return { token: 'mock-student-token', student: { id: studentId, name: 'Mock' } };
+
+  return apiFetch('/auth/verify-pin', {
+    method: 'POST',
+    body: JSON.stringify({ studentId, pin }),
+  });
+}
+
+/**
+ * Fetch the list of all registered children (for student login screen).
+ * GET /auth/children-list
+ */
+export async function getChildrenList() {
+  if (USE_MOCK) return { children: [] };
+
+  return apiFetch('/auth/children-list');
 }
 
 /**

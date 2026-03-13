@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { parentLogin, parentRegister, childSelect, addChild } from '@/services/api';
+import { parentLogin, parentRegister, childSelect, addChild, verifyStudentPin, getChildrenList } from '@/services/api';
 import { isParentOrAdmin, API_BASE } from '@/lib/constants';
 import { getItem, setItem } from '@/lib/clientStorage';
 
@@ -63,6 +63,7 @@ function LoginPageInner() {
 
   // ── Student-login state ──────────────────────────────────────────────────
   const [studentSearch, setStudentSearch] = useState('');
+  const [childrenLoading, setChildrenLoading] = useState(false);
   const [children,      setChildren]      = useState(() => {
     // Use mock data only when explicitly enabled
     if (USE_MOCK) return MOCK_CHILDREN;
@@ -75,6 +76,22 @@ function LoginPageInner() {
     }
     return [];
   });
+
+  // Fetch children list from API when entering student login view
+  useEffect(() => {
+    if (viewState !== 'student' || USE_MOCK) return;
+    setChildrenLoading(true);
+    getChildrenList()
+      .then((result) => {
+        if (result?.children?.length > 0) {
+          const normalized = result.children.map(normalizeChild);
+          setChildren(normalized);
+          setItem('children', JSON.stringify(normalized));
+        }
+      })
+      .catch(() => { /* keep existing children list */ })
+      .finally(() => setChildrenLoading(false));
+  }, [viewState]);
 
   // ── PIN authentication state ─────────────────────────────────────────────
   // selectedChild holds the child that was tapped; once PIN is verified it
@@ -108,6 +125,7 @@ function LoginPageInner() {
   const [childName,   setChildName]   = useState('');
   const [childAge,    setChildAge]    = useState('');
   const [childAvatar, setChildAvatar] = useState('👧');
+  const [childPin,    setChildPin]    = useState('');
 
   // Sync viewState with ?view= query param (e.g. router.push('/login?view=register'))
   useEffect(() => {
@@ -133,6 +151,7 @@ function LoginPageInner() {
     setChildName('');
     setChildAge('');
     setChildAvatar('👧');
+    setChildPin('');
     // Reset PIN state
     setSelectedChild(null);
     setPinDigits(['', '', '', '']);
@@ -192,7 +211,7 @@ function LoginPageInner() {
     }
   };
 
-  // Step 3 — validate PIN and proceed to session setup
+  // Step 3 — validate PIN via API and proceed to session setup
   const handlePinSubmit = async (digits = pinDigits) => {
     const pin = digits.join('');
     if (pin.length < 4) {
@@ -200,24 +219,22 @@ function LoginPageInner() {
       return;
     }
 
-    // -----------------------------------------------------------------
-    // TODO (real validation): replace the block below with an API call
-    // once backend PIN storage is implemented:
-    //   const result = await verifyStudentPin(selectedChild.id, pin);
-    //   if (!result.valid) { setPinError('Wrong PIN. Try again!'); return; }
-    // -----------------------------------------------------------------
-    // Mock check: any 4-digit entry is accepted for now.
-    const isCorrect = pin.length === 4; // placeholder — always true
-
-    if (!isCorrect) {
-      setPinError('Wrong PIN. Try again!');
+    try {
+      const result = await verifyStudentPin(selectedChild.id, pin);
+      if (result?.token) {
+        // PIN accepted — store token and proceed
+        setItem('token', result.token);
+        await completeStudentLogin(selectedChild);
+      } else {
+        setPinError('Wrong PIN. Try again!');
+        setPinDigits(['', '', '', '']);
+        setTimeout(() => { pinRefs[0].current?.focus(); }, 50);
+      }
+    } catch (err) {
+      setPinError(err.message?.includes('Incorrect') ? 'Wrong PIN. Try again!' : 'Could not verify PIN. Please try again.');
       setPinDigits(['', '', '', '']);
       setTimeout(() => { pinRefs[0].current?.focus(); }, 50);
-      return;
     }
-
-    // PIN accepted — proceed with the actual session setup
-    await completeStudentLogin(selectedChild);
   };
 
   // Step 4 — the original login logic, now called after PIN is verified
@@ -352,10 +369,14 @@ function LoginPageInner() {
       setError('Please enter your child\'s name and age.');
       return;
     }
+    if (!childPin || !/^\d{4}$/.test(childPin)) {
+      setError('Please set a 4-digit PIN for your child.');
+      return;
+    }
     setIsLoading(true);
     setError('');
     try {
-      const result = await addChild(childName.trim(), Number(childAge), childAvatar);
+      const result = await addChild(childName.trim(), Number(childAge), childAvatar, childPin);
       const raw = result?.student || result?.child || {
         id: Date.now(),
         name: childName.trim(),
@@ -378,6 +399,7 @@ function LoginPageInner() {
       setChildName('');
       setChildAge('');
       setChildAvatar('👧');
+      setChildPin('');
     } catch (err) {
       setError(err.message || 'Failed to add child. Please try again.');
     } finally {
@@ -1302,6 +1324,28 @@ function LoginPageInner() {
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* 4-digit PIN */}
+              <div>
+                <label htmlFor="child-pin" className="block text-sm font-bold text-[#6B5744] mb-1.5">
+                  Set a 4-Digit PIN
+                </label>
+                <p className="text-xs text-[#8B7D6B] mb-2">
+                  Your child will use this PIN to log in independently.
+                </p>
+                <input
+                  id="child-pin"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={4}
+                  value={childPin}
+                  onChange={(e) => setChildPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  className={INPUT_CLASS + ' text-center text-2xl tracking-[0.5em] font-mono'}
+                  placeholder="0000"
+                  autoComplete="off"
+                />
               </div>
 
               {/* Level hint (read-only) */}

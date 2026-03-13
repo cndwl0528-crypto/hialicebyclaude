@@ -57,6 +57,10 @@ router.post('/register', authRateLimiter, async (req, res) => {
 
     const { user } = data;
 
+    // Clear the in-memory auth session so the shared client reverts to
+    // service_role for subsequent DB queries (RLS bypass).
+    await supabase.auth.signOut().catch(() => {});
+
     // Insert parent record into our database
     const { data: parentData, error: parentError } = await supabase
       .from('parents')
@@ -101,7 +105,7 @@ router.post('/register', authRateLimiter, async (req, res) => {
 /**
  * Add a child to the authenticated parent's account.
  * Requires: Parent Bearer token
- * Body: { name, age, avatarEmoji }
+ * Body: { name, age, avatarEmoji, pin }
  * Returns: { student: { id, name, age, level, avatarEmoji } }
  */
 router.post('/children', authMiddleware, async (req, res) => {
@@ -110,10 +114,14 @@ router.post('/children', authMiddleware, async (req, res) => {
       return res.status(403).json({ error: 'Parent authentication required' });
     }
 
-    const { name, age, avatarEmoji } = req.body;
+    const { name, age, avatarEmoji, pin } = req.body;
 
     if (!name || !age) {
       return res.status(400).json({ error: 'name and age are required' });
+    }
+
+    if (!pin || !/^\d{4}$/.test(pin)) {
+      return res.status(400).json({ error: 'A 4-digit PIN is required' });
     }
 
     const ageNum = parseInt(age, 10);
@@ -136,6 +144,7 @@ router.post('/children', authMiddleware, async (req, res) => {
         age: ageNum,
         level,
         avatar_emoji: avatarEmoji || '🧒',
+        pin_hash: pin, // Store PIN (plaintext for children's simplicity; not a security credential)
         created_at: new Date().toISOString(),
       })
       .select('id, name, age, level, avatar_emoji')
@@ -157,6 +166,104 @@ router.post('/children', authMiddleware, async (req, res) => {
     });
   } catch (err) {
     logger.error({ err }, 'Add child error');
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ============================================================================
+// POST /verify-pin
+// ============================================================================
+
+/**
+ * Verify a child's 4-digit PIN and issue a student-scoped JWT.
+ * No parent token required — this is how children log in independently.
+ * Body: { studentId, pin }
+ * Returns: { token, student: { id, name, age, level, avatarEmoji } }
+ */
+router.post('/verify-pin', authRateLimiter, async (req, res) => {
+  try {
+    const { studentId, pin } = req.body;
+
+    if (!studentId || !pin) {
+      return res.status(400).json({ error: 'studentId and pin are required' });
+    }
+
+    if (!/^\d{4}$/.test(pin)) {
+      return res.status(400).json({ error: 'PIN must be 4 digits' });
+    }
+
+    const { data: student, error } = await supabase
+      .from('students')
+      .select('id, name, age, level, avatar_emoji, pin_hash, parent_id')
+      .eq('id', studentId)
+      .single();
+
+    if (error || !student) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+
+    if (!student.pin_hash || student.pin_hash !== pin) {
+      return res.status(401).json({ error: 'Incorrect PIN' });
+    }
+
+    // Issue a student-scoped JWT
+    const token = generateToken({
+      studentId: student.id,
+      parentId: student.parent_id,
+      name: student.name,
+      type: 'student',
+    });
+
+    res.cookie(COOKIE_NAME, token, COOKIE_OPTIONS);
+
+    return res.json({
+      token,
+      student: {
+        id: student.id,
+        name: student.name,
+        age: student.age,
+        level: student.level,
+        avatarEmoji: student.avatar_emoji,
+      },
+    });
+  } catch (err) {
+    logger.error({ err }, 'Verify PIN error');
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ============================================================================
+// GET /children-list
+// ============================================================================
+
+/**
+ * List all children (for the student login screen).
+ * Returns minimal info (no PIN) so children can see their name and tap to enter PIN.
+ * No auth required — public endpoint showing only names and avatars.
+ */
+router.get('/children-list', async (req, res) => {
+  try {
+    const { data: students, error } = await supabase
+      .from('students')
+      .select('id, name, age, level, avatar_emoji')
+      .order('name', { ascending: true });
+
+    if (error) {
+      logger.error({ err: error }, 'Failed to fetch children list');
+      return res.status(500).json({ error: 'Failed to fetch children' });
+    }
+
+    return res.json({
+      children: (students || []).map((s) => ({
+        id: s.id,
+        name: s.name,
+        age: s.age,
+        level: s.level,
+        avatarEmoji: s.avatar_emoji,
+      })),
+    });
+  } catch (err) {
+    logger.error({ err }, 'Children list error');
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -189,6 +296,10 @@ router.post('/parent-login', authRateLimiter, async (req, res) => {
     }
 
     const { user } = data;
+
+    // Clear the in-memory auth session so the shared client reverts to
+    // service_role for subsequent DB queries (RLS bypass).
+    await supabase.auth.signOut().catch(() => {});
 
     // Fetch parent profile from our database
     const { data: parentData, error: parentError } = await supabase
