@@ -771,31 +771,29 @@ function LoginPageInner() {
                   />
                 </div>
 
-                {/* Children list */}
+                {/* Children list — only shown when searching */}
                 <div className="space-y-3 mb-4">
-                  {children.length === 0 ? (
+                  {!studentSearch.trim() ? (
                     <div className="text-center py-8">
-                      <div className="text-4xl mb-3">📭</div>
-                      <p className="text-[#3D2E1E] font-extrabold text-base mb-1">
-                        No children added yet
+                      <div className="text-4xl mb-3">👆</div>
+                      <p className="text-[#6B5744] font-semibold text-sm">
+                        Type your name above to find your profile!
                       </p>
-                      <p className="text-[#6B5744] font-semibold text-sm mb-4">
-                        A parent needs to sign in and add a child profile first.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => goTo('parent')}
-                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-[#D4A843] text-white font-bold text-sm
-                                   hover:bg-[#A8822E] hover:-translate-y-0.5
-                                   shadow-[0_4px_12px_rgba(212,168,67,0.35)] transition-all"
-                      >
-                        Parent Sign In
-                      </button>
+                    </div>
+                  ) : childrenLoading ? (
+                    <div className="text-center py-6">
+                      <div className="text-2xl animate-spin inline-block mb-2">⏳</div>
+                      <p className="text-[#6B5744] font-semibold text-sm">Searching...</p>
                     </div>
                   ) : filteredChildren.length === 0 ? (
-                    <p className="text-center py-6 text-[#6B5744] font-semibold text-sm">
-                      No profiles found. Try a different name!
-                    </p>
+                    <div className="text-center py-6">
+                      <p className="text-[#6B5744] font-semibold text-sm mb-3">
+                        No profiles found for &ldquo;{studentSearch}&rdquo;
+                      </p>
+                      <p className="text-xs text-[#8B7D6B]">
+                        Ask a parent to add your profile first.
+                      </p>
+                    </div>
                   ) : (
                     filteredChildren.map((child) => {
                       const badge = LEVEL_BADGE[child.level] || { bg: '#E8DEC8', text: '#6B5744' };
