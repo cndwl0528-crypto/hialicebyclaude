@@ -47,6 +47,7 @@ export default function AdminLayout({ children }) {
     { href: '/admin', label: 'Dashboard', icon: '📊' },
     { href: '/admin/analytics', label: 'Analytics', icon: '📉' },
     { href: '/admin/students', label: 'Students', icon: '👨‍🎓' },
+    { href: '/admin/parents', label: 'Parents', icon: '👪' },
     { href: '/admin/books', label: 'Books', icon: '📚' },
     { href: '/admin/reports', label: 'Reports', icon: '📈' },
     { href: '/admin/prompts', label: 'AI Prompts', icon: '🤖' },

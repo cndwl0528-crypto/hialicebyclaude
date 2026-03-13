@@ -70,7 +70,7 @@ router.post('/register', authRateLimiter, async (req, res) => {
       .single();
 
     if (parentError) {
-      logger.error({ err: parentError }, 'Failed to insert parent record');
+      logger.error({ err: parentError, code: parentError.code, details: parentError.details, hint: parentError.hint, message: parentError.message }, 'Failed to insert parent record');
       return res.status(500).json({ error: 'Account created but profile setup failed. Please try logging in.' });
     }
 
@@ -695,6 +695,31 @@ router.post('/consent', async (req, res) => {
   } catch (err) {
     logger.error({ err }, 'Consent error');
     return res.status(500).json({ error: 'Failed to record consent' });
+  }
+});
+
+// ─── Password Recovery ───────────────────────────────────────────────
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    // Trigger Supabase password recovery email
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/login?view=reset-password`,
+    });
+
+    if (error) {
+      console.error('[Auth] Password recovery error:', error.message);
+    }
+
+    // Always return success to prevent email enumeration
+    res.json({ success: true, message: 'If an account exists with that email, a password reset link has been sent.' });
+  } catch (err) {
+    console.error('[Auth] forgot-password error:', err.message);
+    res.json({ success: true, message: 'If an account exists with that email, a password reset link has been sent.' });
   }
 });
 

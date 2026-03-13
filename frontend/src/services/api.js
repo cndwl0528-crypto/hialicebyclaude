@@ -147,8 +147,15 @@ async function apiFetch(endpoint, options = {}) {
         clearClientSession();
       }
 
+      // Try to extract the server's error message from the JSON body
+      let serverMessage = '';
+      try {
+        const body = await response.json();
+        serverMessage = body.error || body.message || '';
+      } catch (_) { /* non-JSON response */ }
+
       const error = new Error(
-        `API Error: ${response.status} ${response.statusText}`
+        serverMessage || `API Error: ${response.status} ${response.statusText}`
       );
       error.status = response.status;
       throw error;

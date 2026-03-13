@@ -1733,4 +1733,154 @@ router.post('/import/books', optionalAdminAuth, async (req, res) => {
   }
 });
 
+// ─── Parent Management ───────────────────────────────────────────────
+router.get('/parents', async (req, res) => {
+  try {
+    const { data: parents, error } = await supabase
+      .from('parents')
+      .select('id, auth_id, email, display_name, phone, coppa_consent, coppa_consent_date, created_at, updated_at')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    // Enrich with children count
+    const enriched = await Promise.all(
+      (parents || []).map(async (parent) => {
+        const { count } = await supabase
+          .from('students')
+          .select('id', { count: 'exact', head: true })
+          .eq('parent_id', parent.id);
+        return { ...parent, childrenCount: count || 0 };
+      })
+    );
+
+    res.json({ parents: enriched });
+  } catch (err) {
+    console.error('[Admin] GET /parents error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch parents' });
+  }
+});
+
+router.get('/parents/:id', async (req, res) => {
+  try {
+    const { data: parent, error } = await supabase
+      .from('parents')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+
+    if (error || !parent) {
+      return res.status(404).json({ error: 'Parent not found' });
+    }
+
+    const { data: children } = await supabase
+      .from('students')
+      .select('id, name, age, level, avatar_emoji, created_at')
+      .eq('parent_id', parent.id)
+      .order('created_at', { ascending: false });
+
+    res.json({ parent: { ...parent, children: children || [] } });
+  } catch (err) {
+    console.error('[Admin] GET /parents/:id error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch parent' });
+  }
+});
+
+router.put('/parents/:id', async (req, res) => {
+  try {
+    const { display_name, phone } = req.body;
+    const updates = {};
+    if (display_name !== undefined) updates.display_name = display_name;
+    if (phone !== undefined) updates.phone = phone;
+    updates.updated_at = new Date().toISOString();
+
+    const { data, error } = await supabase
+      .from('parents')
+      .update(updates)
+      .eq('id', req.params.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json({ parent: data });
+  } catch (err) {
+    console.error('[Admin] PUT /parents/:id error:', err.message);
+    res.status(500).json({ error: 'Failed to update parent' });
+  }
+});
+
+router.delete('/parents/:id', async (req, res) => {
+  try {
+    // First get the parent to find auth_id
+    const { data: parent, error: fetchError } = await supabase
+      .from('parents')
+      .select('id, auth_id, email')
+      .eq('id', req.params.id)
+      .single();
+
+    if (fetchError || !parent) {
+      return res.status(404).json({ error: 'Parent not found' });
+    }
+
+    // Delete children (students) first
+    await supabase.from('students').delete().eq('parent_id', parent.id);
+
+    // Delete parent record
+    const { error: deleteError } = await supabase
+      .from('parents')
+      .delete()
+      .eq('id', parent.id);
+
+    if (deleteError) throw deleteError;
+
+    // Delete Supabase Auth user if auth_id exists
+    if (parent.auth_id) {
+      const { error: authError } = await supabase.auth.admin.deleteUser(parent.auth_id);
+      if (authError) {
+        console.warn('[Admin] Failed to delete auth user:', authError.message);
+      }
+    }
+
+    res.json({ success: true, message: `Deleted parent ${parent.email} and their children` });
+  } catch (err) {
+    console.error('[Admin] DELETE /parents/:id error:', err.message);
+    res.status(500).json({ error: 'Failed to delete parent' });
+  }
+});
+
+router.post('/parents/:id/reset-password', async (req, res) => {
+  try {
+    const { new_password } = req.body;
+    if (!new_password || new_password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    const { data: parent, error: fetchError } = await supabase
+      .from('parents')
+      .select('id, auth_id, email')
+      .eq('id', req.params.id)
+      .single();
+
+    if (fetchError || !parent) {
+      return res.status(404).json({ error: 'Parent not found' });
+    }
+
+    if (!parent.auth_id) {
+      return res.status(400).json({ error: 'Parent has no auth account linked' });
+    }
+
+    const { error: updateError } = await supabase.auth.admin.updateUserById(
+      parent.auth_id,
+      { password: new_password }
+    );
+
+    if (updateError) throw updateError;
+
+    res.json({ success: true, message: `Password reset for ${parent.email}` });
+  } catch (err) {
+    console.error('[Admin] POST /parents/:id/reset-password error:', err.message);
+    res.status(500).json({ error: 'Failed to reset password' });
+  }
+});
+
 export default router;

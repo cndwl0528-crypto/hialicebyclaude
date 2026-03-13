@@ -3,16 +3,32 @@
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { parentLogin, parentRegister, childSelect, addChild } from '@/services/api';
-import { isParentOrAdmin } from '@/lib/constants';
+import { isParentOrAdmin, API_BASE } from '@/lib/constants';
 import { getItem, setItem } from '@/lib/clientStorage';
 
 // ---------------------------------------------------------------------------
-// Mock data — used when the API has no children registered yet
+// Mock data — used ONLY when NEXT_PUBLIC_USE_MOCK=true
 // ---------------------------------------------------------------------------
+const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === 'true';
+
 const MOCK_CHILDREN = [
   { id: 1, name: 'Alice', age: 8,  level: 'Beginner',     avatar: '👧' },
   { id: 2, name: 'Bob',   age: 11, level: 'Intermediate', avatar: '👦' },
 ];
+
+/**
+ * Normalize a child record from the API (snake_case) or addChild response
+ * (camelCase) into the shape the UI expects: { id, name, age, level, avatar }.
+ */
+const normalizeChild = (c) => ({
+  id: c.id,
+  name: c.name,
+  age: c.age,
+  level: c.level
+    ? c.level.charAt(0).toUpperCase() + c.level.slice(1).toLowerCase()
+    : 'Beginner',
+  avatar: c.avatar || c.avatar_emoji || c.avatarEmoji || '🧒',
+});
 
 const LEVEL_BADGE = {
   Beginner:     { bg: '#C8E6C9', text: '#1B5E20' },
@@ -47,7 +63,18 @@ function LoginPageInner() {
 
   // ── Student-login state ──────────────────────────────────────────────────
   const [studentSearch, setStudentSearch] = useState('');
-  const [children,      setChildren]      = useState(MOCK_CHILDREN);
+  const [children,      setChildren]      = useState(() => {
+    // Use mock data only when explicitly enabled
+    if (USE_MOCK) return MOCK_CHILDREN;
+    // Try to restore children from a previous parent login session
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = getItem('children');
+        if (stored) return JSON.parse(stored).map(normalizeChild);
+      } catch (_) { /* ignore parse errors */ }
+    }
+    return [];
+  });
 
   // ── PIN authentication state ─────────────────────────────────────────────
   // selectedChild holds the child that was tapped; once PIN is verified it
@@ -70,6 +97,11 @@ function LoginPageInner() {
   const [showRegPassword,    setShowRegPassword]    = useState(false);
   const [showRegConfirm,     setShowRegConfirm]     = useState(false);
   const [successMessage,     setSuccessMessage]     = useState('');
+
+  // ── Forgot-password state ──────────────────────────────────────────────
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail,        setForgotEmail]        = useState('');
+  const [forgotStatus,       setForgotStatus]       = useState(''); // 'sending', 'sent', 'error'
 
   // ── Add-child state ────────────────────────────────────────────────────
   const AVATAR_OPTIONS = ['👧', '👦', '🧒', '👶', '🐱', '🐶', '🦊', '🐼'];
@@ -242,16 +274,37 @@ function LoginPageInner() {
       setItem('userRole', 'parent');
 
       if (result.children && result.children.length > 0) {
-        setItem('children', JSON.stringify(result.children));
+        const normalized = result.children.map(normalizeChild);
+        setChildren(normalized);
+        setItem('children', JSON.stringify(normalized));
         router.push('/dashboard');
       } else {
         // No children registered yet — guide parent to add a child
+        setChildren([]);
+        setItem('children', JSON.stringify([]));
         goTo('addChild');
       }
     } catch (err) {
       setError('Incorrect email or password. Please try again.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // ── Forgot password ──────────────────────────────────────────────────────
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    if (!forgotEmail) return;
+    setForgotStatus('sending');
+    try {
+      await fetch(`${API_BASE}/api/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotEmail }),
+      });
+      setForgotStatus('sent');
+    } catch (err) {
+      setForgotStatus('error');
     }
   };
 
@@ -303,13 +356,14 @@ function LoginPageInner() {
     setError('');
     try {
       const result = await addChild(childName.trim(), Number(childAge), childAvatar);
-      const newChild = result?.student || result?.child || {
+      const raw = result?.student || result?.child || {
         id: Date.now(),
         name: childName.trim(),
         age: Number(childAge),
         level: Number(childAge) <= 8 ? 'Beginner' : Number(childAge) <= 11 ? 'Intermediate' : 'Advanced',
         avatar: childAvatar,
       };
+      const newChild = normalizeChild(raw);
 
       // Update local children list
       setChildren((prev) => [...prev, newChild]);
@@ -697,9 +751,28 @@ function LoginPageInner() {
 
                 {/* Children list */}
                 <div className="space-y-3 mb-4">
-                  {filteredChildren.length === 0 ? (
+                  {children.length === 0 ? (
+                    <div className="text-center py-8">
+                      <div className="text-4xl mb-3">📭</div>
+                      <p className="text-[#3D2E1E] font-extrabold text-base mb-1">
+                        No children added yet
+                      </p>
+                      <p className="text-[#6B5744] font-semibold text-sm mb-4">
+                        A parent needs to sign in and add a child profile first.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => goTo('parent')}
+                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-[#D4A843] text-white font-bold text-sm
+                                   hover:bg-[#A8822E] hover:-translate-y-0.5
+                                   shadow-[0_4px_12px_rgba(212,168,67,0.35)] transition-all"
+                      >
+                        Parent Sign In
+                      </button>
+                    </div>
+                  ) : filteredChildren.length === 0 ? (
                     <p className="text-center py-6 text-[#6B5744] font-semibold text-sm">
-                      No profiles found. Ask a parent to add you!
+                      No profiles found. Try a different name!
                     </p>
                   ) : (
                     filteredChildren.map((child) => {
@@ -840,6 +913,13 @@ function LoginPageInner() {
                     <EyeIcon visible={showPassword} />
                   </button>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setShowForgotPassword(true)}
+                  className="text-xs text-[#5C8B5C] hover:text-[#3D6B3D] underline mt-1 font-semibold"
+                >
+                  Forgot Password?
+                </button>
               </div>
 
               {error && (
@@ -1093,6 +1173,63 @@ function LoginPageInner() {
       )}
 
       {/* ================================================================
+          FORGOT PASSWORD MODAL
+         ================================================================ */}
+      {showForgotPassword && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#F5F0E8] rounded-2xl p-6 max-w-sm w-full shadow-xl border-2 border-[#D6C9A8]">
+            <h3 className="text-lg font-bold text-[#3D2E1E] mb-3">Reset Password</h3>
+            {forgotStatus === 'sent' ? (
+              <div>
+                <p className="text-sm text-[#3D6B3D] mb-4">
+                  If an account exists with that email, a password reset link has been sent. Check your inbox.
+                </p>
+                <button
+                  onClick={() => { setShowForgotPassword(false); setForgotStatus(''); setForgotEmail(''); }}
+                  className="w-full py-2 rounded-xl bg-[#5C8B5C] text-white font-bold hover:bg-[#3D6B3D] transition"
+                >
+                  Back to Login
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleForgotPassword}>
+                <p className="text-sm text-[#6B5744] mb-3">
+                  Enter your email address and we&apos;ll send you a link to reset your password.
+                </p>
+                <input
+                  type="email"
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                  placeholder="parent@example.com"
+                  className="w-full px-4 py-3 rounded-xl border-2 border-[#D6C9A8] bg-white text-[#3D2E1E] mb-3 focus:border-[#5C8B5C] focus:outline-none"
+                  required
+                />
+                {forgotStatus === 'error' && (
+                  <p className="text-xs text-red-600 mb-2">Something went wrong. Please try again.</p>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setShowForgotPassword(false); setForgotStatus(''); setForgotEmail(''); }}
+                    className="flex-1 py-2 rounded-xl bg-[#EDE5D4] text-[#6B5744] font-bold hover:bg-[#D6C9A8] transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={forgotStatus === 'sending'}
+                    className="flex-1 py-2 rounded-xl bg-[#5C8B5C] text-white font-bold hover:bg-[#3D6B3D] transition disabled:opacity-50"
+                  >
+                    {forgotStatus === 'sending' ? 'Sending...' : 'Send Reset Link'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ================================================================
           ADD CHILD VIEW
          ================================================================ */}
       {viewState === 'addChild' && (
@@ -1206,7 +1343,7 @@ function LoginPageInner() {
             </form>
 
             {/* After adding at least one child, show option to go to student select */}
-            {children.length > MOCK_CHILDREN.length && (
+            {children.length > 0 && (
               <button
                 type="button"
                 onClick={() => goTo('student')}

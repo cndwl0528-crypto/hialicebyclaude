@@ -52,20 +52,17 @@ export default function RootLayout({ children }) {
     }
   }, []);
 
-  // Clear any stale session on very first mount so the app always starts logged-out.
-  const [initialCleared, setInitialCleared] = useState(false);
+  // Track whether the initial hydration pass has completed.
+  const [initialReady, setInitialReady] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    if (!initialCleared) {
-      clearClientSession();
-      setInitialCleared(true);
-    }
-  }, [initialCleared]);
+    setInitialReady(true);
+  }, []);
 
   // Check login state and role on route change
   useEffect(() => {
-    if (typeof window === 'undefined' || !initialCleared) return;
+    if (typeof window === 'undefined' || !initialReady) return;
 
     hydrateSessionFromLocal();
 
@@ -78,11 +75,7 @@ export default function RootLayout({ children }) {
       return;
     }
 
-    const isLocalPreviewHost =
-      typeof window !== 'undefined' &&
-      ['localhost', '127.0.0.1'].includes(window.location.hostname);
-
-    const isLocalPreviewToken =
+    const isDemoOrMockToken =
       ['demo-token', 'mock-token-', 'student-session-'].some((prefix) =>
         token.startsWith(prefix)
       );
@@ -92,7 +85,8 @@ export default function RootLayout({ children }) {
     setUserName(getItem('studentName') || getItem('parentEmail') || '');
     setNavReady(true);
 
-    if (isLocalPreviewHost && isLocalPreviewToken) {
+    // Demo/mock tokens are not real JWTs — skip server-side validation.
+    if (isDemoOrMockToken) {
       return;
     }
 
@@ -126,7 +120,7 @@ export default function RootLayout({ children }) {
     return () => {
       cancelled = true;
     };
-  }, [pathname, router, initialCleared]);
+  }, [pathname, router, initialReady]);
 
   const handleLogout = async () => {
     try {
