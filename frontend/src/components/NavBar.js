@@ -1,10 +1,12 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { isNavAllowed } from '@/lib/featureGates';
+import { isParentOrAdmin } from '@/lib/constants';
 
-const navLinks = [
+const allNavLinks = [
   { href: '/?landing=1', label: 'Home', icon: '🏠' },
   { href: '/books', label: 'Start', icon: '🚀' },
   { href: '/library', label: 'Library', icon: '📚' },
@@ -19,6 +21,17 @@ function NavIcon({ icon }) {
 
 export default function NavBar() {
   const pathname = usePathname();
+  // SSR: show all links (advanced fallback), then filter client-side
+  const [navLinks, setNavLinks] = useState(allNavLinks);
+
+  // Filter nav links based on student level (client-side only)
+  useEffect(() => {
+    if (isParentOrAdmin()) {
+      setNavLinks(allNavLinks);
+    } else {
+      setNavLinks(allNavLinks.filter((link) => isNavAllowed(link.href)));
+    }
+  }, []);
 
   // Register service worker for offline support and PWA
   useEffect(() => {

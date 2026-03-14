@@ -1069,3 +1069,128 @@ textarea.ghibli-focus:focus {
   animation: skeleton-shimmer 1.5s ease-in-out infinite;
   border-radius: 0.5rem;
 }
+
+/* ===== 3-Tier Visual Density (Age-Adaptive) ===== */
+
+/* Tier 1: Beginner (6-8세) — 큰 터치, 큰 글씨, 적은 항목 */
+.tier-beginner {
+  --touch-target: 64px;
+  --font-size-base: 18px;
+  --items-per-screen: 3;
+  --spacing-unit: 24px;
+  --icon-size: 48px;
+  --border-radius: 16px;
+}
+
+.tier-beginner .nav-item,
+.tier-beginner .action-btn {
+  min-height: 64px;
+  min-width: 64px;
+  font-size: 18px;
+  padding: 16px 24px;
+  border-radius: 16px;
+}
+
+.tier-beginner .card {
+  padding: 24px;
+  border-radius: 16px;
+  font-size: 18px;
+}
+
+.tier-beginner .mic-button {
+  width: 96px;
+  height: 96px;
+  font-size: 40px;
+}
+
+/* Tier 2: Intermediate (9-11세) — 중간 밀도 */
+.tier-intermediate {
+  --touch-target: 52px;
+  --font-size-base: 16px;
+  --items-per-screen: 5;
+  --spacing-unit: 20px;
+  --icon-size: 36px;
+  --border-radius: 12px;
+}
+
+.tier-intermediate .nav-item,
+.tier-intermediate .action-btn {
+  min-height: 52px;
+  min-width: 52px;
+  font-size: 16px;
+  padding: 12px 20px;
+  border-radius: 12px;
+}
+
+.tier-intermediate .card {
+  padding: 20px;
+  border-radius: 12px;
+  font-size: 16px;
+}
+
+.tier-intermediate .mic-button {
+  width: 80px;
+  height: 80px;
+  font-size: 32px;
+}
+
+/* Tier 3: Advanced (12-13세) — 높은 밀도 */
+.tier-advanced {
+  --touch-target: 48px;
+  --font-size-base: 14px;
+  --items-per-screen: 6;
+  --spacing-unit: 16px;
+  --icon-size: 28px;
+  --border-radius: 8px;
+}
+
+.tier-advanced .nav-item,
+.tier-advanced .action-btn {
+  min-height: 48px;
+  min-width: 48px;
+  font-size: 14px;
+  padding: 10px 16px;
+  border-radius: 8px;
+}
+
+.tier-advanced .card {
+  padding: 16px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.tier-advanced .mic-button {
+  width: 64px;
+  height: 64px;
+  font-size: 28px;
+}
+
+/* 공통 터치 타겟 보장 */
+.tier-beginner button,
+.tier-beginner a,
+.tier-beginner [role="button"] {
+  min-height: var(--touch-target);
+  min-width: var(--touch-target);
+}
+
+.tier-intermediate button,
+.tier-intermediate a,
+.tier-intermediate [role="button"] {
+  min-height: var(--touch-target);
+  min-width: var(--touch-target);
+}
+
+/* 접근성: Beginner 계층 텍스트 최소 폰트 보장 (WCAG — 14px 미만 금지) */
+/* * 전체 셀렉터 대신 텍스트 콘텐츠 요소만 지정하여 Tailwind 유틸리티 충돌 방지 */
+.tier-beginner p,
+.tier-beginner li,
+.tier-beginner span,
+.tier-beginner label,
+.tier-beginner td,
+.tier-beginner th,
+.tier-beginner h1,
+.tier-beginner h2,
+.tier-beginner h3,
+.tier-beginner h4 {
+  font-size: max(var(--font-size-base), 1em);
+}
