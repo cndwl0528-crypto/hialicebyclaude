@@ -13,6 +13,10 @@ const navLinks = [
   { href: '/profile', label: 'Profile', icon: '👤' },
 ];
 
+function NavIcon({ icon }) {
+  return <span aria-hidden="true">{icon}</span>;
+}
+
 export default function NavBar() {
   const pathname = usePathname();
 
@@ -43,7 +47,7 @@ export default function NavBar() {
             href="/?landing=1"
             className="text-xl font-extrabold text-[#3D6B3D] hover:text-[#5C8B5C] transition-colors flex-shrink-0 flex items-center gap-1"
           >
-            <span className="leaf-sway inline-block">🌿</span>
+            <span className="leaf-sway inline-block" aria-hidden="true">🌿</span>
             <span>HiMax</span>
           </Link>
           <div className="hidden md:flex gap-1">
@@ -57,7 +61,7 @@ export default function NavBar() {
                     : 'text-[#3D2E1E] hover:bg-[#C8DBC8]'
                 }`}
               >
-                {link.icon} {link.label}
+                <NavIcon icon={link.icon} /> {link.label}
               </Link>
             ))}
           </div>
@@ -78,7 +82,7 @@ export default function NavBar() {
                 : 'text-[#3D2E1E] hover:bg-[#C8DBC8]'
             }`}
           >
-            <div className="text-lg mb-0.5">{link.icon}</div>
+            <div className="text-lg mb-0.5"><NavIcon icon={link.icon} /></div>
             {link.label}
           </Link>
         ))}

@@ -97,6 +97,7 @@ export default function ReviewPage() {
   const [showConfetti, setShowConfetti] = useState(false);
   const [showAchievementModal, setShowAchievementModal] = useState(false);
   const [aiFeedback, setAiFeedback] = useState(null);
+  const [isParent, setIsParent] = useState(false);
 
   // Print handler — opens the browser print dialog.
   // The @media print rules in globals.css handle the visual layout.
@@ -277,6 +278,11 @@ export default function ReviewPage() {
       }
     }
   }, [loading, review, achievementsEarned]);
+
+  // Determine parent/admin role on mount — kept in state so it is safe for SSR
+  useEffect(() => {
+    setIsParent(isParentOrAdmin());
+  }, []);
 
   const renderStars = (level) => {
     return Array.from({ length: 5 }).map((_, i) => (
@@ -1075,6 +1081,30 @@ export default function ReviewPage() {
 
           </div>
         </details>
+      )}
+
+      {/* Parent Guide — practical at-home tips, visible to parents and admins only */}
+      {isParent && (
+        <div className="mt-8 rounded-2xl border-2 border-dashed border-[#D4A843]/30 bg-[#F5F0E8]/50 p-6">
+          <h3 className="text-lg font-bold text-[#3D6B3D] mb-4 flex items-center gap-2">
+            <span aria-hidden="true">📋</span> Parent Guide — How to Use This at Home
+          </h3>
+          <div className="space-y-3 text-sm text-[#3D2E1E]">
+            <div className="flex gap-3">
+              <span className="text-[#D4A843] font-bold min-w-[24px]">1.</span>
+              <p><strong>Talk about it at dinner:</strong> Ask your child &ldquo;What was the most interesting thing about the book?&rdquo; Use the vocabulary words naturally in conversation.</p>
+            </div>
+            <div className="flex gap-3">
+              <span className="text-[#D4A843] font-bold min-w-[24px]">2.</span>
+              <p><strong>Word wall:</strong> Write 2-3 new words on sticky notes and place them where your child can see them daily (fridge, desk, bathroom mirror).</p>
+            </div>
+            <div className="flex gap-3">
+              <span className="text-[#D4A843] font-bold min-w-[24px]">3.</span>
+              <p><strong>Connect to real life:</strong> When you encounter situations related to the book&apos;s themes, ask &ldquo;Remember in the book when...? This is kind of like that!&rdquo;</p>
+            </div>
+          </div>
+          <p className="text-xs text-[#9C8B74] mt-4 italic">This guide is only visible to parents and guardians.</p>
+        </div>
       )}
 
       {/* Action Buttons */}

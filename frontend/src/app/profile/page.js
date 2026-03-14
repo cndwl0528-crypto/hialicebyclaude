@@ -32,6 +32,16 @@ const MOCK_SESSIONS = [
 ];
 
 const AVATAR_OPTIONS = ['👧', '👦', '🧒', '👩', '🧑', '😊', '🌟', '🎓'];
+const AVATAR_LABELS = {
+  '👧': 'girl',
+  '👦': 'boy',
+  '🧒': 'child',
+  '👩': 'woman',
+  '🧑': 'person',
+  '😊': 'happy face',
+  '🌟': 'star',
+  '🎓': 'graduate',
+};
 
 // ---------------------------------------------------------------------------
 // Gamification Constants
@@ -1102,10 +1112,10 @@ export default function ProfilePage() {
                           ? 'ring-4 ring-[#5C8B5C] bg-[#E8F5E8]'
                           : 'hover:bg-[#F5F0E8]'
                       }`}
-                      aria-label={`Select ${avatar} avatar`}
+                      aria-label={`Select ${AVATAR_LABELS[avatar] || avatar} avatar`}
                       aria-pressed={selectedAvatar === avatar}
                     >
-                      {avatar}
+                      <span role="img" aria-label={AVATAR_LABELS[avatar] || avatar}>{avatar}</span>
                     </button>
                   ))}
                 </div>

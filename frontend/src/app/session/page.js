@@ -1214,7 +1214,7 @@ export default function SessionPage() {
           <div className="flex items-center justify-between mb-2 px-1" aria-label="Session progress">
             <span className="text-xs font-medium text-[#5C8B5C] bg-[#E8F5E8] px-3 py-1 rounded-full">
               {isBeginnerMode
-                ? `${activeStageEmojis[currentStage] || '🌟'} Step ${currentStage + 1} of ${activeStages.length}`
+                ? <><span aria-hidden="true">{activeStageEmojis[currentStage] || '🌟'}</span>{` Step ${currentStage + 1} of ${activeStages.length}`}</>
                 : `${activeStages[currentStage] || ''} — Step ${currentStage + 1} of ${activeStages.length}`}
             </span>
             <span className="text-xs text-[#6B5744]">

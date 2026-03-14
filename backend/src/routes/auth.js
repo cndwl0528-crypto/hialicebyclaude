@@ -25,6 +25,33 @@ import logger from '../lib/logger.js';
 const router = express.Router();
 
 // ============================================================================
+// PIN Strength Validation
+// ============================================================================
+
+/**
+ * Returns true if the given 4-digit PIN string is considered too weak.
+ * Rejects:
+ *   - All same digits (e.g. 0000, 1111, ..., 9999)
+ *   - Sequential ascending digits (e.g. 0123, 1234, 2345, ..., 6789)
+ *   - Sequential descending digits (e.g. 9876, 8765, 7654, ..., 3210)
+ *
+ * @param {string} pin - A 4-character numeric string
+ * @returns {boolean}
+ */
+function isWeakPin(pin) {
+  // All same digits: 0000, 1111, ..., 9999
+  if (/^(\d)\1{3}$/.test(pin)) return true;
+
+  // Sequential ascending or descending
+  const digits = pin.split('').map(Number);
+  const isAscending = digits.every((d, i) => i === 0 || d === digits[i - 1] + 1);
+  const isDescending = digits.every((d, i) => i === 0 || d === digits[i - 1] - 1);
+  if (isAscending || isDescending) return true;
+
+  return false;
+}
+
+// ============================================================================
 // POST /register
 // ============================================================================
 
@@ -122,6 +149,10 @@ router.post('/children', authMiddleware, async (req, res) => {
 
     if (!pin || !/^\d{4}$/.test(pin)) {
       return res.status(400).json({ error: 'A 4-digit PIN is required' });
+    }
+
+    if (isWeakPin(pin)) {
+      return res.status(400).json({ error: 'That PIN is too easy to guess! Try mixing up the numbers.' });
     }
 
     const ageNum = parseInt(age, 10);

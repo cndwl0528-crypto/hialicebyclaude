@@ -197,10 +197,6 @@ export async function getAliceResponse({
     // the caller when sessionId is passed; here we track this individual call).
     const costTracker = new CostTracker(sessionId || 'getAliceResponse');
 
-    // Apply prompt caching hints for long system prompts (> 1024 tokens).
-    const { system: cachedSystem, messages: cachedMessages } =
-      buildCachedMessages(systemPrompt, messages);
-
     // Enrich system prompt with student context (non-blocking on failure).
     try {
       const studentId = sessionId ? sessionId.split('-')[0] : null;
@@ -214,7 +210,7 @@ export async function getAliceResponse({
       console.warn('[Alice Engine] Context retrieval failed (non-fatal):', ctxErr.message);
     }
 
-    // Re-apply prompt caching after context enrichment.
+    // Apply prompt caching hints for long system prompts (> 1024 tokens).
     const { system: finalSystem, messages: finalMessages } =
       buildCachedMessages(systemPrompt, messages);
 
@@ -243,7 +239,7 @@ export async function getAliceResponse({
 
       // Evaluate AI response quality before sending to student.
       evalResult = evaluateResponse(content, { stage, turn, level });
-      evalLogger.record(evalResult);
+      evalLogger.log(sessionId || 'unknown', evalResult);
 
       if (evalResult.recommendation !== 'regenerate') {
         break; // Response is safe — send it

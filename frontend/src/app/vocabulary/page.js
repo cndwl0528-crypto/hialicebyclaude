@@ -378,7 +378,7 @@ export default function VocabularyPage() {
     return (
       <div className="flex justify-center items-center py-16">
         <div className="ghibli-card p-8 text-center max-w-md">
-          <div className="text-4xl mb-4">🌱</div>
+          <div className="text-4xl mb-4" aria-hidden="true">🌱</div>
           <p className="text-[#6B5744] font-bold text-lg mb-2">No words to practice right now!</p>
           <p className="text-[#6B5744] text-sm font-semibold mb-6">Complete a review session to start practicing vocabulary.</p>
           <button
@@ -400,7 +400,7 @@ export default function VocabularyPage() {
     return (
       <div className="min-h-[calc(100vh-120px)] flex items-center justify-center py-12 px-4">
         <div className="ghibli-card p-8 max-w-md text-center">
-          <div className="text-6xl mb-4 float-animation inline-block">🎉</div>
+          <div className="text-6xl mb-4 float-animation inline-block" aria-hidden="true">🎉</div>
           <h2 className="text-2xl font-extrabold text-[#3D2E1E] mb-2">Great Job!</h2>
           <p className="text-[#6B5744] font-semibold mb-6">You completed the vocabulary practice session.</p>
 
@@ -583,7 +583,7 @@ export default function VocabularyPage() {
             Word {currentWordIndex + 1} of {filteredVocabulary.length}
           </span>
           <span className="text-sm font-extrabold text-[#D4A843]">
-            {streak > 0 && `Streak: ${streak}`} {streak >= 3 ? '🔥' : streak > 0 ? '⭐' : ''}
+            {streak > 0 && `Streak: ${streak}`}{streak >= 3 ? <span aria-hidden="true"> 🔥</span> : streak > 0 ? <span aria-hidden="true"> ⭐</span> : ''}
           </span>
         </div>
         <div className="w-full bg-[#EDE5D4] rounded-full h-3 overflow-hidden">

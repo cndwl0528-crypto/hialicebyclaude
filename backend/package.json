@@ -5,7 +5,9 @@
   "description": "HiAlice AI English Reading App - Backend API",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "dev": "node --watch src/index.js",
+    "test": "echo \"No tests configured yet\" && exit 0",
+    "test:watch": "echo \"No test runner configured\""
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.30.0",

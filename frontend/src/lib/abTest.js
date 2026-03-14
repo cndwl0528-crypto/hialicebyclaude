@@ -16,6 +16,7 @@
  */
 
 import { API_BASE } from '@/lib/constants';
+import { getItem, setItem, removeItem } from './clientStorage.js';
 
 // ============================================================================
 // Experiment definitions
@@ -96,10 +97,19 @@ function deriveVariantIndex(studentId, experimentName, variantCount) {
 
 const STORAGE_PREFIX = 'abtest::';
 
+/**
+ * Tracks every storage key written by writeAssignment() so that
+ * clearAssignments() can remove them without iterating sessionStorage
+ * directly (which has no equivalent in the clientStorage wrapper API).
+ *
+ * @type {Set<string>}
+ */
+const _writtenAssignmentKeys = new Set();
+
 function readAssignment(experimentName) {
   if (typeof window === 'undefined') return null;
   try {
-    return window.sessionStorage.getItem(`${STORAGE_PREFIX}${experimentName}`);
+    return getItem(`${STORAGE_PREFIX}${experimentName}`);
   } catch {
     return null;
   }
@@ -108,9 +118,11 @@ function readAssignment(experimentName) {
 function writeAssignment(experimentName, variant) {
   if (typeof window === 'undefined') return;
   try {
-    window.sessionStorage.setItem(`${STORAGE_PREFIX}${experimentName}`, variant);
+    const key = `${STORAGE_PREFIX}${experimentName}`;
+    setItem(key, variant);
+    _writtenAssignmentKeys.add(key);
   } catch {
-    // sessionStorage may be unavailable in private mode on some browsers
+    // Storage may be unavailable in private mode on some browsers
   }
 }
 
@@ -152,11 +164,12 @@ export function getVariant(experimentName, studentId) {
   if (!effectiveId) {
     if (typeof window !== 'undefined') {
       const anonKey = 'abtest::anon_id';
-      let anonId = window.sessionStorage.getItem(anonKey);
+      let anonId = getItem(anonKey);
       if (!anonId) {
         anonId = `anon-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
         try {
-          window.sessionStorage.setItem(anonKey, anonId);
+          setItem(anonKey, anonId);
+          _writtenAssignmentKeys.add(anonKey);
         } catch { /* ignore */ }
       }
       effectiveId = anonId;
@@ -176,20 +189,18 @@ export function getVariant(experimentName, studentId) {
 }
 
 /**
- * Clear all cached A/B assignments from sessionStorage.
+ * Clear all cached A/B assignments from storage.
  * Useful when a student logs out or switches profiles.
+ *
+ * Keys are tracked in _writtenAssignmentKeys as they are written, so we
+ * never need to iterate sessionStorage directly — the clientStorage
+ * removeItem() wrapper handles the actual deletion.
  */
 export function clearAssignments() {
   if (typeof window === 'undefined') return;
   try {
-    const keysToRemove = [];
-    for (let i = 0; i < window.sessionStorage.length; i++) {
-      const key = window.sessionStorage.key(i);
-      if (key && key.startsWith(STORAGE_PREFIX)) {
-        keysToRemove.push(key);
-      }
-    }
-    keysToRemove.forEach((key) => window.sessionStorage.removeItem(key));
+    _writtenAssignmentKeys.forEach((key) => removeItem(key));
+    _writtenAssignmentKeys.clear();
   } catch { /* ignore */ }
 }
 
@@ -242,10 +253,7 @@ export async function trackEvent(experimentName, eventName, metadata = {}, stude
       timestamp: new Date().toISOString(),
     };
 
-    const token =
-      typeof window !== 'undefined'
-        ? window.sessionStorage.getItem('token') ?? window.localStorage.getItem('token')
-        : null;
+    const token = typeof window !== 'undefined' ? getItem('token') : null;
 
     await fetch(`${API_BASE}/api/experiments/track`, {
       method: 'POST',

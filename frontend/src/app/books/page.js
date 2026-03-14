@@ -69,7 +69,7 @@ function PreReadingScreen({ book, onReady }) {
     <div className="min-h-[70vh] flex flex-col items-center justify-center px-4 py-8">
       {/* Book identity */}
       <div className="mb-6 flex flex-col items-center gap-2 text-center">
-        <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-[#E8F5E8] text-5xl shadow-[0_6px_18px_rgba(61,107,61,0.15)]">
+        <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-[#E8F5E8] text-5xl shadow-[0_6px_18px_rgba(61,107,61,0.15)]" aria-hidden="true">
           {book.coverEmoji || book.cover || '📖'}
         </div>
         <h2 className="text-xl font-extrabold text-[#3D2E1E] max-w-xs leading-tight">
@@ -409,7 +409,7 @@ export default function BooksPage() {
             <div className="mt-6 grid gap-5 lg:grid-cols-[1.1fr,0.9fr]">
               <div className="hialice-panel p-5">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#E8F5E8] text-2xl">🎤</div>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#E8F5E8] text-2xl" aria-hidden="true">🎤</div>
                   <div>
                     <p className="text-sm font-extrabold text-[#3D2E1E]">Step 1. Say the book title</p>
                     <p className="text-xs font-semibold text-[#6B5744]">Example: “I read Charlotte&apos;s Web.”</p>
@@ -471,7 +471,7 @@ export default function BooksPage() {
                 {exactVoiceMatch ? (
                   <div className="mt-4 rounded-3xl border border-[#E8DEC8] bg-[#FFFCF3] p-4">
                     <div className="flex items-start gap-4">
-                      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#E8F5E8] text-4xl">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#E8F5E8] text-4xl" aria-hidden="true">
                         {exactVoiceMatch.coverEmoji || exactVoiceMatch.cover}
                       </div>
                       <div className="min-w-0 flex-1">
@@ -528,7 +528,7 @@ export default function BooksPage() {
                           onClick={() => handleBookClick(book.id, book.title)}
                           className="flex w-full items-center gap-3 rounded-2xl border border-[#E8DEC8] bg-[#FFFCF3] px-4 py-3 text-left transition-all hover:-translate-y-0.5"
                         >
-                          <span className="text-2xl">{book.coverEmoji || book.cover}</span>
+                          <span className="text-2xl" aria-hidden="true">{book.coverEmoji || book.cover}</span>
                           <span className="min-w-0">
                             <span className="block truncate text-sm font-extrabold text-[#3D2E1E]">{book.title}</span>
                             <span className="block truncate text-xs font-semibold text-[#6B5744]">{book.author}</span>
@@ -677,7 +677,7 @@ export default function BooksPage() {
       {confirmBook && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4" onClick={() => setConfirmBook(null)}>
           <div className="ghibli-card p-8 max-w-md w-full text-center" onClick={(e) => e.stopPropagation()}>
-            <div className="text-4xl mb-4">📖</div>
+            <div className="text-4xl mb-4" aria-hidden="true">📖</div>
             <h3 className="text-xl font-extrabold text-[#3D2E1E] mb-2">
               Did you finish reading
             </h3>

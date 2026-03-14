@@ -600,8 +600,7 @@ body {
 }
 
 p, li, td, th {
-  font-size: inherit;
-  min-font-size: 0.875rem; /* 14px floor */
+  font-size: max(0.875rem, 1em); /* 14px floor — 1em inherits parent size; max() picks whichever is larger */
 }
 
 /* ===== Page Heading Consistency ===== */

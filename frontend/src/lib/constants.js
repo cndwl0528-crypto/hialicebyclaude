@@ -86,24 +86,31 @@ export const STAGES = {
 };
 
 export const COLORS = {
-  primary: '#4A90D9',
-  primaryLight: '#6BA3E5',
-  primaryDark: '#2E5AA6',
-  background: '#F5F7FA',
-  backgroundAlt: '#EAECEF',
-  accent: '#F39C12',
-  accentLight: '#F5AD3D',
-  accentDark: '#D68910',
-  success: '#27AE60',
-  successLight: '#52BE80',
-  successDark: '#1E8449',
-  danger: '#E74C3C',
-  dangerLight: '#EC7063',
-  dangerDark: '#C0392B',
-  textPrimary: '#2C3E50',
-  textSecondary: '#7F8C8D',
-  border: '#BDC3C7',
-  borderLight: '#ECF0F1',
+  // Primary — Ghibli forest green (replaces old blue #4A90D9)
+  primary: '#5C8B5C',
+  primaryLight: '#7AAE7A',
+  primaryDark: '#3D6B3D',
+  // Background — warm cream palette (replaces cold grey #F5F7FA)
+  background: '#F5F0E8',
+  backgroundAlt: '#EDE5D4',
+  // Accent — Ghibli gold (replaces old orange #F39C12)
+  accent: '#D4A843',
+  accentLight: '#E8C46A',
+  accentDark: '#A8822E',
+  // Success — soft leaf green
+  success: '#7AC87A',
+  successLight: '#9ED89E',
+  successDark: '#5CAF5C',
+  // Danger — warm rose (replaces harsh red #E74C3C; child-friendly)
+  danger: '#D4736B',
+  dangerLight: '#E09891',
+  dangerDark: '#B85A53',
+  // Text — warm bark tones (replaces cold grey-blue #2C3E50 / #7F8C8D)
+  textPrimary: '#3D2E1E',
+  textSecondary: '#9C8B74',
+  // Borders — warm parchment tones (replaces cold grey #BDC3C7)
+  border: '#D6C9A8',
+  borderLight: '#E8DEC8',
 };
 
 /**
