@@ -29,6 +29,14 @@ import {
 } from './prompts.js';
 import { classifyAnswerDepth } from './levelDetector.js';
 import { getCrossBookContext } from './crossBookMemory.js';
+import {
+  selectModel,
+  CostTracker,
+  buildCachedMessages,
+  callWithRetry
+} from '../services/modelRouter.js';
+import { evaluateResponse, evalLogger } from '../services/evalHarness.js';
+import { getQuickContext, getFullContext } from '../services/contextRetriever.js';
 
 // ============================================================================
 // CLIENT INITIALISATION
@@ -75,7 +83,8 @@ export function formatConversationHistory(dialogues) {
  * @param {Array}         [params.conversationHistory=[]] - Prior dialogue rows
  * @param {object}        [params.book]      - Full book object (preferred over bookTitle string)
  * @param {string}        [params.crossBookContext=''] - Cross-book memory context string to append to system prompt
- * @returns {Promise<{ content: string, grammarFeedback: string, isMock?: boolean, usage?: object }>}
+ * @param {string}        [params.sessionId='']  - Session ID for cost tracking (optional)
+ * @returns {Promise<{ content: string, grammarFeedback: string, isMock?: boolean, usage?: object, costSummary?: object }>}
  */
 export async function getAliceResponse({
   bookTitle,
@@ -86,7 +95,8 @@ export async function getAliceResponse({
   studentMessage,
   conversationHistory = [],
   book = null,
-  crossBookContext = ''
+  crossBookContext = '',
+  sessionId = ''
 }) {
   try {
     // If the Claude API is not configured, fall back to canned responses.
@@ -176,16 +186,74 @@ export async function getAliceResponse({
       });
     }
 
-    // Call the Claude API.
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 300,
-      temperature: 0.7,
-      system: systemPrompt,
-      messages
+    // Select the most cost-appropriate model for this session turn.
+    const { model, reason: modelReason } = selectModel('session_response', {
+      level,
+      turn,
+      historyLength: conversationHistory.length,
     });
 
-    const content = response.content[0]?.text || '';
+    // Initialise a per-call cost tracker (session-level tracking happens in
+    // the caller when sessionId is passed; here we track this individual call).
+    const costTracker = new CostTracker(sessionId || 'getAliceResponse');
+
+    // Apply prompt caching hints for long system prompts (> 1024 tokens).
+    const { system: cachedSystem, messages: cachedMessages } =
+      buildCachedMessages(systemPrompt, messages);
+
+    // Enrich system prompt with student context (non-blocking on failure).
+    try {
+      const studentId = sessionId ? sessionId.split('-')[0] : null;
+      if (studentId && book) {
+        const context = await getQuickContext(studentId, book.id || null);
+        if (context) {
+          systemPrompt += `\n\n${context}`;
+        }
+      }
+    } catch (ctxErr) {
+      console.warn('[Alice Engine] Context retrieval failed (non-fatal):', ctxErr.message);
+    }
+
+    // Re-apply prompt caching after context enrichment.
+    const { system: finalSystem, messages: finalMessages } =
+      buildCachedMessages(systemPrompt, messages);
+
+    // Call the Claude API with retry logic for transient errors.
+    // Supports up to 1 regeneration if eval harness flags the response.
+    let content = '';
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let evalResult = null;
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const response = await callWithRetry(
+        () => anthropic.messages.create({
+          model,
+          max_tokens: 300,
+          temperature: 0.7,
+          system:   finalSystem,
+          messages: finalMessages,
+        })
+      );
+
+      content = response.content[0]?.text || '';
+      inputTokens  += response.usage?.input_tokens  || 0;
+      outputTokens += response.usage?.output_tokens || 0;
+      costTracker.record(model, response.usage?.input_tokens || 0, response.usage?.output_tokens || 0);
+
+      // Evaluate AI response quality before sending to student.
+      evalResult = evaluateResponse(content, { stage, turn, level });
+      evalLogger.record(evalResult);
+
+      if (evalResult.recommendation !== 'regenerate') {
+        break; // Response is safe — send it
+      }
+
+      console.warn(
+        `[Alice Engine] Eval harness flagged response for regeneration (attempt ${attempt + 1}): ${evalResult.details}`
+      );
+      // Second attempt uses slightly different temperature
+    }
 
     // Grammar feedback is only surfaced for advanced students to avoid
     // overwhelming beginners and intermediates.
@@ -198,10 +266,18 @@ export async function getAliceResponse({
       content,
       grammarFeedback,
       depthAnalysis,
+      evalResult: evalResult ? {
+        score: evalResult.overallScore,
+        recommendation: evalResult.recommendation,
+        pass: evalResult.pass,
+      } : null,
       usage: {
-        inputTokens: response.usage?.input_tokens   || 0,
-        outputTokens: response.usage?.output_tokens || 0
-      }
+        inputTokens,
+        outputTokens,
+        model:       model,
+        modelReason: modelReason,
+      },
+      costSummary: costTracker.getSummary(),
     };
   } catch (error) {
     console.error('[Alice Engine] Claude API error:', error.message);
@@ -241,13 +317,19 @@ export async function generateSessionFeedback(sessionData) {
   try {
     const feedbackPrompt = getSessionFeedbackPrompt(sessionData);
 
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 150,
-      temperature: 0.8,
-      messages: [{ role: 'user', content: feedbackPrompt }]
-    });
+    // Feedback is template-driven with low reasoning demands — use HAIKU.
+    const { model, reason: modelReason } = selectModel('feedback');
 
+    const response = await callWithRetry(
+      () => anthropic.messages.create({
+        model,
+        max_tokens: 150,
+        temperature: 0.8,
+        messages: [{ role: 'user', content: feedbackPrompt }],
+      })
+    );
+
+    console.log(`[ModelRouter] generateSessionFeedback used ${model} (${modelReason})`);
     return response.content[0]?.text?.trim() || buildFallbackFeedback(studentName, bookTitle);
   } catch (error) {
     console.error('[Alice Engine] Feedback generation error:', error.message);
@@ -368,13 +450,22 @@ export async function getMetacognitiveResponse({ studentName, bookTitle, level, 
       });
     }
 
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 200,
-      temperature: 0.7,
-      system: systemPrompt,
-      messages
-    });
+    // Metacognitive closing needs contextual nuance — use SONNET.
+    const { model } = selectModel('metacognitive');
+
+    // Apply prompt caching hints for the metacognitive system prompt.
+    const { system: cachedSystem, messages: cachedMessages } =
+      buildCachedMessages(systemPrompt, messages);
+
+    const response = await callWithRetry(
+      () => anthropic.messages.create({
+        model,
+        max_tokens: 200,
+        temperature: 0.7,
+        system:   cachedSystem,
+        messages: cachedMessages,
+      })
+    );
 
     return { content: response.content[0]?.text || '' };
   } catch (error) {
@@ -413,13 +504,18 @@ export async function rephraseQuestion({ originalQuestion, studentName, level, b
   try {
     const systemPrompt = getRephrasePrompt(originalQuestion, studentName, level, bookTitle);
 
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 150,
-      temperature: 0.8,
-      messages: [{ role: 'user', content: `Please rephrase this question for a stuck student: "${originalQuestion}"` }],
-      system: systemPrompt,
-    });
+    // Rephrasing is simple reformatting — HAIKU is fast and cost-effective.
+    const { model } = selectModel('rephrase');
+
+    const response = await callWithRetry(
+      () => anthropic.messages.create({
+        model,
+        max_tokens: 150,
+        temperature: 0.8,
+        messages: [{ role: 'user', content: `Please rephrase this question for a stuck student: "${originalQuestion}"` }],
+        system: systemPrompt,
+      })
+    );
 
     return { content: response.content[0]?.text?.trim() || '' };
   } catch (error) {

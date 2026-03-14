@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase.js';
 import { authMiddleware, requireAdmin } from '../middleware/auth.js';
 import { getAliceResponse } from '../alice/engine.js';
 import { getStudentAchievements } from '../lib/achievements.js';
+import { getAdminDashboardData, refreshAnalytics, generateInsights, generateDashboardData } from '../services/globalPatterns.js';
+import { evalLogger } from '../services/evalHarness.js';
 
 const router = express.Router();
 
@@ -1880,6 +1882,83 @@ router.post('/parents/:id/reset-password', async (req, res) => {
   } catch (err) {
     console.error('[Admin] POST /parents/:id/reset-password error:', err.message);
     res.status(500).json({ error: 'Failed to reset password' });
+  }
+});
+
+// ============================================================================
+// AI ANALYTICS ENDPOINTS
+// ============================================================================
+
+/**
+ * GET /analytics/dashboard
+ *
+ * AI-powered analytics dashboard with cross-student insights.
+ * Uses cached data (1-hour TTL) for fast responses.
+ *
+ * Returns: { bookEffectiveness, stageDifficulty, engagementPatterns,
+ *            vocabularyGrowth, levelProgression, insights, generatedAt }
+ */
+router.get('/analytics/dashboard', optionalAdminAuth, async (req, res) => {
+  try {
+    const data = await getAdminDashboardData();
+    return res.status(200).json(data);
+  } catch (err) {
+    console.error('[Admin] Analytics dashboard error:', err.message);
+    return res.status(500).json({ error: 'Failed to load analytics dashboard' });
+  }
+});
+
+/**
+ * POST /analytics/refresh
+ *
+ * Force-refresh the analytics cache. Use after significant data changes.
+ *
+ * Returns: { refreshed: true, generatedAt }
+ */
+router.post('/analytics/refresh', optionalAdminAuth, async (req, res) => {
+  try {
+    const data = await refreshAnalytics();
+    return res.status(200).json({ refreshed: true, ...data });
+  } catch (err) {
+    console.error('[Admin] Analytics refresh error:', err.message);
+    return res.status(500).json({ error: 'Failed to refresh analytics' });
+  }
+});
+
+/**
+ * GET /analytics/insights
+ *
+ * Get AI-generated actionable insights from current data.
+ * Includes priority scores and recommended actions.
+ *
+ * Returns: { insights: [...] }
+ */
+router.get('/analytics/insights', optionalAdminAuth, async (req, res) => {
+  try {
+    const dashboardData = await generateDashboardData();
+    const insights = generateInsights(dashboardData);
+    return res.status(200).json({ insights });
+  } catch (err) {
+    console.error('[Admin] Insights generation error:', err.message);
+    return res.status(500).json({ error: 'Failed to generate insights' });
+  }
+});
+
+/**
+ * GET /analytics/eval-stats
+ *
+ * Get AI response evaluation statistics from the eval harness.
+ * Shows pass/fail rates, regeneration counts, and quality trends.
+ *
+ * Returns: { totalEvaluated, passRate, flagRate, regenerateRate, ... }
+ */
+router.get('/analytics/eval-stats', optionalAdminAuth, async (req, res) => {
+  try {
+    const stats = evalLogger.getStats();
+    return res.status(200).json(stats);
+  } catch (err) {
+    console.error('[Admin] Eval stats error:', err.message);
+    return res.status(500).json({ error: 'Failed to load eval stats' });
   }
 });
 

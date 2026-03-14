@@ -1,6 +1,7 @@
 import express from 'express';
 import { supabase } from '../lib/supabase.js';
 import { authMiddleware } from '../middleware/auth.js';
+import { getRecommendationsForStudent, getSimilarBooksForBook } from '../services/bookRecommender.js';
 
 const router = express.Router();
 
@@ -49,6 +50,57 @@ router.get('/', async (req, res) => {
   } catch (err) {
     console.error('Get books error:', err);
     return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * GET /ai-recommendations/:studentId
+ *
+ * AI-powered personalised book recommendations using theme similarity,
+ * difficulty fit, and reading history analysis.
+ *
+ * Query: ?count=5
+ * Returns: { recommendations: [...], studentId }
+ */
+router.get('/ai-recommendations/:studentId', authMiddleware, async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const count = Math.min(parseInt(req.query.count) || 5, 10);
+
+    const recommendations = await getRecommendationsForStudent(studentId, count);
+
+    return res.status(200).json({
+      recommendations,
+      studentId,
+    });
+  } catch (err) {
+    console.error('AI recommendations error:', err);
+    return res.status(500).json({ error: 'Failed to generate recommendations' });
+  }
+});
+
+/**
+ * GET /similar/:bookId
+ *
+ * Find books similar to a given book based on theme and difficulty.
+ *
+ * Query: ?count=5
+ * Returns: { similar: [...], bookId }
+ */
+router.get('/similar/:bookId', async (req, res) => {
+  try {
+    const { bookId } = req.params;
+    const count = Math.min(parseInt(req.query.count) || 5, 10);
+
+    const similar = await getSimilarBooksForBook(bookId, count);
+
+    return res.status(200).json({
+      similar,
+      bookId,
+    });
+  } catch (err) {
+    console.error('Similar books error:', err);
+    return res.status(500).json({ error: 'Failed to find similar books' });
   }
 });
 

@@ -25,6 +25,8 @@ import { calculateGrammarScore, classifyAnswerDepth, calculateThinkingMomentum }
 import { checkAndAwardAchievements } from '../lib/achievements.js';
 import { getCrossBookContext } from '../alice/crossBookMemory.js';
 import { sendSessionReport } from '../services/emailService.js';
+import { onSessionComplete } from '../services/learningPatterns.js';
+import { getFullContext } from '../services/contextRetriever.js';
 
 const router = express.Router();
 
@@ -421,7 +423,20 @@ router.post('/:id/message', optionalAuth, async (req, res) => {
       console.error('Student dialogue error:', studentDialogueError);
     }
 
-    const { crossBookContext } = await getCrossBookContext(session.student_id, session.book_id);
+    // Fetch cross-book context and student learning context in parallel
+    const [
+      { crossBookContext },
+      studentContext,
+    ] = await Promise.all([
+      getCrossBookContext(session.student_id, session.book_id),
+      getFullContext(session.student_id, session.book_id, stage).catch(err => {
+        console.warn('[Sessions] Context retrieval failed (non-fatal):', err.message);
+        return '';
+      }),
+    ]);
+
+    // Merge student learning context into cross-book context
+    const enrichedContext = [crossBookContext, studentContext].filter(Boolean).join('\n\n');
 
     // Get Alice's response — pass full book object for context-aware, emotion-eliciting prompt
     const aliceResponse = await getAliceResponse({
@@ -433,7 +448,8 @@ router.post('/:id/message', optionalAuth, async (req, res) => {
       studentMessage: content,
       conversationHistory: dialogues || [],
       book,
-      crossBookContext,
+      crossBookContext: enrichedContext,
+      sessionId,
     });
 
     // Score the student's response
@@ -787,6 +803,20 @@ router.post('/:id/complete', optionalAuth, async (req, res) => {
       .catch(err => {
         console.error('[Sessions] Failed to fetch dialogues for tagging:', err.message);
       });
+
+    // --- Async learning pattern analysis (non-blocking) ---
+    // Fire-and-forget: detect student learning patterns from this session.
+    onSessionComplete(sessionId, studentId, {
+      level: studentLevel,
+      bookId: session.book_id,
+      dialogues: allDialogues || [],
+      grammarScore: averageGrammarScore,
+      levelScore,
+      vocabularyCount,
+      stageBreakdown,
+    }).catch(err => {
+      console.warn('[Sessions] Learning pattern analysis failed (non-fatal):', err.message);
+    });
 
     return res.status(200).json({
       session: {
