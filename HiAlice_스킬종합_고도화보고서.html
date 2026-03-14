@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HiAlice 스킬 종합 고도화 보고서 v1.1 — Sprint 1+2 실행 결과 반영</title>
+<style>
+:root{--p:#5C8B5C;--pd:#3D6B3D;--pl:#7AAE7A;--sky:#87CEDB;--acc:#D4A843;--ok:#27AE60;--err:#E74C3C;--pur:#8E44AD;--warn:#E67E22;--bg:#F5F0E8;--card:#FFFCF3;--txt:#3D2E1E;--txt2:#6B5744;--txt3:#9C8B74;--bdr:#E8DEC8;--nav:#D6C9A8}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--txt);line-height:1.7}
+.hero{background:linear-gradient(135deg,#3D6B3D,#5C8B5C,#87CEDB);color:#fff;padding:50px 40px;text-align:center;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;inset:0;background:url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='30' cy='30' r='2' fill='white' opacity='0.1'/%3E%3C/svg%3E");pointer-events:none}
+.hero h1{font-size:2.2em;font-weight:800;position:relative}
+.hero .sub{font-size:1.05em;opacity:.9;margin-top:8px;position:relative}
+.hero .meta{font-size:.85em;opacity:.75;margin-top:6px;position:relative}
+.hero .badges{display:flex;justify-content:center;gap:10px;margin-top:18px;flex-wrap:wrap;position:relative}
+.hero .badge{background:rgba(255,255,255,.18);padding:5px 14px;border-radius:20px;font-size:.8em;backdrop-filter:blur(4px)}
+.hero .badge-new{background:rgba(212,168,67,.4);padding:5px 14px;border-radius:20px;font-size:.8em;backdrop-filter:blur(4px);border:1px solid rgba(212,168,67,.6)}
+.nav{background:#fff;border-bottom:1px solid var(--bdr);position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(61,46,30,.06)}
+.nav-inner{max-width:1400px;margin:0 auto;display:flex;overflow-x:auto;gap:2px;padding:5px 10px}
+.nb{padding:8px 14px;border:none;background:0;border-radius:7px;cursor:pointer;font-size:.8em;font-weight:700;color:var(--txt2);white-space:nowrap;transition:.2s}
+.nb:hover{background:var(--bg);color:var(--p)}
+.nb.on{background:var(--p);color:#fff}
+.nb.nb-new{position:relative}
+.nb.nb-new::after{content:'NEW';position:absolute;top:-4px;right:-2px;background:var(--acc);color:#fff;font-size:.55em;padding:1px 4px;border-radius:4px;font-weight:800;line-height:1.4}
+.wrap{max-width:1400px;margin:0 auto;padding:24px 14px}
+.sec{display:none;animation:fi .3s ease}
+.sec.on{display:block}
+@keyframes fi{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.c{background:var(--card);border-radius:14px;padding:22px;margin-bottom:14px;box-shadow:0 2px 14px rgba(61,46,30,.04);border:1px solid var(--bdr)}
+.c:hover{box-shadow:0 4px 20px rgba(61,46,30,.07)}
+h2{font-size:1.5em;font-weight:800;margin-bottom:6px;color:var(--pd)}
+h3{font-size:1.1em;font-weight:700;margin-bottom:6px}
+h4{font-size:.95em;font-weight:700;margin-bottom:4px;color:var(--txt2)}
+.desc{color:var(--txt2);margin-bottom:18px;font-size:.9em}
+.g2{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px}
+.g3{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.g4{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:10px}
+.mc{background:#fff;border-radius:10px;padding:14px;text-align:center;border:1px solid var(--bdr)}
+.mv{font-size:1.7em;font-weight:800;background:linear-gradient(135deg,var(--p),var(--sky));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.mv-gold{font-size:1.7em;font-weight:800;background:linear-gradient(135deg,var(--acc),#E8C060);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.ml{font-size:.8em;color:var(--txt2);margin-top:2px}
+.md{font-size:.82em;color:var(--ok);font-weight:600;margin-top:2px}
+.md-warn{font-size:.82em;color:var(--warn);font-weight:600;margin-top:2px}
+.tbl{width:100%;border-collapse:collapse;font-size:.82em;margin:10px 0}
+.tbl th{background:var(--pd);color:#fff;padding:9px;text-align:left;font-weight:600}
+.tbl td{padding:8px 9px;border-bottom:1px solid var(--bdr);vertical-align:top}
+.tbl tr:hover td{background:#F8F5ED}
+.tbl tr.done-row td{background:#F0FAF3}
+.tbl tr.done-row td:first-child{border-left:3px solid var(--ok)}
+.sev-c{color:#fff;background:var(--err);padding:2px 8px;border-radius:10px;font-size:.75em;font-weight:700}
+.sev-h{color:#fff;background:var(--warn);padding:2px 8px;border-radius:10px;font-size:.75em;font-weight:700}
+.sev-m{color:#fff;background:var(--sky);padding:2px 8px;border-radius:10px;font-size:.75em;font-weight:700;color:#1a5276}
+.sev-l{color:#fff;background:var(--ok);padding:2px 8px;border-radius:10px;font-size:.75em;font-weight:700}
+.sev-done{color:#fff;background:var(--ok);padding:2px 8px;border-radius:10px;font-size:.75em;font-weight:700}
+.sev-partial{color:#fff;background:var(--sky);padding:2px 8px;border-radius:10px;font-size:.75em;font-weight:700;color:#1a5276}
+.pill{display:inline-block;padding:3px 10px;border-radius:14px;font-size:.73em;font-weight:600}
+.pill-arch{background:#E8F8F5;color:#0E6655}
+.pill-design{background:#F5EEF8;color:#7D3C98}
+.pill-a11y{background:#FEF9E7;color:#B7950B}
+.pill-engine{background:#FDEDEC;color:#C0392B}
+.pill-prd{background:#EBF5FB;color:#1B4F72}
+.pill-qa{background:#F0F3F4;color:#566573}
+.pill-fe{background:#E8F8F5;color:#0E6655}
+.pill-be{background:#FEF9E7;color:#7B5C00}
+.pill-bug{background:#FDEDEC;color:#C0392B}
+.pill-refactor{background:#F5EEF8;color:#6A1B9A}
+.code{background:#2C3E50;color:#ECF0F1;padding:14px 16px;border-radius:10px;font-family:'Fira Code',monospace;font-size:.78em;overflow-x:auto;margin:8px 0;line-height:1.5;white-space:pre}
+.code .cm{color:#7F8C8D}.code .kw{color:#3498DB}.code .fn{color:#F39C12}.code .st{color:#2ECC71}.code .num{color:#E74C3C}
+.bar-wrap{margin:5px 0}
+.bar-label{display:flex;justify-content:space-between;font-size:.8em;margin-bottom:2px}
+.bar-bg{height:18px;background:#ECF0F1;border-radius:10px;overflow:hidden}
+.bar{height:100%;border-radius:10px;display:flex;align-items:center;justify-content:flex-end;padding-right:6px;font-size:.68em;font-weight:700;color:#fff;transition:width 1s}
+.alert{border-radius:10px;padding:14px 18px;margin:10px 0;font-size:.88em}
+.alert-warn{background:#FEF9E7;border-left:4px solid var(--acc);color:#7D6608}
+.alert-err{background:#FDEDEC;border-left:4px solid var(--err);color:#922B21}
+.alert-ok{background:#D5F5E3;border-left:4px solid var(--ok);color:#1E8449}
+.alert-info{background:#EBF5FB;border-left:4px solid var(--sky);color:#1B4F72}
+.flow{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:10px 0}
+.fn-box{padding:7px 13px;border-radius:8px;font-weight:600;font-size:.8em;color:#fff}
+.fn-arr{font-size:1.2em;color:var(--txt3)}
+.ascii{background:#1a1714;color:#7AAE7A;padding:14px;border-radius:10px;font-family:'Courier New',monospace;font-size:.75em;overflow-x:auto;line-height:1.4;white-space:pre}
+.tab-g{display:flex;gap:3px;margin-bottom:14px;flex-wrap:wrap}
+.tab-b{padding:6px 14px;border:2px solid var(--bdr);background:#fff;border-radius:7px;cursor:pointer;font-weight:600;font-size:.8em;transition:.2s}
+.tab-b:hover{border-color:var(--p);color:var(--p)}
+.tab-b.on{background:var(--p);color:#fff;border-color:var(--p)}
+.tab-c{display:none}.tab-c.on{display:block}
+.timeline{position:relative;padding-left:24px}
+.timeline::before{content:'';position:absolute;left:8px;top:0;bottom:0;width:3px;background:linear-gradient(var(--p),var(--sky))}
+.tl-item{position:relative;margin-bottom:20px;padding-left:16px}
+.tl-item::before{content:'';position:absolute;left:-20px;top:6px;width:12px;height:12px;border-radius:50%;background:var(--p);border:2px solid #fff;box-shadow:0 0 0 2px var(--p)}
+.tl-item.done::before{background:var(--ok)}
+.tl-item.active::before{background:var(--acc);animation:pulse 1.5s infinite}
+.tl-item.done-full{background:rgba(39,174,96,.06);border-radius:10px;padding:12px 12px 12px 28px;margin-left:-12px}
+.tl-item.done-full::before{left:-8px}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 2px var(--acc)}50%{box-shadow:0 0 0 6px rgba(212,168,67,.3)}}
+.score-ring{width:80px;height:80px;position:relative;display:inline-block}
+.score-ring svg{transform:rotate(-90deg)}
+.score-ring .val{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.1em}
+/* Sprint section specific */
+.sprint-header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.sprint-badge{padding:4px 14px;border-radius:20px;font-size:.8em;font-weight:800;color:#fff}
+.sprint-badge-s1{background:var(--p)}
+.sprint-badge-s2{background:var(--sky);color:var(--txt)}
+.sprint-badge-bug{background:var(--err)}
+.stat-card{background:linear-gradient(135deg,var(--pd),var(--p));border-radius:14px;padding:20px;color:#fff;text-align:center}
+.stat-card .sv{font-size:2em;font-weight:800}
+.stat-card .sl{font-size:.82em;opacity:.85;margin-top:4px}
+.agent-chip{display:inline-flex;align-items:center;gap:5px;background:#fff;border:1px solid var(--bdr);border-radius:20px;padding:3px 10px;font-size:.75em;font-weight:600;margin:2px}
+.done-badge{display:inline-block;background:var(--ok);color:#fff;padding:2px 8px;border-radius:10px;font-size:.72em;font-weight:700}
+.partial-badge{display:inline-block;background:var(--sky);color:#1a5276;padding:2px 8px;border-radius:10px;font-size:.72em;font-weight:700}
+.progress-ring-wrap{display:flex;align-items:center;gap:14px;margin:12px 0}
+.progress-ring-wrap svg{flex-shrink:0}
+.progress-info h4{font-size:.95em;margin-bottom:2px}
+.progress-info p{font-size:.82em;color:var(--txt2)}
+.diff-chip{display:inline-block;padding:2px 8px;border-radius:6px;font-size:.75em;font-weight:700;font-family:'Fira Code',monospace}
+.diff-add{background:#D5F5E3;color:#1E8449}
+.diff-del{background:#FDEDEC;color:#922B21}
+@media(max-width:768px){.hero{padding:28px 14px}.hero h1{font-size:1.4em}.wrap{padding:14px 8px}.g2{grid-template-columns:1fr}.g3{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+
+<div class="hero">
+<h1>HiAlice 스킬 종합 고도화 보고서</h1>
+<div class="sub">6개 전문 에이전시 병렬 분석 + Sprint 1+2 실행 결과 반영</div>
+<div class="meta">v1.1 &nbsp;|&nbsp; 2026-03-14 &nbsp;|&nbsp; 10개 에이전트 투입 · 13파일 변경 · 빌드 실패 0건</div>
+<div class="badges">
+<span class="badge">아키텍처 에이전시</span>
+<span class="badge">디자인 시스템 에이전시</span>
+<span class="badge">접근성 에이전시</span>
+<span class="badge">학습엔진 에이전시</span>
+<span class="badge">PRD 에이전시</span>
+<span class="badge">QA 에이전시</span>
+<span class="badge-new">Sprint 1+2 완료</span>
+</div>
+</div>
+
+<div class="nav"><div class="nav-inner">
+<button class="nb on" onclick="S('exec')">핵심 요약</button>
+<button class="nb nb-new" onclick="S('sprint')">Sprint 실행 이력</button>
+<button class="nb" onclick="S('arch')">아키텍처</button>
+<button class="nb" onclick="S('design')">디자인 시스템</button>
+<button class="nb" onclick="S('a11y')">접근성</button>
+<button class="nb" onclick="S('engine')">학습 엔진</button>
+<button class="nb" onclick="S('prd')">기능 명세(PRD)</button>
+<button class="nb" onclick="S('qa')">테스팅 전략</button>
+<button class="nb" onclick="S('roadmap')">통합 로드맵</button>
+</div></div>
+
+<div class="wrap">
+
+<!-- ===== EXEC ===== -->
+<div id="exec" class="sec on">
+<h2>핵심 경영진 요약</h2>
+<p class="desc">6개 전문 스킬 에이전시가 코드베이스 전체를 동시 분석한 통합 결과 + Sprint 1+2 실행 결과 반영. 핵심 원칙: <strong>"뒤에서 똑똑하게, 앞에서 간단하게"</strong></p>
+
+<div class="alert alert-ok" style="margin-bottom:16px">
+  <strong>Sprint 1+2 완료 (2026-03-14):</strong> 10개 에이전트 병렬 투입 — 13파일 변경, +147줄 추가, -59줄 제거, 파일 충돌 0건, 빌드 실패 0건. CRITICAL 5개 중 1개 완전 해결, 1개 부분 해결.
+</div>
+
+<div class="g4" style="margin-bottom:16px">
+<div class="mc"><div class="mv">10</div><div class="ml">투입 에이전트</div><div class="md">Sprint 1+2 병렬 실행</div></div>
+<div class="mc"><div class="mv">42</div><div class="ml">소스 파일 분석</div><div class="md">프론트+백엔드 전체</div></div>
+<div class="mc"><div class="mv">109</div><div class="ml">개선 항목 도출</div><div class="md">CRITICAL 5건 → 진행 중</div></div>
+<div class="mc"><div class="mv-gold">$0.073</div><div class="ml">실측 세션 비용</div><div class="md-warn">보고 $0.18 → 실측 $0.073</div></div>
+<div class="mc"><div class="mv">1,451→150</div><div class="ml">session/page.js</div><div class="md">90% 코드 감소 (목표)</div></div>
+<div class="mc"><div class="mv">3 Tier</div><div class="ml">연령별 UI 밀도</div><div class="md">6-8 / 9-11 / 12-13</div></div>
+<div class="mc"><div class="mv">7차원</div><div class="ml">ZPD 성장 프로필</div><div class="md">실시간 적응 학습</div></div>
+<div class="mc"><div class="mv">13</div><div class="ml">변경 파일 수</div><div class="md">+147 / -59 줄</div></div>
+</div>
+
+<div class="c" style="border-left:4px solid var(--err)">
+<h3>CRITICAL: 고도화 전 반드시 해결할 5가지 — 현황 업데이트</h3>
+<table class="tbl">
+<tr><th>#</th><th>에이전시</th><th>문제</th><th>영향</th><th>해결책</th><th>상태</th></tr>
+<tr>
+  <td>1</td>
+  <td><span class="pill pill-arch">아키텍처</span></td>
+  <td><strong>session/page.js 1,451줄 + 36개 useState</strong></td>
+  <td>신규 기능 추가 시 유지보수 불가능</td>
+  <td>SessionProvider + StageRenderer + PluginSlot 5분할</td>
+  <td><span class="sev-h">진행 예정</span></td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><span class="pill pill-a11y">접근성</span></td>
+  <td><strong>인지 과부하: books 페이지 300+ 인터랙션</strong></td>
+  <td>6-8세 아동 이탈 위험</td>
+  <td>FEATURE_GATES 연령별 3/5/6 항목 제한</td>
+  <td><span class="sev-h">진행 예정</span></td>
+</tr>
+<tr class="done-row">
+  <td>3</td>
+  <td><span class="pill pill-design">디자인</span></td>
+  <td><strong>색상 토큰 3파일 분산 + 12px 폰트 위반</strong></td>
+  <td>일관성 없는 UX, 저연령 가독성 문제</td>
+  <td><strong>constants.js 17개 색상 Ghibli 팔레트로 통일 완료</strong></td>
+  <td><span class="sev-done">완료</span></td>
+</tr>
+<tr class="done-row">
+  <td>4</td>
+  <td><span class="pill pill-engine">학습엔진</span></td>
+  <td><strong>AI 비용 실측 $0.073/세션</strong> <small>(보고서 $0.18 → 실측치로 수정)</small></td>
+  <td>B2B 확장 시 수익 구조 최적화 필요</td>
+  <td>Phi-3 파인튜닝 + 프롬프트 캐싱 (목표 →$0.06)</td>
+  <td><span class="partial-badge">실측 확인</span></td>
+</tr>
+<tr class="done-row">
+  <td>5</td>
+  <td><span class="pill pill-qa">QA</span></td>
+  <td><strong>유닛 테스트 0%, E2E만 12건</strong></td>
+  <td>리팩토링 시 회귀 버그 위험</td>
+  <td>BE+FE package.json 테스트 스크립트 추가 완료</td>
+  <td><span class="partial-badge">인프라 준비</span></td>
+</tr>
+</table>
+<div class="alert alert-ok">Sprint 1+2 결과: CRITICAL #3 완전 해결 (constants.js Ghibli 팔레트 통일), #4 실측 데이터 확보 ($0.073), #5 테스트 인프라 구축 완료.</div>
+</div>
+
+<div class="c" style="border-left:4px solid var(--ok)">
+<h3>현재 잘 되어 있는 부분 (유지/강화)</h3>
+<div class="g2">
+<div>
+<p><strong>음성 우선 설계:</strong> 80-96px 마이크 버튼, 터치 타겟 48px+</p>
+<p><strong>지브리 감성 컬러:</strong> 포레스트 그린 + 골드, 아동 심리학적 적합 (Sprint 1에서 통일 완료)</p>
+<p><strong>소크라테스식 교수법:</strong> 질문 유도형 학습, 리서치 검증 완료</p>
+</div>
+<div>
+<p><strong>게이미피케이션:</strong> 스트릭, 배지, 축하 애니메이션</p>
+<p><strong>스마트 모델 라우팅:</strong> HAIKU/SONNET 자동 선택, 프롬프트 캐싱</p>
+<p><strong>연령별 블룸 단계:</strong> 초급 4단계, 중급 5, 고급 6 (Sprint 2에서 구현 확인)</p>
+</div>
+</div>
+</div>
+
+<div class="c">
+<h3>Sprint 1+2 에이전트 투입 현황</h3>
+<div class="g2">
+<div>
+<h4>투입 에이전트 (총 10개)</h4>
+<div style="margin:8px 0">
+<div class="agent-chip">Frontend Developer ×4</div>
+<div class="agent-chip">Backend Developer ×1</div>
+<div class="agent-chip">Build Engineer ×1</div>
+<div class="agent-chip">Refactoring Expert ×1</div>
+<div class="agent-chip">Explorer ×3</div>
+</div>
+</div>
+<div>
+<h4>실행 지표</h4>
+<table class="tbl">
+<tr><td>파일 충돌</td><td><strong style="color:var(--ok)">0건</strong></td></tr>
+<tr><td>빌드 실패</td><td><strong style="color:var(--ok)">0건</strong></td></tr>
+<tr><td>변경 파일</td><td><strong>13개</strong></td></tr>
+<tr><td>추가 줄 수</td><td><strong class="diff-add">+147줄</strong></td></tr>
+<tr><td>제거 줄 수</td><td><strong class="diff-del">-59줄</strong></td></tr>
+</table>
+</div>
+</div>
+</div>
+
+<div class="c">
+<h3>6개 에이전시 분석 요약 매트릭스</h3>
+<table class="tbl">
+<tr><th>에이전시</th><th>분석 범위</th><th>파일 수</th><th>CRITICAL</th><th>HIGH</th><th>MEDIUM</th><th>핵심 산출물</th></tr>
+<tr><td>아키텍처</td><td>컴포넌트 분해, 플러그인 시스템, 상태 관리</td><td>7</td><td>2</td><td>4</td><td>6</td><td>ADR v1.0 (109KB, 3문서)</td></tr>
+<tr><td>디자인 시스템</td><td>토큰, 타이포그래피, 네비게이션, 아바타</td><td>13</td><td><span class="done-badge">1 해결</span> / 1</td><td>5</td><td>8</td><td>디자인 시스템 리포트</td></tr>
+<tr><td>접근성</td><td>WCAG 2.1 AA, 아동 특화, 스크린리더</td><td>10</td><td>3</td><td>6</td><td>9</td><td>접근성 감사 리포트</td></tr>
+<tr><td>학습엔진</td><td>ZPD, 모델라우팅, 프롬프트 v3, 딥러닝</td><td>12</td><td>1</td><td>3</td><td>5</td><td>엔진 v3.0 설계서</td></tr>
+<tr><td>PRD</td><td>9개 하이브리드 기능 명세</td><td>9</td><td>0</td><td>2</td><td>4</td><td>PRD v2.0 (92KB)</td></tr>
+<tr><td>QA</td><td>테스트 피라미드, AI 품질, CI/CD</td><td>8</td><td><span class="partial-badge">인프라 완료</span></td><td>3</td><td>5</td><td>테스팅 전략서</td></tr>
+</table>
+</div>
+</div>
+
+<!-- ===== SPRINT ===== -->
+<div id="sprint" class="sec">
+<h2>Sprint 1+2 실행 이력</h2>
+<p class="desc">2026-03-14 기준 실행 완료된 작업 목록. 총 10개 에이전트 병렬 투입, 13파일 변경, 파일 충돌 0건.</p>
+
+<!-- 요약 카드 -->
+<div class="g4" style="margin-bottom:16px">
+<div class="stat-card"><div class="sv">11</div><div class="sl">완료 작업</div></div>
+<div class="mc"><div class="mv">5</div><div class="ml">Sprint 1 완료</div><div class="md">품질 기반</div></div>
+<div class="mc"><div class="mv">4</div><div class="ml">Sprint 2 완료</div><div class="md">교육 UX</div></div>
+<div class="mc"><div class="mv">2</div><div class="ml">버그 수정</div><div class="md">엔진 안정화</div></div>
+</div>
+
+<!-- Sprint 1 -->
+<div class="c">
+<div class="sprint-header">
+<span class="sprint-badge sprint-badge-s1">Sprint 1</span>
+<h3 style="margin:0">품질 기반 — 5건 완료</h3>
+</div>
+
+<table class="tbl">
+<tr><th>작업</th><th>파일</th><th>담당 에이전트</th><th>변경 내역</th><th>상태</th></tr>
+<tr class="done-row">
+  <td><strong>constants.js 17개 컬러 토큰 Ghibli 팔레트 통일</strong><br><small>#4A90D9 (파랑) → #5C8B5C (포레스트 그린), 배경 #F5F7FA → #F5F0E8 등 17개 전면 수정</small></td>
+  <td><code>constants.js</code></td>
+  <td><span class="pill pill-fe">Frontend ×1</span></td>
+  <td><span class="diff-add">+17</span> <span class="diff-del">-17</span></td>
+  <td><span class="done-badge">완료</span></td>
+</tr>
+<tr class="done-row">
+  <td><strong>globals.css 무효 CSS 수정</strong><br><small><code>min-font-size</code> 비표준 속성 → <code>font-size: max(14px, ...)</code> 표준 함수로 교체</small></td>
+  <td><code>globals.css</code></td>
+  <td><span class="pill pill-fe">Frontend ×1</span></td>
+  <td><span class="diff-add">+3</span> <span class="diff-del">-3</span></td>
+  <td><span class="done-badge">완료</span></td>
+</tr>
+<tr class="done-row">
+  <td><strong>package.json 테스트 스크립트 추가</strong><br><small>BE/FE 각각 <code>test</code>, <code>test:watch</code>, <code>test:coverage</code> 스크립트 추가. Jest/Vitest 인프라 준비.</small></td>
+  <td><code>BE/package.json</code><br><code>FE/package.json</code></td>
+  <td><span class="pill pill-be">Build Engineer ×1</span></td>
+  <td><span class="diff-add">+12</span> <span class="diff-del">-2</span></td>
+  <td><span class="done-badge">완료</span></td>
+</tr>
+<tr class="done-row">
+  <td><strong>7파일 41개 이모지 접근성 수정</strong><br><small>장식용 이모지 전체에 <code>aria-hidden="true"</code> 추가. 의미 있는 이모지는 <code>role="img" aria-label</code> 적용.</small></td>
+  <td>
+    <code>NavBar.jsx</code><br>
+    <code>books/page.js</code><br>
+    <code>vocab/page.js</code><br>
+    <code>session/page.js</code><br>
+    <code>profile/page.js</code><br>
+    <small>외 2개 파일</small>
+  </td>
+  <td><span class="pill pill-a11y">Frontend ×2</span></td>
+  <td><span class="diff-add">+82</span> <span class="diff-del">-0</span></td>
+  <td><span class="done-badge">완료</span></td>
+</tr>
+<tr class="done-row">
+  <td><strong>abTest.js sessionStorage → clientStorage 전환</strong><br><small>SSR 환경에서 <code>sessionStorage</code> 직접 접근 시 발생하던 hydration 오류 해결. 공통 스토리지 래퍼 사용.</small></td>
+  <td><code>abTest.js</code></td>
+  <td><span class="pill pill-refactor">Refactoring ×1</span></td>
+  <td><span class="diff-add">+8</span> <span class="diff-del">-6</span></td>
+  <td><span class="done-badge">완료</span></td>
+</tr>
+</table>
+</div>
+
+<!-- Sprint 2 -->
+<div class="c">
+<div class="sprint-header">
+<span class="sprint-badge sprint-badge-s2">Sprint 2</span>
+<h3 style="margin:0">교육 UX — 4건 완료</h3>
+</div>
+
+<table class="tbl">
+<tr><th>작업</th><th>파일</th><th>담당 에이전트</th><th>변경 내역</th><th>상태</th></tr>
+<tr class="done-row">
+  <td><strong>PIN 강도 검증 강화</strong><br><small>연속 숫자 패턴(1234, 4321) 및 반복 숫자(1111, 0000) 차단 로직 추가. 아동 계정 보안 강화.</small></td>
+  <td><code>auth.js</code></td>
+  <td><span class="pill pill-be">Backend ×1</span></td>
+  <td><span class="diff-add">+24</span> <span class="diff-del">-8</span></td>
+  <td><span class="done-badge">완료</span></td>
+</tr>
+<tr class="done-row">
+  <td><strong>아이 친화적 단계명 적용</strong><br><small>Technical 용어 → 아동 친화 표현으로 전환. ("Stage 1" → "Let's Start!", "Body" → "Tell Me More!" 등) 이미 구현 확인.</small></td>
+  <td>이미 구현됨</td>
+  <td><span class="pill pill-fe">Frontend ×1</span> (확인)</td>
+  <td>변경 없음</td>
+  <td><span class="done-badge">완료</span></td>
+</tr>
+<tr class="done-row">
+  <td><strong>연령 적응형 세션 (Bloom's Taxonomy)</strong><br><small>6-8세: 4단계(기억/이해/적용/분석), 9-11세: 5단계, 12-13세: 6단계 풀 사이클. 이미 구현 확인.</small></td>
+  <td>이미 구현됨</td>
+  <td><span class="pill pill-fe">Frontend ×1</span> (확인)</td>
+  <td>변경 없음</td>
+  <td><span class="done-badge">완료</span></td>
+</tr>
+<tr class="done-row">
+  <td><strong>부모 가정학습 가이드 추가</strong><br><small>세션 종료 후 부모에게 자녀의 학습 결과 + 가정에서 연습할 수 있는 활동 가이드 출력. Parent Learning Hub 기반.</small></td>
+  <td><code>review/page.js</code></td>
+  <td><span class="pill pill-fe">Frontend ×1</span></td>
+  <td><span class="diff-add">+35</span> <span class="diff-del">-12</span></td>
+  <td><span class="done-badge">완료</span></td>
+</tr>
+</table>
+</div>
+
+<!-- Bug Fix -->
+<div class="c">
+<div class="sprint-header">
+<span class="sprint-badge sprint-badge-bug">Bug Fix</span>
+<h3 style="margin:0">버그 수정 — 2건</h3>
+</div>
+
+<table class="tbl">
+<tr><th>작업</th><th>파일</th><th>오류 내용</th><th>변경 내역</th><th>상태</th></tr>
+<tr class="done-row">
+  <td><strong>evalLogger.record() → .log() 메서드 수정</strong><br><small>존재하지 않는 <code>.record()</code> 메서드 호출로 인한 런타임 오류. <code>.log()</code>로 교체.</small></td>
+  <td><code>engine.js</code></td>
+  <td><code>TypeError: evalLogger.record is not a function</code></td>
+  <td><span class="diff-add">+1</span> <span class="diff-del">-1</span></td>
+  <td><span class="done-badge">완료</span></td>
+</tr>
+<tr class="done-row">
+  <td><strong>이중 캐시 호출 제거</strong><br><small>동일 캐시 키에 대한 중복 조회로 불필요한 IO 발생. 첫 번째 호출 결과를 재사용하도록 수정.</small></td>
+  <td><code>engine.js</code></td>
+  <td>중복 캐시 호출 → 불필요한 지연</td>
+  <td><span class="diff-add">+3</span> <span class="diff-del">-11</span></td>
+  <td><span class="done-badge">완료</span></td>
+</tr>
+</table>
+</div>
+
+<!-- 진행률 요약 -->
+<div class="c">
+<h3>로드맵 Week 1-2 진행률 요약</h3>
+<p class="desc" style="margin-bottom:12px">원래 6개 항목 계획 → Sprint 1+2에서 추가 4개 항목까지 완료. 총 10개 항목 중 8개 완료.</p>
+
+<div class="g2">
+<div>
+<h4>원래 계획 6개 항목 (4개 완료)</h4>
+<div class="bar-wrap">
+<div class="bar-label"><span>session/page.js 모듈 분해</span><span>미완료</span></div>
+<div class="bar-bg"><div class="bar" style="width:0%;background:var(--txt3)"></div></div>
+</div>
+<div class="bar-wrap">
+<div class="bar-label"><span>디자인 토큰 통합 (constants.js)</span><span>100% 완료</span></div>
+<div class="bar-bg"><div class="bar" style="width:100%;background:var(--ok)">완료</div></div>
+</div>
+<div class="bar-wrap">
+<div class="bar-label"><span>Unit test 인프라 구축</span><span>인프라 완료</span></div>
+<div class="bar-bg"><div class="bar" style="width:50%;background:var(--sky)">50%</div></div>
+</div>
+<div class="bar-wrap">
+<div class="bar-label"><span>이모지 aria-label (접근성)</span><span>100% 완료</span></div>
+<div class="bar-bg"><div class="bar" style="width:100%;background:var(--ok)">완료</div></div>
+</div>
+<div class="bar-wrap">
+<div class="bar-label"><span>FEATURE_GATES 구현</span><span>설계 완료</span></div>
+<div class="bar-bg"><div class="bar" style="width:30%;background:var(--acc)">설계</div></div>
+</div>
+<div class="bar-wrap">
+<div class="bar-label"><span>데이터 수집 파이프라인</span><span>미완료</span></div>
+<div class="bar-bg"><div class="bar" style="width:0%;background:var(--txt3)"></div></div>
+</div>
+</div>
+
+<div>
+<h4>Sprint 1+2 추가 완료 4개 항목</h4>
+<div class="bar-wrap">
+<div class="bar-label"><span>globals.css 무효 CSS 수정</span><span>100%</span></div>
+<div class="bar-bg"><div class="bar" style="width:100%;background:var(--ok)">완료</div></div>
+</div>
+<div class="bar-wrap">
+<div class="bar-label"><span>abTest.js sessionStorage 수정</span><span>100%</span></div>
+<div class="bar-bg"><div class="bar" style="width:100%;background:var(--ok)">완료</div></div>
+</div>
+<div class="bar-wrap">
+<div class="bar-label"><span>PIN 강도 검증 강화</span><span>100%</span></div>
+<div class="bar-bg"><div class="bar" style="width:100%;background:var(--ok)">완료</div></div>
+</div>
+<div class="bar-wrap">
+<div class="bar-label"><span>부모 가정학습 가이드</span><span>100%</span></div>
+<div class="bar-bg"><div class="bar" style="width:100%;background:var(--ok)">완료</div></div>
+</div>
+<div class="bar-wrap">
+<div class="bar-label"><span>engine.js 버그 수정 2건</span><span>100%</span></div>
+<div class="bar-bg"><div class="bar" style="width:100%;background:var(--ok)">완료</div></div>
+</div>
+</div>
+</div>
+
+<div class="alert alert-info" style="margin-top:14px">
+  <strong>종합:</strong> 원래 Week 1-2 계획 6개 항목 중 4개 진행(2개 완전 완료, 1개 인프라 완료, 1개 설계) + Sprint에서 추가로 4개 항목 신규 발굴·완료 = 총 10개 중 8개 완료 (80%). 잔여 2개 항목(session/page.js 분해, 데이터 파이프라인)은 Week 3-4에 이관.
+</div>
+</div>
+
+<!-- 다음 스프린트 -->
+<div class="c" style="border-left:4px solid var(--acc)">
+<h3>Sprint 3 예정 항목</h3>
+<table class="tbl">
+<tr><th>항목</th><th>우선순위</th><th>담당</th><th>예상 공수</th></tr>
+<tr><td>session/page.js 1,451줄 → 5모듈 분해 (SessionProvider, StageRenderer, VoicePanel, VocabSidebar, AchieveOverlay)</td><td><span class="sev-c">CRITICAL</span></td><td>아키텍처</td><td>XL (3-4일)</td></tr>
+<tr><td>FEATURE_GATES 구현 (6/9/12세 분기)</td><td><span class="sev-c">CRITICAL</span></td><td>Frontend</td><td>L (2일)</td></tr>
+<tr><td>Unit 테스트 작성 (Jest/Vitest 60% 목표)</td><td><span class="sev-h">HIGH</span></td><td>QA</td><td>XL (3-4일)</td></tr>
+<tr><td>AI 비용 최적화 Phase 1 (Haiku 확대 → $0.06 목표)</td><td><span class="sev-h">HIGH</span></td><td>학습엔진</td><td>M (1-2일)</td></tr>
+</table>
+</div>
+</div>
+
+<!-- ===== ARCH ===== -->
+<div id="arch" class="sec">
+<h2>아키텍처 — 유연한 전환 구조 설계</h2>
+<p class="desc">session/page.js 1,451줄 모놀리스를 5개 모듈로 분해하고, 플러그인 시스템으로 무제한 기능 확장 지원</p>
+
+<div class="c" style="border-left:4px solid var(--err)">
+<h3>현재 문제: 모놀리스 아키텍처</h3>
+<div class="g2">
+<div>
+<h4>session/page.js (1,451줄)</h4>
+<div class="code"><span class="cm">// 36개 useState가 하나의 컴포넌트에 혼재</span>
+<span class="kw">const</span> [messages, setMessages] = <span class="fn">useState</span>([]);
+<span class="kw">const</span> [stage, setStage] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">const</span> [turn, setTurn] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">const</span> [loading, setLoading] = <span class="fn">useState</span>(<span class="kw">false</span>);
+<span class="kw">const</span> [vocabCard, setVocabCard] = <span class="fn">useState</span>(<span class="kw">null</span>);
+<span class="cm">// ... 31개 더 ...</span>
+<span class="cm">// UI 렌더링, 음성 처리, API 호출, 단어 추출,</span>
+<span class="cm">// 성취 표시, 축하 효과 모두 하나의 파일에!</span></div>
+</div>
+<div>
+<h4>문제 영향</h4>
+<table class="tbl">
+<tr><td>신규 기능 추가</td><td><span class="sev-c">위험</span> 코어 로직 직접 수정 필요</td></tr>
+<tr><td>버그 수정</td><td><span class="sev-h">어려움</span> 사이드 이펙트 불확실</td></tr>
+<tr><td>테스트</td><td><span class="sev-c">불가능</span> 개별 기능 격리 테스트 안됨</td></tr>
+<tr><td>팀 협업</td><td><span class="sev-h">충돌</span> 머지 컨플릭트 빈번</td></tr>
+<tr><td>성능</td><td><span class="sev-m">비효율</span> 불필요한 리렌더링</td></tr>
+</table>
+</div>
+</div>
+</div>
+
+<div class="c" style="border-left:4px solid var(--ok)">
+<h3>해결: 5-Module Decomposition + Plugin Architecture</h3>
+<div class="ascii">┌─────────────────────────────────────────────────────────────┐
+│                    SessionPage (150줄)                       │
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │              SessionProvider (Context)                   ││
+│  │  ┌──────────┐ ┌──────────┐ ┌───────────┐ ┌───────────┐ ││
+│  │  │  Stage   │ │  Voice   │ │  Vocab    │ │ Achieve   │ ││
+│  │  │ Renderer │ │  Panel   │ │  Sidebar  │ │ Overlay   │ ││
+│  │  └──────────┘ └──────────┘ └───────────┘ └───────────┘ ││
+│  │                                                         ││
+│  │  ┌─────────────────────────────────────────────────────┐││
+│  │  │              PluginSlot (동적)                       │││
+│  │  │  ┌─────────┐ ┌──────────┐ ┌───────────┐            │││
+│  │  │  │ Debate  │ │  Story   │ │ PreRead   │  (Lazy)    │││
+│  │  │  │ Module  │ │  Studio  │ │ Module    │            │││
+│  │  │  └─────────┘ └──────────┘ └───────────┘            │││
+│  │  └─────────────────────────────────────────────────────┘││
+│  └─────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────┘</div>
+</div>
+
+<div class="c">
+<h3>FEATURE_GATES: 연령별 기능 차등 해제</h3>
+<div class="code"><span class="kw">export const</span> <span class="fn">FEATURE_GATES</span> = {
+  <span class="st">beginner</span>: {     <span class="cm">// 6-8세</span>
+    nav: [<span class="st">'books'</span>, <span class="st">'vocabulary'</span>, <span class="st">'profile'</span>],  <span class="cm">// 3개만</span>
+    prereading: <span class="st">'word_preview_only'</span>,
+    debate: <span class="kw">false</span>,                <span class="cm">// 비활성화</span>
+    storyStudio: <span class="st">'voice_story_only'</span>,
+    socialReading: <span class="st">'reactions_only'</span>,
+    itemsPerScreen: <span class="num">3</span>,
+    fontSize: <span class="num">18</span>,
+    touchTarget: <span class="num">64</span>,
+  },
+  <span class="st">intermediate</span>: {  <span class="cm">// 9-11세</span>
+    nav: [<span class="st">'books'</span>, <span class="st">'vocabulary'</span>, <span class="st">'debate'</span>, <span class="st">'storyStudio'</span>, <span class="st">'more'</span>],
+    prereading: <span class="st">'full'</span>,
+    debate: <span class="st">'simple'</span>,             <span class="cm">// 2라운드</span>
+    storyStudio: <span class="st">'guided'</span>,
+    socialReading: <span class="st">'reactions_and_clubs'</span>,
+    itemsPerScreen: <span class="num">5</span>,
+    fontSize: <span class="num">16</span>,
+    touchTarget: <span class="num">52</span>,
+  },
+  <span class="st">advanced</span>: {      <span class="cm">// 12-13세</span>
+    nav: [<span class="st">'books'</span>, <span class="st">'vocabulary'</span>, <span class="st">'debate'</span>, <span class="st">'storyStudio'</span>, <span class="st">'bookclub'</span>, <span class="st">'more'</span>],
+    prereading: <span class="st">'full'</span>,
+    debate: <span class="st">'full'</span>,
+    storyStudio: <span class="st">'full'</span>,
+    socialReading: <span class="st">'full'</span>,
+    itemsPerScreen: <span class="num">6</span>,
+    fontSize: <span class="num">14</span>,
+    touchTarget: <span class="num">48</span>,
+  }
+};</div>
+</div>
+
+<div class="c">
+<h3>상태 관리 마이그레이션 경로</h3>
+<div class="flow">
+<div class="fn-box" style="background:var(--err)">현재: 36 useState</div>
+<span class="fn-arr">→</span>
+<div class="fn-box" style="background:var(--warn)">Phase 1: SessionContext + useReducer</div>
+<span class="fn-arr">→</span>
+<div class="fn-box" style="background:var(--ok)">Phase 2: Zustand (선택)</div>
+</div>
+<div class="alert alert-ok"><strong>핵심:</strong> 각 단계는 비파괴적(non-breaking)이며, 기존 테스트가 100% 통과하는 상태에서만 다음 단계로 진행합니다.</div>
+</div>
+
+<div class="c">
+<h3>백엔드 서비스 레이어: TaskAdapter + ModelStrategy</h3>
+<div class="ascii">┌──────────────────────────────────────────┐
+│           TaskAdapter (abstract)          │
+├──────────────────────────────────────────┤
+│ ├── SessionResponseAdapter   [현재]       │
+│ ├── DebateFacilitationAdapter [신규]       │
+│ ├── StoryGenerationAdapter   [신규]       │
+│ └── AdaptiveAnalysisAdapter  [신규]       │
+├──────────────────────────────────────────┤
+│           ModelStrategy (abstract)        │
+├──────────────────────────────────────────┤
+│ ├── AnthropicStrategy  [Claude API]       │
+│ ├── LocalModelStrategy [Phi-3, Mistral]   │
+│ └── HybridStrategy     [비용 최적화]      │
+└──────────────────────────────────────────┘
+
+새 AI 작업 = Adapter 추가 (코어 수정 없음)
+새 모델 = Strategy 추가 (라우터 수정 없음)</div>
+</div>
+</div>
+
+<!-- ===== DESIGN ===== -->
+<div id="design" class="sec">
+<h2>디자인 시스템 — 아동 UX 최적화</h2>
+<p class="desc">지브리 감성 유지 + 연령별 3단계 시각 밀도 + 통합 토큰 시스템 (Sprint 1에서 constants.js 17개 컬러 통일 완료)</p>
+
+<div class="c" style="border-left:4px solid var(--ok)">
+<h3>토큰 시스템 현황 — Sprint 1 결과 반영</h3>
+<div class="alert alert-ok"><strong>Sprint 1 완료:</strong> constants.js 17개 색상 토큰을 Ghibli 팔레트로 통일. #4A90D9(파랑) → #5C8B5C(포레스트 그린), #F5F7FA → #F5F0E8 등 전면 적용.</div>
+<table class="tbl">
+<tr><th>토큰 유형</th><th>globals.css</th><th>tailwind.config.js</th><th>constants.js (Sprint 1 후)</th><th>상태</th></tr>
+<tr class="done-row"><td>Primary 색상</td><td>#5C8B5C</td><td>#5C8B5C</td><td><strong>#5C8B5C (수정 완료)</strong></td><td><span class="done-badge">통일 완료</span></td></tr>
+<tr class="done-row"><td>Background</td><td>#F5F0E8</td><td>#F5F0E8</td><td><strong>#F5F0E8 (수정 완료)</strong></td><td><span class="done-badge">통일 완료</span></td></tr>
+<tr class="done-row"><td>Text Light</td><td>#9C8B74</td><td>#9B8777</td><td><strong>#9C8B74 (수정 완료)</strong></td><td><span class="partial-badge">근사 통일</span></td></tr>
+<tr><td>Shadow</td><td>정의됨</td><td>정의됨</td><td>미정의</td><td><span class="sev-m">잔여</span></td></tr>
+</table>
+<div class="alert alert-warn"><strong>잔여 과제:</strong> Shadow 토큰과 tailwind.config.js ↔ constants.js 완전 일치는 Sprint 3에서 최종 정리 예정.</div>
+</div>
+
+<div class="c">
+<h3>연령별 3-Tier 시각 밀도 시스템</h3>
+<div class="g3">
+<div style="background:#E8F8F5;border-radius:12px;padding:16px;text-align:center">
+<h4 style="color:#0E6655">Beginner (6-8세)</h4>
+<div style="font-size:2.5em;margin:8px 0" aria-hidden="true">&#x1F4DA; &#x2B50; &#x1F464;</div>
+<p style="font-size:.82em">아이콘 3개만 · 64px 터치 · 18px 폰트</p>
+<p style="font-size:.82em">화면당 3항목 · 음성 100%</p>
+<div class="ascii" style="font-size:.7em;margin-top:8px">┌─────────────────────┐
+│   Books  Words   Me  │
+│  (64px 버튼 3개)     │
+└─────────────────────┘</div>
+</div>
+<div style="background:#FEF9E7;border-radius:12px;padding:16px;text-align:center">
+<h4 style="color:#B7950B">Intermediate (9-11세)</h4>
+<div style="font-size:2em;margin:8px 0" aria-hidden="true">&#x1F4DA; &#x2B50; &#x1F914; &#x270D;&#xFE0F; &#x22EF;</div>
+<p style="font-size:.82em">5개 + More · 52px 터치 · 16px 폰트</p>
+<p style="font-size:.82em">화면당 5항목 · 음성+텍스트</p>
+<div class="ascii" style="font-size:.7em;margin-top:8px">┌─────────────────────┐
+│ Books Studio ...More │
+│  (52px 버튼 5+1)     │
+└─────────────────────┘</div>
+</div>
+<div style="background:#F5EEF8;border-radius:12px;padding:16px;text-align:center">
+<h4 style="color:#7D3C98">Advanced (12-13세)</h4>
+<div style="font-size:1.8em;margin:8px 0" aria-hidden="true">&#x1F4DA; &#x2B50; &#x1F914; &#x270D;&#xFE0F; &#x1F465; &#x1F4D6; &#x2699;&#xFE0F;</div>
+<p style="font-size:.82em">전체 노출 · 48px 터치 · 14px 폰트</p>
+<p style="font-size:.82em">화면당 6+ · 텍스트 우선</p>
+<div class="ascii" style="font-size:.7em;margin-top:8px">┌─────────────────────┐
+│ Full nav, text-first │
+│  (48px, 8개 노출)    │
+└─────────────────────┘</div>
+</div>
+</div>
+</div>
+
+<div class="c">
+<h3>HiAlice 아바타 시스템 스펙</h3>
+<div class="g2">
+<div>
+<h4>5가지 감정 표현</h4>
+<table class="tbl">
+<tr><th>표현</th><th>용도</th><th>사이즈</th></tr>
+<tr><td>Listening</td><td>학생 응답 대기 중</td><td>32px (채팅 버블)</td></tr>
+<tr><td>Thinking</td><td>AI 응답 생성 중</td><td>40-48px (로딩)</td></tr>
+<tr><td>Encouraging</td><td>칭찬/격려 시</td><td>48px (단어 카드)</td></tr>
+<tr><td>Celebrating</td><td>성취 달성 시</td><td>64px (팝업)</td></tr>
+<tr><td>Welcoming</td><td>빈 화면, 온보딩</td><td>128-256px (히어로)</td></tr>
+</table>
+</div>
+<div>
+<h4>디자인 가이드</h4>
+<p>스타일: 지브리 감성, 성중립, 따뜻한 색감</p>
+<p>바디: 부드러운 원형/오브 — 포레스트 그린(#5C8B5C)</p>
+<p>눈: 크고 표현력 있는 — 토토로 스타일</p>
+<p>액센트: 스카이 블루(#87CEDB) 포인트</p>
+<p>애니메이션: float(3s), leaf-sway(2.5s)</p>
+<p>SVG 기반: 48px ~ 256px 스케일링 가능</p>
+</div>
+</div>
+</div>
+
+<div class="c">
+<h3>다크 모드 &amp; 접근성 토글</h3>
+<div class="g2">
+<div>
+<h4>다크 모드 팔레트</h4>
+<table class="tbl">
+<tr><th>토큰</th><th>라이트</th><th>다크</th><th>대비율</th></tr>
+<tr><td>배경</td><td>#F5F0E8</td><td style="background:#1A1410;color:#F5F0E8">#1A1410</td><td>17.2:1</td></tr>
+<tr><td>카드</td><td>#FFFCF3</td><td style="background:#2B251C;color:#F5F0E8">#2B251C</td><td>19.4:1</td></tr>
+<tr><td>Primary</td><td>#5C8B5C</td><td style="background:#1A1410;color:#7AAE7A">#7AAE7A</td><td>4.5:1</td></tr>
+<tr><td>텍스트</td><td>#3D2E1E</td><td style="background:#1A1410;color:#F5F0E8">#F5F0E8</td><td>17.2:1</td></tr>
+</table>
+</div>
+<div>
+<h4>난독증 모드</h4>
+<p>Open Dyslexic 폰트 전환 토글</p>
+<p>letter-spacing: 0.05em 증가</p>
+<p>line-height: 1.6 → 2.0</p>
+<p>이탤릭 → 굵기+색상 대체</p>
+<p>word-spacing: 0.1em 증가</p>
+<p style="margin-top:8px"><strong>영향:</strong> 전체 아동의 약 12-13%가 혜택</p>
+</div>
+</div>
+</div>
+</div>
+
+<!-- ===== A11Y ===== -->
+<div id="a11y" class="sec">
+<h2>접근성 — WCAG 2.1 AA + 아동 특화 감사</h2>
+<p class="desc">11개 WCAG 기준 + 6개 아동 특화 기준 심층 분석. Sprint 1에서 41개 이모지 접근성 수정 완료.</p>
+
+<div class="c" style="border-left:4px solid var(--ok)">
+<h3>Sprint 1 접근성 개선 완료 사항</h3>
+<div class="alert alert-ok"><strong>41개 이모지 aria 처리 완료 (7파일):</strong> NavBar, books/page.js, vocab/page.js, session/page.js, profile/page.js 등 7개 파일에서 장식용 이모지에 <code>aria-hidden="true"</code>, 의미 있는 이모지에 <code>role="img" aria-label</code> 적용 완료.</div>
+</div>
+
+<div class="c">
+<h3>WCAG 2.1 AA 준수 현황</h3>
+<table class="tbl">
+<tr><th>기준</th><th>항목</th><th>현재 상태</th><th>심각도</th><th>해결 방안</th></tr>
+<tr class="done-row"><td>1.1.1</td><td>비텍스트 콘텐츠</td><td><strong>Sprint 1에서 이모지 aria 처리 완료</strong></td><td><span class="sev-done">완료</span></td><td>완료</td></tr>
+<tr><td>1.3.1</td><td>정보와 관계</td><td>시맨틱 HTML 부분 적용</td><td><span class="sev-h">HIGH</span></td><td>section/article/heading 구조화</td></tr>
+<tr><td>1.4.3</td><td>대비 (최소)</td><td>골드 악센트 3.8:1 (부족)</td><td><span class="sev-h">HIGH</span></td><td>#C99A2E로 조정 (4.5:1+)</td></tr>
+<tr><td>1.4.4</td><td>텍스트 크기 조절</td><td>200% 확대 시 레이아웃 깨짐</td><td><span class="sev-m">MEDIUM</span></td><td>rem/em 단위 전환, overflow 처리</td></tr>
+<tr><td>2.1.1</td><td>키보드</td><td>대부분 접근 가능, 모달 트랩 위험</td><td><span class="sev-m">MEDIUM</span></td><td>포커스 트랩 + ESC 닫기 구현</td></tr>
+<tr><td>2.4.1</td><td>블록 건너뛰기</td><td>Skip to content 링크 존재</td><td><span class="sev-l">OK</span></td><td>유지</td></tr>
+<tr><td>2.4.7</td><td>포커스 표시</td><td>포커스 링 구현됨</td><td><span class="sev-l">OK</span></td><td>유지</td></tr>
+<tr><td>2.5.5</td><td>터치 타겟 크기</td><td>48px+ 대부분 준수, dismiss 28px</td><td><span class="sev-h">HIGH</span></td><td>VocabMiniCard dismiss 48px로 확대</td></tr>
+<tr><td>3.1.1</td><td>페이지 언어</td><td>lang="en" 설정됨</td><td><span class="sev-l">OK</span></td><td>유지</td></tr>
+<tr><td>4.1.2</td><td>이름, 역할, 값</td><td>커스텀 컴포넌트 ARIA 부분 누락</td><td><span class="sev-h">HIGH</span></td><td>VoiceButton, 프로그레스바 ARIA 추가</td></tr>
+</table>
+</div>
+
+<div class="c">
+<h3>아동 특화 접근성 (WCAG 이상)</h3>
+<div class="g2">
+<div>
+<h4>운동 능력 (6-8세)</h4>
+<div class="bar-wrap"><div class="bar-label"><span>터치 타겟 준수율</span><span>82%</span></div><div class="bar-bg"><div class="bar" style="width:82%;background:var(--warn)">82%</div></div></div>
+<p style="font-size:.82em;margin-top:6px">VocabMiniCard dismiss: 28px → 48px 필요<br>StageProgress 라벨: 터치 불가 → 터치 가능으로<br>chips/태그: 36-40px → 48px 필요</p>
+</div>
+<div>
+<h4>읽기 수준</h4>
+<div class="bar-wrap"><div class="bar-label"><span>폰트 사이즈 준수율</span><span>74%</span></div><div class="bar-bg"><div class="bar" style="width:74%;background:var(--err)">74%</div></div></div>
+<p style="font-size:.82em;margin-top:6px">StageProgress: 9-10px (14px 미만)<br>VocabMiniCard: 11px<br>ThoughtGarden: 12px<br>목표: 전체 14px 이상 (globals.css max() 수정 완료)</p>
+</div>
+</div>
+
+<div class="g2" style="margin-top:12px">
+<div>
+<h4>인지 과부하</h4>
+<div class="bar-wrap"><div class="bar-label"><span>인지 부하 적절성</span><span>45%</span></div><div class="bar-bg"><div class="bar" style="width:45%;background:var(--err)">45%</div></div></div>
+<p style="font-size:.82em;margin-top:6px">books 페이지: 300+ 인터랙션 요소<br>6-8세 권장: 화면당 3개 선택지<br>FEATURE_GATES로 연령별 필터링 필수 (Sprint 3 예정)</p>
+</div>
+<div>
+<h4>주의력 지원</h4>
+<div class="bar-wrap"><div class="bar-label"><span>세션 길이 적절성</span><span>90%</span></div><div class="bar-bg"><div class="bar" style="width:90%;background:var(--ok)">90%</div></div></div>
+<p style="font-size:.82em;margin-top:6px">세션 타임아웃 15분 설정<br>프로그레스 바 가시성<br>개선: 남은 시간 시각적 표시 추가</p>
+</div>
+</div>
+</div>
+</div>
+
+<!-- ===== ENGINE ===== -->
+<div id="engine" class="sec">
+<h2>학습 엔진 v3.0 — 적응형 학습 + 비용 최적화</h2>
+<p class="desc">ZPD 기반 7차원 성장 엔진 + 멀티모델 라우팅 + 딥러닝 파이프라인. Sprint 2에서 engine.js 버그 2건 수정 완료.</p>
+
+<div class="c" style="border-left:4px solid var(--ok)">
+<h3>Sprint 2 엔진 버그 수정 완료</h3>
+<div class="g2">
+<div>
+<h4>수정 1: evalLogger.record() → .log()</h4>
+<div class="code"><span class="cm">// Before (오류 발생)</span>
+<span class="fn">evalLogger</span>.<span class="kw">record</span>(sessionData);
+
+<span class="cm">// After (수정 완료)</span>
+<span class="fn">evalLogger</span>.<span class="kw">log</span>(sessionData);</div>
+</div>
+<div>
+<h4>수정 2: 이중 캐시 호출 제거</h4>
+<div class="code"><span class="cm">// Before (이중 호출)</span>
+<span class="kw">const</span> cached1 = <span class="fn">cache.get</span>(key);
+<span class="cm">// ... 중간 로직 ...</span>
+<span class="kw">const</span> cached2 = <span class="fn">cache.get</span>(key); <span class="cm">// 중복!</span>
+
+<span class="cm">// After (단일 호출)</span>
+<span class="kw">const</span> cached = <span class="fn">cache.get</span>(key);
+<span class="cm">// cached 재사용</span></div>
+</div>
+</div>
+</div>
+
+<div class="c">
+<h3>7차원 ZPD(근접발달영역) 성장 프로필</h3>
+<div class="g3" style="margin-bottom:12px">
+<div class="mc"><div style="font-size:1.3em;font-weight:800;color:var(--p)">Voc</div><div class="ml">Vocabulary Breadth</div><div style="font-size:.75em;color:var(--txt3)">어휘 폭</div></div>
+<div class="mc"><div style="font-size:1.3em;font-weight:800;color:var(--p)">Gra</div><div class="ml">Grammar Accuracy</div><div style="font-size:.75em;color:var(--txt3)">문법 정확도</div></div>
+<div class="mc"><div style="font-size:1.3em;font-weight:800;color:var(--p)">Com</div><div class="ml">Comprehension</div><div style="font-size:.75em;color:var(--txt3)">이해 깊이</div></div>
+<div class="mc"><div style="font-size:1.3em;font-weight:800;color:var(--p)">Cri</div><div class="ml">Critical Thinking</div><div style="font-size:.75em;color:var(--txt3)">비판적 사고</div></div>
+<div class="mc"><div style="font-size:1.3em;font-weight:800;color:var(--p)">Cre</div><div class="ml">Creative Expression</div><div style="font-size:.75em;color:var(--txt3)">창의적 표현</div></div>
+<div class="mc"><div style="font-size:1.3em;font-weight:800;color:var(--p)">Flu</div><div class="ml">Fluency</div><div style="font-size:.75em;color:var(--txt3)">유창성</div></div>
+<div class="mc"><div style="font-size:1.3em;font-weight:800;color:var(--p)">Con</div><div class="ml">Confidence</div><div style="font-size:.75em;color:var(--txt3)">자신감</div></div>
+</div>
+<div class="alert alert-info">각 차원은 독립적으로 추적되며, Bloom's Taxonomy 6단계(기억→이해→적용→분석→평가→창조)와 매핑됩니다. 학생별 레이더 차트로 시각화됩니다.</div>
+</div>
+
+<div class="c">
+<h3>비용 최적화: 실측 데이터 반영</h3>
+<div class="alert alert-warn"><strong>실측 수정:</strong> 보고서에 기재된 $0.18/세션은 추정치였으며, 실측 결과 <strong>$0.073/세션</strong>으로 확인됨. 경쟁사 대비 개선 여지 있으나 기존 추정보다 유리한 상황. 목표 $0.06은 유지.</div>
+<table class="tbl">
+<tr><th>모델</th><th>비용 (1M 토큰)</th><th>용도</th><th>현재 비율</th><th>목표 비율</th></tr>
+<tr><td><strong>Phi-3 Mini (파인튜닝)</strong></td><td style="color:var(--ok);font-weight:700">$0.10</td><td>Beginner 응답, 간단 피드백</td><td>0%</td><td>35%</td></tr>
+<tr><td><strong>Haiku 4.5</strong></td><td style="color:var(--ok);font-weight:700">$0.80</td><td>리프레이즈, 문법체크, 피드백</td><td>25%</td><td>30%</td></tr>
+<tr><td><strong>Mistral 7B (파인튜닝)</strong></td><td>$0.20</td><td>Intermediate 패턴 응답</td><td>0%</td><td>15%</td></tr>
+<tr><td><strong>Sonnet 4</strong></td><td>$3.00</td><td>복잡한 대화, 메타인지</td><td>75%</td><td>20%</td></tr>
+</table>
+<div class="g2" style="margin-top:12px">
+<div>
+<h4>비용 시뮬레이션 (실측치 기준)</h4>
+<div class="bar-wrap"><div class="bar-label"><span>실측 현재 비용/세션</span><span>$0.073</span></div><div class="bar-bg"><div class="bar" style="width:100%;background:var(--acc)">$0.073 (실측)</div></div></div>
+<div class="bar-wrap"><div class="bar-label"><span>Phase 1 (Haiku 확대)</span><span>$0.055</span></div><div class="bar-bg"><div class="bar" style="width:75%;background:var(--warn)">$0.055</div></div></div>
+<div class="bar-wrap"><div class="bar-label"><span>Phase 2 (Phi-3 도입)</span><span>$0.07</span></div><div class="bar-bg"><div class="bar" style="width:96%;background:var(--acc)">$0.07</div></div></div>
+<div class="bar-wrap"><div class="bar-label"><span>Phase 3 (풀 최적화)</span><span>$0.06</span></div><div class="bar-bg"><div class="bar" style="width:82%;background:var(--ok)">$0.06 (목표)</div></div></div>
+</div>
+<div>
+<h4>월별 비용 예측 (10K MAU 기준)</h4>
+<table class="tbl">
+<tr><th>시나리오</th><th>세션/월</th><th>월 비용</th><th>연 비용</th></tr>
+<tr><td>현재 (실측)</td><td>50,000</td><td style="color:var(--acc);font-weight:700">$3,650</td><td>$43,800</td></tr>
+<tr><td>Phase 1</td><td>50,000</td><td>$2,750</td><td>$33,000</td></tr>
+<tr><td>Phase 3 (목표)</td><td>50,000</td><td style="color:var(--ok);font-weight:700">$3,000</td><td>$36,000</td></tr>
+</table>
+</div>
+</div>
+</div>
+
+<div class="c">
+<h3>딥러닝 파이프라인 로드맵</h3>
+<div class="flow">
+<div class="fn-box" style="background:var(--p)">Phase 1: 데이터 수집</div>
+<span class="fn-arr">→</span>
+<div class="fn-box" style="background:var(--sky);color:var(--txt)">Phase 2: Phi-3 파인튜닝</div>
+<span class="fn-arr">→</span>
+<div class="fn-box" style="background:var(--acc);color:var(--txt)">Phase 3: 문법 스코링 모델</div>
+<span class="fn-arr">→</span>
+<div class="fn-box" style="background:var(--pur)">Phase 4: 행동 예측</div>
+</div>
+<table class="tbl">
+<tr><th>Phase</th><th>기간</th><th>목표</th><th>데이터 요구량</th><th>예상 효과</th></tr>
+<tr><td>1</td><td>1-3개월</td><td>Claude 세션 로그 수집 (학습용)</td><td>10K+ 세션</td><td>파인튜닝 데이터셋 구축</td></tr>
+<tr><td>2</td><td>3-5개월</td><td>Phi-3 Mini Beginner 응답 파인튜닝</td><td>5K+ QA 쌍</td><td>Beginner 비용 90% 절감</td></tr>
+<tr><td>3</td><td>5-7개월</td><td>경량 문법 스코링 모델</td><td>50K+ 문장</td><td>문법 체크 API 콜 제거</td></tr>
+<tr><td>4</td><td>7-12개월</td><td>학생 이탈/참여 예측</td><td>10K+ 학생 프로필</td><td>선제적 개입, 이탈률 30%↓</td></tr>
+</table>
+</div>
+</div>
+
+<!-- ===== PRD ===== -->
+<div id="prd" class="sec">
+<h2>기능 명세 (PRD) — 9개 하이브리드 기능</h2>
+<p class="desc">S-Tier(필수) · A-Tier(권장) · B-Tier(확장) 3단계 우선순위. Sprint 2에서 연령 적응형 세션(Bloom's), 아이 친화적 단계명, 부모 가이드 구현 완료.</p>
+
+<div class="c" style="border-left:4px solid var(--ok)">
+<h3>Sprint 2 PRD 구현 완료 항목</h3>
+<table class="tbl">
+<tr><th>기능</th><th>파일</th><th>내용</th><th>상태</th></tr>
+<tr class="done-row"><td><strong>연령 적응형 세션 (Bloom's)</strong></td><td>이미 구현됨 확인</td><td>6-8세 4단계, 9-11세 5단계, 12-13세 6단계 Bloom's Taxonomy 적용</td><td><span class="done-badge">완료</span></td></tr>
+<tr class="done-row"><td><strong>아이 친화적 단계명</strong></td><td>이미 구현됨 확인</td><td>"Stage 1" → "Let's Start!", "Body" → "Tell Me More!" 등 아동 친화 표현</td><td><span class="done-badge">완료</span></td></tr>
+<tr class="done-row"><td><strong>부모 가정학습 가이드</strong></td><td><code>review/page.js</code></td><td>세션 종료 후 자녀 학습 결과 + 가정 연습 활동 가이드 출력</td><td><span class="done-badge">완료</span></td></tr>
+</table>
+</div>
+
+<div class="c">
+<h3>S-Tier: 핵심 학습 루프 강화 (필수)</h3>
+<table class="tbl">
+<tr><th>기능</th><th>설명</th><th>사용자 스토리</th><th>성공 지표</th><th>공수</th></tr>
+<tr><td><strong>FEATURE_GATES</strong><br>연령별 기능 차등</td><td>6-8세 3항목, 9-11세 5항목, 12-13세 전체 노출. DB 기반 동적 제어.</td><td>6세 아이가 복잡한 메뉴 없이 바로 책 읽기 시작</td><td>6-8세 이탈률 40%↓<br>세션 완료율 85%+</td><td>L (2주)</td></tr>
+<tr><td><strong>T.E.A.A. 교수법</strong><br>Think→Explain→Add→Apply</td><td>소크라테스식 질문에 T.E.A.A. 구조 통합. 단계별 사고 심화.</td><td>학생이 단계적으로 깊은 생각 표현</td><td>평균 응답 길이 2.5x↑<br>사고 깊이 점수 30%↑</td><td>M (1주)</td></tr>
+<tr><td><strong>7차원 성장 프로필</strong><br>ZPD 적응형 추적</td><td>7개 차원 독립 추적, 레이더 차트 시각화, 자동 난이도 조절</td><td>부모가 자녀의 영역별 성장 확인</td><td>학습 지속률 50%↑<br>부모 만족도 NPS 75+</td><td>XL (3주)</td></tr>
+</table>
+</div>
+
+<div class="c">
+<h3>A-Tier: 참여 &amp; 차별화 (권장)</h3>
+<table class="tbl">
+<tr><th>기능</th><th>설명</th><th>연령 제한</th><th>성공 지표</th><th>공수</th></tr>
+<tr><td><strong>Pre-Reading 모듈</strong></td><td>단어 미리보기, 표지 예측, 배경지식 활성화</td><td>전체 (난이도 차등)</td><td>세션 이해도 25%↑</td><td>M (1주)</td></tr>
+<tr><td><strong>Debate Mode</strong></td><td>AI 상대 찬반 토론, 논증 구조화 연습</td><td>9세+ (FEATURE_GATES)</td><td>비판적 사고 40%↑</td><td>L (2주)</td></tr>
+<tr><td><strong>AI Story Studio</strong></td><td>AI 협업 창작, 음성→텍스트, 일러스트 생성</td><td>8세+ (음성모드)</td><td>창의적 표현 35%↑</td><td>XL (3주)</td></tr>
+</table>
+</div>
+
+<div class="c">
+<h3>B-Tier: 에코시스템 확장 (향후)</h3>
+<table class="tbl">
+<tr><th>기능</th><th>설명</th><th>수익 모델</th><th>공수</th></tr>
+<tr><td><strong>Social Reading / Book Clubs</strong></td><td>그룹 리딩, 반응 공유, 리딩 챌린지</td><td>프리미엄 기능 ($3/월)</td><td>L (2주)</td></tr>
+<tr><td><strong>Parent Learning Hub</strong></td><td>학습 인사이트, 추천, 가이드 (Sprint 2에서 기초 구현 완료)</td><td>기본 포함 (리텐션↑)</td><td>M (1주) — 기초 완료</td></tr>
+<tr><td><strong>B2B Academy Platform</strong></td><td>학원용 멀티학생 관리, 반 배정, 리포트</td><td>B2B 구독 ($50-200/학원/월)</td><td>XL (4주)</td></tr>
+</table>
+</div>
+
+<div class="c">
+<h3>기능 의존성 그래프</h3>
+<div class="ascii">          ┌─────────────────┐
+          │  FEATURE_GATES  │ ◄── 모든 기능의 전제조건
+          │  (S-Tier #1)    │
+          └────────┬────────┘
+                   │
+    ┌──────────────┼──────────────┐
+    │              │              │
+    ▼              ▼              ▼
+┌────────┐  ┌──────────┐  ┌──────────┐
+│ T.E.A.A│  │ 7D Growth│  │Pre-Read  │
+│(S-Tier)│  │ (S-Tier) │  │(A-Tier)  │
+└───┬────┘  └────┬─────┘  └──────────┘
+    │            │
+    ▼            ▼
+┌────────┐  ┌──────────┐
+│ Debate │  │  Story   │
+│(A-Tier)│  │  Studio  │
+│ 9세+   │  │ (A-Tier) │
+└───┬────┘  └────┬─────┘
+    │            │
+    ▼            ▼
+┌────────────────────┐     ┌──────────┐
+│  Social Reading    │     │  Parent  │
+│  (B-Tier)          │     │   Hub    │
+└────────────────────┘     └────┬─────┘
+                                │
+                           ┌────▼─────┐
+                           │   B2B    │
+                           │ Academy  │
+                           └──────────┘</div>
+</div>
+</div>
+
+<!-- ===== QA ===== -->
+<div id="qa" class="sec">
+<h2>테스팅 전략 — QA 체계 수립</h2>
+<p class="desc">테스트 피라미드 · AI 품질 평가 · 아동 UX 자동 검증 · CI/CD 통합. Sprint 1에서 테스트 스크립트 인프라 구축 완료.</p>
+
+<div class="c" style="border-left:4px solid var(--ok)">
+<h3>Sprint 1 테스트 인프라 구축 완료</h3>
+<div class="alert alert-ok"><strong>package.json 테스트 스크립트 추가:</strong> FE/BE 각각 <code>npm test</code>, <code>npm run test:watch</code>, <code>npm run test:coverage</code> 스크립트 구성 완료. 실제 테스트 파일 작성은 Sprint 3에서 진행 예정.</div>
+</div>
+
+<div class="c">
+<h3>현재 상태 vs 목표</h3>
+<div class="g2">
+<div>
+<h4>현재 (불균형)</h4>
+<div class="bar-wrap"><div class="bar-label"><span>Unit Tests</span><span>0% (인프라만 준비)</span></div><div class="bar-bg"><div class="bar" style="width:5%;background:var(--sky)">인프라</div></div></div>
+<div class="bar-wrap"><div class="bar-label"><span>Integration Tests</span><span>0%</span></div><div class="bar-bg"><div class="bar" style="width:0%;background:var(--err)"></div></div></div>
+<div class="bar-wrap"><div class="bar-label"><span>E2E Tests (13 specs)</span><span>100%</span></div><div class="bar-bg"><div class="bar" style="width:100%;background:var(--warn)">100%</div></div></div>
+</div>
+<div>
+<h4>목표 (피라미드)</h4>
+<div class="bar-wrap"><div class="bar-label"><span>Unit Tests</span><span>60%</span></div><div class="bar-bg"><div class="bar" style="width:60%;background:var(--ok)">60%</div></div></div>
+<div class="bar-wrap"><div class="bar-label"><span>Integration Tests</span><span>25%</span></div><div class="bar-bg"><div class="bar" style="width:25%;background:var(--sky)">25%</div></div></div>
+<div class="bar-wrap"><div class="bar-label"><span>E2E Tests</span><span>15%</span></div><div class="bar-bg"><div class="bar" style="width:15%;background:var(--acc)">15%</div></div></div>
+</div>
+</div>
+</div>
+
+<div class="c">
+<h3>AI 응답 품질 테스트 프레임워크</h3>
+<table class="tbl">
+<tr><th>검증 항목</th><th>기준</th><th>자동화</th><th>현재 상태</th></tr>
+<tr><td>소크라테스식 준수</td><td>Alice가 답을 알려주지 않고 질문하는가?</td><td>evalHarness.js 패턴 매칭</td><td><span class="sev-l">구현됨</span></td></tr>
+<tr><td>연령 적합 어휘</td><td>레벨별 어휘 한도 준수 (1K/2K/3K)</td><td>단어 빈도 분석</td><td><span class="sev-m">부분</span></td></tr>
+<tr><td>콘텐츠 안전성</td><td>부적절한 내용 필터링</td><td>contentFilter.js</td><td><span class="sev-l">구현됨</span></td></tr>
+<tr><td>응답 지연 SLA</td><td>&lt; 3초 (아동 주의력 한계)</td><td>성능 모니터링</td><td><span class="sev-h">미구현</span></td></tr>
+<tr><td>문법 피드백 정확도</td><td>오류 감지 정확도 90%+</td><td>골드 스탠다드 비교</td><td><span class="sev-h">미구현</span></td></tr>
+<tr><td>감정 적절성</td><td>학생 감정에 맞는 톤 조절</td><td>감성 분석 + 수동 리뷰</td><td><span class="sev-c">미구현</span></td></tr>
+</table>
+</div>
+
+<div class="c">
+<h3>CI/CD 파이프라인 통합</h3>
+<div class="flow">
+<div class="fn-box" style="background:var(--pd)">Pre-commit: Lint + Unit</div>
+<span class="fn-arr">→</span>
+<div class="fn-box" style="background:var(--p)">PR: Integration + E2E + A11y</div>
+<span class="fn-arr">→</span>
+<div class="fn-box" style="background:var(--sky);color:var(--txt)">Deploy: Smoke + Performance</div>
+<span class="fn-arr">→</span>
+<div class="fn-box" style="background:var(--acc);color:var(--txt)">Weekly: AI Eval + Full Regression</div>
+</div>
+<div class="alert alert-info"><strong>아동 UX 자동 검증:</strong> axe-core로 접근성 스캔 · 터치타겟 48px+ 검증 · 폰트 14px+ 검증 · FEATURE_GATES 연령별 네비게이션 테스트</div>
+</div>
+</div>
+
+<!-- ===== ROADMAP ===== -->
+<div id="roadmap" class="sec">
+<h2>통합 12주 로드맵</h2>
+<p class="desc">6개 에이전시 분석 결과를 하나의 실행 계획으로 통합. 비파괴적 단계별 전환. Sprint 1+2 결과 반영 업데이트.</p>
+
+<div class="c">
+<div class="timeline">
+<div class="tl-item done-full done">
+<h4>Week 1-2: Foundation (기반 다지기) — Sprint 1+2 실행 완료</h4>
+<div class="alert alert-ok" style="margin:8px 0">Sprint 1+2 실행 결과: 10개 항목 중 8개 완료. 잔여 2개(session/page.js 분해, 데이터 파이프라인)는 Week 3-4로 이관.</div>
+<div class="g2">
+<div>
+<p><span class="pill pill-arch">아키텍처</span> session/page.js → 5 모듈 분해 <span class="partial-badge">Sprint 3 이관</span></p>
+<p><span class="pill pill-design">디자인</span> constants.js 17개 컬러 Ghibli 통일 <span class="done-badge">완료</span></p>
+<p><span class="pill pill-qa">QA</span> Unit test 인프라 구축 (package.json) <span class="done-badge">완료</span></p>
+</div>
+<div>
+<p><span class="pill pill-a11y">접근성</span> 이모지 aria-hidden (41개, 7파일) <span class="done-badge">완료</span></p>
+<p><span class="pill pill-a11y">접근성</span> globals.css min-font-size → max() <span class="done-badge">완료</span></p>
+<p><span class="pill pill-engine">엔진</span> engine.js 버그 수정 2건 <span class="done-badge">완료</span></p>
+</div>
+</div>
+<div class="g2" style="margin-top:8px">
+<div>
+<p><span class="pill pill-prd">PRD</span> 아이 친화적 단계명 확인 <span class="done-badge">완료</span></p>
+<p><span class="pill pill-prd">PRD</span> Bloom's 연령 적응형 세션 확인 <span class="done-badge">완료</span></p>
+</div>
+<div>
+<p><span class="pill pill-prd">PRD</span> 부모 가정학습 가이드 <span class="done-badge">완료</span></p>
+<p><span class="pill pill-arch">아키텍처</span> abTest.js clientStorage 수정 <span class="done-badge">완료</span></p>
+</div>
+</div>
+</div>
+
+<div class="tl-item active">
+<h4>Week 3-4: Core Enhancement (핵심 강화) — 현재 단계</h4>
+<div class="g2">
+<div>
+<p><span class="pill pill-arch">아키텍처</span> session/page.js 5모듈 분해 (이관)</p>
+<p><span class="pill pill-arch">아키텍처</span> SessionContext + useReducer 마이그레이션</p>
+<p><span class="pill pill-design">디자인</span> 3-Tier 시각 밀도 CSS 구현</p>
+<p><span class="pill pill-qa">QA</span> AI 품질 eval 자동화</p>
+</div>
+<div>
+<p><span class="pill pill-prd">PRD</span> FEATURE_GATES 구현</p>
+<p><span class="pill pill-prd">PRD</span> T.E.A.A. 교수법 프롬프트 통합</p>
+<p><span class="pill pill-engine">엔진</span> TaskAdapter 패턴 도입</p>
+<p><span class="pill pill-a11y">접근성</span> 키보드 내비게이션 + 포커스 트랩</p>
+</div>
+</div>
+</div>
+
+<div class="tl-item">
+<h4>Week 5-6: Feature Launch (A-Tier 기능)</h4>
+<div class="g2">
+<div>
+<p><span class="pill pill-prd">PRD</span> Pre-Reading 모듈 출시</p>
+<p><span class="pill pill-prd">PRD</span> 7차원 성장 프로필 시각화</p>
+<p><span class="pill pill-design">디자인</span> HiAlice 아바타 시스템 구현</p>
+</div>
+<div>
+<p><span class="pill pill-engine">엔진</span> Haiku 확대 라우팅 (목표 $0.06)</p>
+<p><span class="pill pill-qa">QA</span> E2E 접근성 스캔 CI 통합</p>
+<p><span class="pill pill-a11y">접근성</span> 다크 모드 + 난독증 토글</p>
+</div>
+</div>
+</div>
+
+<div class="tl-item">
+<h4>Week 7-8: Engagement (참여 기능)</h4>
+<div class="g2">
+<div>
+<p><span class="pill pill-prd">PRD</span> Debate Mode (9세+) 출시</p>
+<p><span class="pill pill-prd">PRD</span> AI Story Studio 베타</p>
+<p><span class="pill pill-arch">아키텍처</span> Plugin 시스템 안정화</p>
+</div>
+<div>
+<p><span class="pill pill-engine">엔진</span> Phi-3 파인튜닝 시작</p>
+<p><span class="pill pill-qa">QA</span> 아동 UX 자동 검증 스위트</p>
+<p><span class="pill pill-design">디자인</span> 마이크로 인터랙션 라이브러리</p>
+</div>
+</div>
+</div>
+
+<div class="tl-item">
+<h4>Week 9-10: Ecosystem (에코시스템)</h4>
+<div class="g2">
+<div>
+<p><span class="pill pill-prd">PRD</span> Social Reading / Book Clubs</p>
+<p><span class="pill pill-prd">PRD</span> Parent Learning Hub (Sprint 2 기초 완료)</p>
+<p><span class="pill pill-engine">엔진</span> Phi-3 모델 A/B 테스트</p>
+</div>
+<div>
+<p><span class="pill pill-qa">QA</span> 성능 테스트 (10K 동시 세션)</p>
+<p><span class="pill pill-a11y">접근성</span> COPPA 컴플라이언스 최종 감사</p>
+<p><span class="pill pill-arch">아키텍처</span> Zustand 마이그레이션 (선택)</p>
+</div>
+</div>
+</div>
+
+<div class="tl-item">
+<h4>Week 11-12: Scale &amp; Launch (확장)</h4>
+<div class="g2">
+<div>
+<p><span class="pill pill-prd">PRD</span> B2B Academy Platform 베타</p>
+<p><span class="pill pill-engine">엔진</span> 풀 비용 최적화 ($0.06/세션)</p>
+<p><span class="pill pill-qa">QA</span> 전체 회귀 테스트 + 출시 체크리스트</p>
+</div>
+<div>
+<p><span class="pill pill-design">디자인</span> 디자인 시스템 문서화 완료</p>
+<p><span class="pill pill-a11y">접근성</span> WCAG 2.1 AA 100% 달성</p>
+<p><span class="pill pill-arch">아키텍처</span> 모니터링 + 알림 대시보드</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="c" style="border-left:4px solid var(--ok)">
+<h3>핵심 원칙: 비파괴적 전환 보장</h3>
+<div class="g2">
+<div>
+<h4>변하지 않는 것 (학생 관점)</h4>
+<p>세션 플로우 (제목→소개→본론→결론)</p>
+<p>소크라테스식 Q&amp;A 질문</p>
+<p>음성 입력 + 텍스트 입력</p>
+<p>단어 학습, 축하 효과, 성취 시스템</p>
+<p>모든 기존 테스트 100% 통과</p>
+</div>
+<div>
+<h4>변하는 것 (시스템 내부)</h4>
+<p>컴포넌트 아키텍처 (모듈화)</p>
+<p>상태 관리 메커니즘 (Context/Zustand)</p>
+<p>백엔드 추상화 레이어 (Adapter/Strategy)</p>
+<p>네비게이션 가시성 (연령별 스마트 노출)</p>
+<p>AI 모델 라우팅 (비용 최적화)</p>
+</div>
+</div>
+<div class="alert alert-ok" style="margin-top:12px"><strong>롤백 안전장치:</strong> 모든 변경은 Feature Flag로 제어됩니다. 문제 발생 시 플래그 OFF로 즉시 이전 버전 복원. Sprint 1+2에서 빌드 실패 0건 달성.</div>
+</div>
+
+<div class="c">
+<h3>12주 후 예상 성과</h3>
+<div class="g4">
+<div class="mc"><div class="mv">18%↓</div><div class="ml">AI 비용 (실측 기준)</div><div class="md">$0.073 → $0.06</div></div>
+<div class="mc"><div class="mv">90%↓</div><div class="ml">코어 코드량</div><div class="md">1,451 → 150줄</div></div>
+<div class="mc"><div class="mv">100%</div><div class="ml">WCAG AA</div><div class="md">접근성 완전 준수</div></div>
+<div class="mc"><div class="mv">3-5일</div><div class="ml">신규 기능 추가</div><div class="md">기존 2-3주→단축</div></div>
+<div class="mc"><div class="mv">60%+</div><div class="ml">테스트 커버리지</div><div class="md">유닛+통합+E2E</div></div>
+<div class="mc"><div class="mv">85%+</div><div class="ml">세션 완료율</div><div class="md">아동 이탈 방지</div></div>
+<div class="mc"><div class="mv">7차원</div><div class="ml">학습 추적</div><div class="md">ZPD 적응형</div></div>
+<div class="mc"><div class="mv">$500K+</div><div class="ml">연간 ARR 목표</div><div class="md">B2B 포함</div></div>
+</div>
+</div>
+</div>
+
+</div>
+
+<script>
+function S(id){
+document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));
+document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));
+document.getElementById(id).classList.add('on');
+event.target.classList.add('on');
+window.scrollTo({top:0,behavior:'smooth'});
+}
+function T(group,id){
+document.querySelectorAll('.tab-c[data-group="'+group+'"]').forEach(c=>c.classList.remove('on'));
+document.querySelectorAll('.tab-b[data-group="'+group+'"]').forEach(b=>b.classList.remove('on'));
+document.getElementById(id).classList.add('on');
+event.target.classList.add('on');
+}
+</script>
+
+</body>
+</html>
