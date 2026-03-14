@@ -121,6 +121,7 @@ export default function ParentDashboard() {
   });
 
   const savedTimerRef = useRef(null);
+  const [isPrinting, setIsPrinting] = useState(false);
 
   const API = API_BASE;
 
@@ -288,11 +289,29 @@ export default function ParentDashboard() {
   const recentSessions = childData?.sessions || [];
   const vocabSummary = childData?.vocabulary;
 
-  // ── Print handler — opens browser print/save-as-PDF dialog ────────────
+  // ── Print / Download PDF handler ──────────────────────────────────────
+  // Sets a brief "Preparing…" state so the parent gets visual feedback,
+  // then opens the browser's native print dialog (which includes Save as PDF).
   const handlePrint = () => {
-    if (typeof window !== 'undefined') {
-      window.print();
-    }
+    if (typeof window === 'undefined') return;
+    setIsPrinting(true);
+    // Allow React to flush the state update (show "Preparing PDF…" label)
+    // before the browser enters print layout — rAF + setTimeout combo is the
+    // most reliable cross-browser approach for this.
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        window.print();
+        // Reset button state after the dialog closes (print is synchronous in
+        // modern browsers; afterprint event is the cleanest hook).
+        const resetState = () => {
+          setIsPrinting(false);
+          window.removeEventListener('afterprint', resetState);
+        };
+        window.addEventListener('afterprint', resetState);
+        // Fallback: reset after 10 s in case afterprint never fires (e.g. iOS).
+        setTimeout(resetState, 10_000);
+      }, 80);
+    });
   };
 
   // ── Derived report values ───────────────────────────────────────────────
@@ -368,7 +387,7 @@ export default function ParentDashboard() {
       </div>
 
       {/* ── PRINT-ONLY: Weekly report content ──────────────────────────── */}
-      <div className="print-only" aria-hidden="true">
+      <div id="printable-report" className="print-only" aria-hidden="true">
 
         {/* Summary stats */}
         <div className="print-section">
@@ -478,30 +497,67 @@ export default function ParentDashboard() {
           <p className="text-sm text-[#6B5744]">Track your child's reading journey</p>
         </div>
         <div className="flex items-center gap-3">
-          {/* Download Weekly Report button */}
+          {/* Download PDF button */}
           <button
             onClick={handlePrint}
-            aria-label="Download or print the weekly learning report as PDF"
-            className="flex items-center gap-2 min-h-[40px] px-4 py-2 bg-[#3D2E1E] text-white rounded-xl hover:bg-[#6B5744] transition-all font-bold hover:-translate-y-0.5 shadow-[0_3px_10px_rgba(61,46,30,0.3)] focus-visible:ring-2 focus-visible:ring-[#3D2E1E] text-sm"
+            disabled={isPrinting}
+            aria-label={
+              isPrinting
+                ? 'Preparing PDF, please wait…'
+                : 'Download weekly learning report as PDF'
+            }
+            aria-live="polite"
+            className={`flex items-center gap-2 min-h-[40px] px-4 py-2 rounded-xl font-bold text-sm
+              transition-all focus-visible:ring-2 focus-visible:ring-[#3D6B3D] focus-visible:ring-offset-2
+              shadow-[0_3px_10px_rgba(61,107,61,0.28)]
+              ${isPrinting
+                ? 'bg-[#5C8B5C] text-white cursor-wait opacity-80'
+                : 'bg-[#3D6B3D] text-white hover:bg-[#5C8B5C] hover:-translate-y-0.5 active:translate-y-0'
+              }`}
           >
-            {/* Printer SVG icon */}
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <polyline points="6 9 6 2 18 2 18 9" />
-              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
-              <rect x="6" y="14" width="12" height="8" />
-            </svg>
-            Weekly Report
+            {isPrinting ? (
+              /* Spinner while preparing */
+              <>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="15"
+                  height="15"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                  className="animate-spin"
+                >
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                </svg>
+                Preparing PDF…
+              </>
+            ) : (
+              /* Document-download icon at rest */
+              <>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="15"
+                  height="15"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="12" y1="11" x2="12" y2="17" />
+                  <polyline points="9 14 12 17 15 14" />
+                </svg>
+                Download PDF
+              </>
+            )}
           </button>
 
           {/* Bell button — always visible, badge shows unread count */}

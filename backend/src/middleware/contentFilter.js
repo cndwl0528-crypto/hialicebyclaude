@@ -16,18 +16,77 @@
  *     session can continue without exposing the child to inappropriate content.
  *   - Student inputs that trip a rule are flagged for admin review; the session is
  *     NOT blocked — a child expressing distress should still get a response.
+ *
+ * Persistence:
+ *   Safety log entries are written to `backend/logs/safety-logs.jsonl` (JSONL format)
+ *   using synchronous I/O to guarantee no entry is lost — reliability over throughput
+ *   is the correct trade-off for a child-protection system.
+ *   On startup the most recent 10,000 entries are loaded back into the in-process
+ *   store so the admin UI continues to work across server restarts.
  */
 
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import logger from '../lib/logger.js';
 
 // ============================================================================
-// In-Process Safety Log Store
-// NOTE: Replace with a persistent DB table (e.g. Supabase safety_logs) for
-//       production.  The in-memory store is intentionally simple so that the
-//       safety route can expose a working admin UI before the DB migration.
+// File-Based Persistence — Safety Log
 // ============================================================================
 
-let _nextId = 1;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
+
+const LOG_DIR  = path.join(__dirname, '../../logs');
+const LOG_FILE = path.join(LOG_DIR,   'safety-logs.jsonl');
+
+// Ensure the logs directory exists before any read/write attempt.
+if (!fs.existsSync(LOG_DIR)) {
+  fs.mkdirSync(LOG_DIR, { recursive: true });
+}
+
+/**
+ * Load existing JSONL entries from disk into the in-process store on startup.
+ * Returns the most recent `limit` entries (default 10,000).
+ *
+ * @param {number} [limit=10000]
+ * @returns {Array<object>}
+ */
+function loadExistingLogs(limit = 10_000) {
+  if (!fs.existsSync(LOG_FILE)) return [];
+  try {
+    const raw   = fs.readFileSync(LOG_FILE, 'utf-8');
+    const lines = raw.split('\n').filter(Boolean);
+    // Take only the tail so we stay within the bounded-store limit.
+    return lines.slice(-limit).map((line) => JSON.parse(line));
+  } catch (e) {
+    console.warn('[SafetyFilter] Safety log file read error on startup:', e.message);
+    return [];
+  }
+}
+
+/**
+ * Append a single log entry to the JSONL file using synchronous I/O.
+ * Synchronous write is intentional: for child-safety logs, durability
+ * takes priority over throughput — we must not lose an entry.
+ *
+ * @param {object} entry
+ */
+function appendLogToFile(entry) {
+  try {
+    fs.appendFileSync(LOG_FILE, JSON.stringify(entry) + '\n');
+  } catch (e) {
+    console.error('[SafetyFilter] Safety log write error:', e.message);
+  }
+}
+
+// ============================================================================
+// In-Process Safety Log Store
+// Initialised from disk at startup; new entries are also persisted to the
+// JSONL file so the store survives server restarts.
+// NOTE: Replace with a persistent DB table (e.g. Supabase safety_logs) for
+//       production once the schema migration is applied.
+// ============================================================================
 
 /**
  * @type {Array<{
@@ -45,12 +104,29 @@ let _nextId = 1;
  *   reviewedBy: string | null,
  * }>}
  */
-export const safetyLogs = [];
+export const safetyLogs = loadExistingLogs();
+
+// Derive the next numeric id from the highest id already in the store so that
+// ids remain monotonically increasing across restarts.
+let _nextId = safetyLogs.length > 0
+  ? Math.max(...safetyLogs.map((e) => e.id ?? 0)) + 1
+  : 1;
+
+if (safetyLogs.length > 0) {
+  console.info(
+    `[SafetyFilter] Loaded ${safetyLogs.length} existing safety log entries from disk.`
+  );
+}
 
 /**
- * Append a new entry to the in-process safety log and emit a structured log line.
+ * Append a new entry to the in-process safety log, persist it to the JSONL
+ * file on disk, and emit a structured log line.
+ *
+ * Synchronous file I/O is used deliberately — for a child-protection system
+ * the cost of losing a safety event outweighs the small latency penalty.
  *
  * @param {object} entry
+ * @returns {object} The fully-formed log record (with id, timestamp, etc.)
  */
 function recordSafetyLog(entry) {
   const record = {
@@ -62,13 +138,20 @@ function recordSafetyLog(entry) {
     ...entry,
   };
 
+  // 1. Persist to disk first — before touching the in-process store — so that
+  //    if anything throws afterwards the entry is not silently lost.
+  appendLogToFile(record);
+
+  // 2. Add to in-process store.
   safetyLogs.push(record);
 
-  // Keep the in-process store bounded — retain the most recent 10 000 entries.
+  // 3. Keep the in-process store bounded — retain the most recent 10,000 entries.
+  //    The JSONL file is unbounded and serves as the authoritative archive.
   if (safetyLogs.length > 10_000) {
     safetyLogs.splice(0, safetyLogs.length - 10_000);
   }
 
+  // 4. Emit a structured log line (short preview only — never raw child text).
   logger.warn(
     {
       safetyFlag: true,
