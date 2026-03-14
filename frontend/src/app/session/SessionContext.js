@@ -203,6 +203,7 @@ export function SessionProvider({ children }) {
   const [sessionId, setSessionId] = useState(null);
   const [studentId, setStudentId] = useState(null);
   const [studentName, setStudentName] = useState(null);
+  const [studentAvatar, setStudentAvatar] = useState('😊');
 
   // ── Conversation state ─────────────────────────────────────────────────────
   const [messages, setMessages] = useState([]);
@@ -331,6 +332,8 @@ export function SessionProvider({ children }) {
       const storedStudentName = getItem('studentName');
       setStudentId(storedStudentId);
       setStudentName(storedStudentName);
+      const savedAvatar = getItem('studentAvatar');
+      if (savedAvatar) setStudentAvatar(savedAvatar);
     }
   }, []);
 
@@ -886,6 +889,7 @@ export function SessionProvider({ children }) {
     sessionId,
     studentId,
     studentName,
+    studentAvatar,
     // Conversation
     messages,
     currentStage,

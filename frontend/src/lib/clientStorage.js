@@ -21,6 +21,7 @@ export const PERSISTED_KEYS = [
   'lastSessionData',
   'lastReviewData',
   'dueVocabIds',
+  'studentAvatar',
 ];
 
 // ============================================================================

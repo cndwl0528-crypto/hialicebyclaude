@@ -213,6 +213,23 @@ export function isParentOrAdmin() {
   return ['parent', 'admin', 'super_admin'].includes(role);
 }
 
+/**
+ * Avatar Options
+ * Emoji avatars available for student profile selection.
+ * Canonical list — shared between profile page and session context.
+ */
+export const AVATAR_OPTIONS = ['👧', '👦', '🧒', '👩', '🧑', '😊', '🌟', '🎓'];
+export const AVATAR_LABELS = {
+  '👧': 'Girl',
+  '👦': 'Boy',
+  '🧒': 'Child',
+  '👩': 'Woman',
+  '🧑': 'Person',
+  '😊': 'Smiley',
+  '🌟': 'Star',
+  '🎓': 'Graduate',
+};
+
 const constants = {
   LEVELS,
   STAGES,

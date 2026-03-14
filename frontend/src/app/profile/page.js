@@ -262,6 +262,308 @@ const BADGES = [
 ];
 
 // ---------------------------------------------------------------------------
+// Growth Profile — 7 Dimensions
+// ---------------------------------------------------------------------------
+
+const GROWTH_DIMENSIONS = [
+  { key: 'comprehension',   label: 'Comprehension',    icon: '📖', color: '#3D6B3D' },
+  { key: 'vocabulary',      label: 'Vocabulary',        icon: '📝', color: '#5C8B5C' },
+  { key: 'grammar',         label: 'Grammar',           icon: '✏️', color: '#D4A843' },
+  { key: 'criticalThinking',label: 'Critical Thinking', icon: '💡', color: '#6B9BD2' },
+  { key: 'creativity',      label: 'Creativity',        icon: '🎨', color: '#D4736B' },
+  { key: 'expression',      label: 'Expression',        icon: '🗣️', color: '#8B6BB5' },
+  { key: 'confidence',      label: 'Confidence',        icon: '⭐', color: '#E8A856' },
+];
+
+/**
+ * Derive 7-dimension growth scores from session array.
+ * All scores are clamped to [0, 100].
+ */
+function computeGrowthScores(sessions) {
+  if (!sessions || sessions.length === 0) {
+    return { comprehension: 0, vocabulary: 0, grammar: 0, criticalThinking: 0, creativity: 0, expression: 0, confidence: 0 };
+  }
+
+  const avg = (arr) => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0;
+  const clamp = (v) => Math.min(100, Math.max(0, Math.round(v)));
+
+  // comprehension: average levelScore
+  const comprehension = clamp(avg(sessions.map((s) => s.levelScore || 0)));
+
+  // vocabulary: based on wordsLearned — 20+ words per session = 100
+  const vocabScores = sessions.map((s) => clamp(((s.wordsLearned || 0) / 20) * 100));
+  const vocabulary = clamp(avg(vocabScores));
+
+  // grammar: average grammarScore
+  const grammar = clamp(avg(sessions.map((s) => s.grammarScore || 0)));
+
+  // criticalThinking: average of body / Think Deeper stage score
+  const ctScores = sessions.map((s) => {
+    const v = s.stages?.['Think Deeper'] ?? s.stages?.body ?? s.stages?.criticalThinking ?? null;
+    return v !== null ? v : null;
+  }).filter((v) => v !== null);
+  const criticalThinking = ctScores.length ? clamp(avg(ctScores)) : clamp(avg([comprehension, grammar]) - 5);
+
+  // creativity: average of conclusion / My Thoughts stage score
+  const creativityScores = sessions.map((s) => {
+    const v = s.stages?.['My Thoughts'] ?? s.stages?.conclusion ?? s.stages?.creativity ?? null;
+    return v !== null ? v : null;
+  }).filter((v) => v !== null);
+  const creativity = creativityScores.length ? clamp(avg(creativityScores)) : clamp(avg([comprehension, vocabulary]) - 5);
+
+  // expression: average session duration — 20 min cap = 100
+  const expressionScores = sessions.map((s) => clamp(((s.duration || 0) / 20) * 100));
+  const expression = clamp(avg(expressionScores));
+
+  // confidence: sessions completed, 10+ = 100
+  const confidence = clamp((sessions.length / 10) * 100);
+
+  return { comprehension, vocabulary, grammar, criticalThinking, creativity, expression, confidence };
+}
+
+// ---------------------------------------------------------------------------
+// GrowthRadar — pure SVG spider/radar chart
+// ---------------------------------------------------------------------------
+
+function GrowthRadar({ dimensions, scores }) {
+  const SIZE = 300;
+  const CX = SIZE / 2;   // 150
+  const CY = SIZE / 2;   // 150
+  const R  = 110;        // outer radius of chart area
+  const N  = dimensions.length; // 7
+
+  // Compute the (x, y) for a point on axis `i` at fraction `t` (0..1)
+  const axisPoint = (i, t) => {
+    // Start from top, go clockwise
+    const angle = (Math.PI * 2 * i) / N - Math.PI / 2;
+    return {
+      x: CX + R * t * Math.cos(angle),
+      y: CY + R * t * Math.sin(angle),
+    };
+  };
+
+  // Grid circle levels: 25%, 50%, 75%, 100%
+  const gridLevels = [0.25, 0.5, 0.75, 1.0];
+
+  // Build polygon points for a given level fraction
+  const polygonPoints = (t) =>
+    dimensions.map((_, i) => {
+      const p = axisPoint(i, t);
+      return `${p.x},${p.y}`;
+    }).join(' ');
+
+  // Data polygon based on actual scores
+  const dataPoints = dimensions.map((dim, i) => {
+    const score = scores[dim.key] ?? 0;
+    const p = axisPoint(i, score / 100);
+    return `${p.x},${p.y}`;
+  }).join(' ');
+
+  // Label positioning — push label a bit beyond the axis tip
+  const labelPos = (i) => {
+    const angle = (Math.PI * 2 * i) / N - Math.PI / 2;
+    const labelR = R + 24;
+    return {
+      x: CX + labelR * Math.cos(angle),
+      y: CY + labelR * Math.sin(angle),
+    };
+  };
+
+  // Icon positioning — slightly closer than label
+  const iconPos = (i) => {
+    const angle = (Math.PI * 2 * i) / N - Math.PI / 2;
+    const iconR = R + 10;
+    return {
+      x: CX + iconR * Math.cos(angle),
+      y: CY + iconR * Math.sin(angle),
+    };
+  };
+
+  return (
+    <svg
+      viewBox={`0 0 ${SIZE} ${SIZE}`}
+      width="100%"
+      style={{ maxWidth: SIZE, display: 'block', margin: '0 auto' }}
+      role="img"
+      aria-label="Growth profile radar chart showing 7 skill dimensions"
+    >
+      {/* Cream background circle */}
+      <circle cx={CX} cy={CY} r={R + 30} fill="#F5F0E8" />
+
+      {/* Grid circles */}
+      {gridLevels.map((t, idx) => (
+        <polygon
+          key={idx}
+          points={polygonPoints(t)}
+          fill="none"
+          stroke={t === 1.0 ? '#C4A97D' : '#D6C9A8'}
+          strokeWidth={t === 1.0 ? 1.5 : 1}
+          strokeDasharray={t < 1.0 ? '4,3' : undefined}
+          opacity={0.7}
+        />
+      ))}
+
+      {/* Axis lines from center to each vertex */}
+      {dimensions.map((_, i) => {
+        const tip = axisPoint(i, 1);
+        return (
+          <line
+            key={i}
+            x1={CX}
+            y1={CY}
+            x2={tip.x}
+            y2={tip.y}
+            stroke="#C4A97D"
+            strokeWidth={1}
+            opacity={0.5}
+          />
+        );
+      })}
+
+      {/* Data polygon */}
+      <polygon
+        points={dataPoints}
+        fill="rgba(61,107,61,0.18)"
+        stroke="#3D6B3D"
+        strokeWidth={2.5}
+        strokeLinejoin="round"
+      />
+
+      {/* Data dots */}
+      {dimensions.map((dim, i) => {
+        const score = scores[dim.key] ?? 0;
+        const p = axisPoint(i, score / 100);
+        return (
+          <circle
+            key={dim.key}
+            cx={p.x}
+            cy={p.y}
+            r={5}
+            fill={dim.color}
+            stroke="#FFFCF3"
+            strokeWidth={2}
+          />
+        );
+      })}
+
+      {/* Labels: score number near each axis tip */}
+      {dimensions.map((dim, i) => {
+        const score = scores[dim.key] ?? 0;
+        const lp = labelPos(i);
+        const ip = iconPos(i);
+        const angle = (Math.PI * 2 * i) / N - Math.PI / 2;
+        // Determine text-anchor based on angle quadrant
+        const cosA = Math.cos(angle);
+        const anchor = cosA > 0.2 ? 'start' : cosA < -0.2 ? 'end' : 'middle';
+        return (
+          <g key={dim.key}>
+            {/* Score near the axis tip */}
+            <text
+              x={ip.x}
+              y={ip.y}
+              textAnchor={anchor}
+              dominantBaseline="middle"
+              fontSize="9"
+              fontWeight="800"
+              fill={dim.color}
+            >
+              {score}
+            </text>
+            {/* Label further out */}
+            <text
+              x={lp.x}
+              y={lp.y}
+              textAnchor={anchor}
+              dominantBaseline="middle"
+              fontSize="8.5"
+              fontWeight="700"
+              fill="#3D2E1E"
+            >
+              {dim.label}
+            </text>
+          </g>
+        );
+      })}
+
+      {/* Centre dot */}
+      <circle cx={CX} cy={CY} r={3} fill="#C4A97D" />
+    </svg>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// GrowthProfileSection — section card wrapping GrowthRadar + dimension cards
+// ---------------------------------------------------------------------------
+
+function GrowthProfileSection({ sessions }) {
+  const scores = computeGrowthScores(sessions);
+
+  return (
+    <div className="ghibli-card p-5 sm:p-6 mb-6">
+      {/* Section header */}
+      <h2 className="text-xl sm:text-2xl font-extrabold text-[#3D2E1E] mb-1 flex items-center gap-2">
+        <span aria-hidden="true">🌱</span>
+        Growth Profile
+      </h2>
+      <p className="text-xs text-[#6B5744] font-semibold mb-5">
+        Your 7-dimension learning skills based on completed sessions
+      </p>
+
+      {/* Radar chart */}
+      <div
+        className="w-full rounded-2xl p-4 mb-5"
+        style={{ background: '#F5F0E8' }}
+      >
+        <GrowthRadar dimensions={GROWTH_DIMENSIONS} scores={scores} />
+      </div>
+
+      {/* Dimension score cards */}
+      <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 gap-2">
+        {GROWTH_DIMENSIONS.map((dim) => {
+          const score = scores[dim.key] ?? 0;
+          // Width of mini bar, at least 4px visible
+          const barWidth = `${Math.max(4, score)}%`;
+          return (
+            <div
+              key={dim.key}
+              className="rounded-xl p-2.5 sm:p-3 flex flex-col gap-1"
+              style={{ background: '#FFFCF3', border: `1.5px solid ${dim.color}22` }}
+              aria-label={`${dim.label}: ${score} out of 100`}
+            >
+              <div className="flex items-center gap-1.5">
+                <span className="text-base" aria-hidden="true">{dim.icon}</span>
+                <span className="text-[10px] font-extrabold leading-tight" style={{ color: dim.color }}>
+                  {dim.label}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <div
+                  className="flex-1 rounded-full overflow-hidden"
+                  style={{ height: 5, background: '#EDE5D4' }}
+                >
+                  <div
+                    style={{
+                      width: barWidth,
+                      height: '100%',
+                      background: dim.color,
+                      borderRadius: 9999,
+                      transition: 'width 0.6s ease',
+                    }}
+                  />
+                </div>
+                <span className="text-[11px] font-extrabold" style={{ color: dim.color, minWidth: 24, textAlign: 'right' }}>
+                  {score}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Ghibli Palette
 // ---------------------------------------------------------------------------
 
@@ -1174,6 +1476,9 @@ export default function ProfilePage() {
             </div>
           </div>
         )}
+
+        {/* Growth Profile — 7-dimension radar chart */}
+        <GrowthProfileSection sessions={sessions} />
 
         {/* Achievement Badges */}
         <BadgeSection
