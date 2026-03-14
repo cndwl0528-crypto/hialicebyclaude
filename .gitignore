@@ -37,9 +37,9 @@ yarn.lock
 .vscode/
 .idea/
 
-# Claude Code worktrees & agent memory (runtime artifacts)
-.claude/worktrees/
-.claude/agent-memory/
+# Claude Code (runtime artifacts, ECC skills, plugins)
+.claude/
+frontend/.claude/
 
 # Dart/Flutter tool cache
 .dart_tool/
@@ -73,3 +73,13 @@ backend/UPDATE_SUMMARY.txt
 
 # Local export snapshots
 _local_exports/
+
+# Auto-generated analysis reports
+ANALYSIS_FILE_INDEX.md
+IMPLEMENTATION_QUICK_START.md
+LEARNING_ANALYSIS_EXECUTIVE_SUMMARY.md
+LEARNING_EFFECTIVENESS_ANALYSIS.md
+README_LEARNING_ANALYSIS.md
+
+# Test results (local only)
+frontend/test-results/
