@@ -353,6 +353,16 @@ export default function BooksPage() {
     handleSelectBook(bookId, bookTitle);
   }, [handleSelectBook]);
 
+  // Close confirmation modal on Escape key
+  useEffect(() => {
+    if (!confirmBook) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') setConfirmBook(null);
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [confirmBook]);
+
   const handleVoiceSearch = useCallback(() => {
     if (isListening) {
       stopListening();
@@ -675,10 +685,23 @@ export default function BooksPage() {
 
       {/* Confirmation Modal */}
       {confirmBook && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4" onClick={() => setConfirmBook(null)}>
-          <div className="ghibli-card p-8 max-w-md w-full text-center" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 px-4"
+          onClick={() => setConfirmBook(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-modal-title"
+            className="ghibli-card p-8 max-w-md w-full text-center"
+            style={{ background: '#F5F0E8' }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="text-4xl mb-4" aria-hidden="true">📖</div>
-            <h3 className="text-xl font-extrabold text-[#3D2E1E] mb-2">
+            <h3
+              id="confirm-modal-title"
+              className="text-xl font-extrabold text-[#3D2E1E] mb-2"
+            >
               Did you finish reading
             </h3>
             <p className="text-lg font-bold text-[#5C8B5C] mb-6">
@@ -693,9 +716,9 @@ export default function BooksPage() {
               </button>
               <button
                 onClick={handleConfirmYes}
-                className="flex-1 py-3 px-4 bg-[#5C8B5C] text-white rounded-2xl font-bold hover:bg-[#3D6B3D] transition-all hover:-translate-y-0.5 shadow-[0_4px_12px_rgba(92,139,92,0.3)] min-h-[48px]"
+                className="flex-1 py-3 px-4 bg-[#3D6B3D] text-white rounded-2xl font-bold hover:bg-[#2E5230] transition-all hover:-translate-y-0.5 shadow-[0_4px_12px_rgba(61,107,61,0.35)] min-h-[48px]"
               >
-                Yes, let&apos;s go!
+                Yes, let&apos;s talk about it!
               </button>
             </div>
           </div>

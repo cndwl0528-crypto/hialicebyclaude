@@ -224,6 +224,9 @@ export default function RootLayout({ children }) {
         <meta name="description" content="AI-powered English reading companion for children aged 6-13" />
       </head>
       <body className="bg-[#F5F0E8] min-h-screen font-nunito" suppressHydrationWarning>
+        <a href="#main-content" className="skip-to-content">
+          Skip to main content
+        </a>
         <ErrorBoundary>
           <OfflineBanner />
 
@@ -309,7 +312,7 @@ export default function RootLayout({ children }) {
             </nav>
           )}
 
-          <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 pb-32 md:pb-8">
+          <main id="main-content" className="max-w-4xl mx-auto px-4 sm:px-6 py-6 pb-32 md:pb-8">
             {children}
           </main>
         </ErrorBoundary>

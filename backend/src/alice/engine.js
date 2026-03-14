@@ -30,13 +30,113 @@ import {
 import { classifyAnswerDepth } from './levelDetector.js';
 import { getCrossBookContext } from './crossBookMemory.js';
 import {
-  selectModel,
+  selectModel as routerSelectModel,
   CostTracker,
   buildCachedMessages,
   callWithRetry
 } from '../services/modelRouter.js';
 import { evaluateResponse, evalLogger } from '../services/evalHarness.js';
 import { getQuickContext, getFullContext } from '../services/contextRetriever.js';
+
+// ============================================================================
+// TASK ADAPTER — MODEL CONFIGS & ROUTING
+// ============================================================================
+
+/**
+ * Named model configuration presets used by the TaskAdapter pattern.
+ *
+ * Each preset groups the Anthropic model identifier, a conservative max_tokens
+ * ceiling for that use-case, and a human-readable label for logging/analytics.
+ *
+ * Routing decisions in selectModel() reference these keys so that changing a
+ * model version only requires editing this single object.
+ *
+ * @type {Record<string, { model: string, maxTokens: number, label: string }>}
+ */
+export const MODEL_CONFIGS = {
+  /** Complex conversational turns — body stage, advanced students, cross-book. */
+  complex:  { model: 'claude-sonnet-4-20250514',   maxTokens: 1024, label: 'sonnet' },
+  /** Simple, fast turns — title/introduction for beginners. */
+  simple:   { model: 'claude-haiku-4-5-20251001',  maxTokens: 512,  label: 'haiku'  },
+  /** End-of-session feedback generation — template-driven, low reasoning load. */
+  feedback: { model: 'claude-haiku-4-5-20251001',  maxTokens: 768,  label: 'haiku'  },
+};
+
+/**
+ * Select the most cost-appropriate MODEL_CONFIGS preset for a given session turn.
+ *
+ * Routing rules (evaluated top-to-bottom, first match wins):
+ *  1. stage === 'feedback'                          → feedback preset (Haiku)
+ *  2. stage === 'conclusion' || 'crossbook'         → complex preset (Sonnet)
+ *  3. stage === 'body' && studentLevel === 'advanced' → complex preset (Sonnet)
+ *  4. (stage === 'title' || 'introduction') && studentLevel === 'beginner'
+ *                                                   → simple preset (Haiku)
+ *  5. default                                       → complex preset (Sonnet)
+ *
+ * @param {string} stage        - Session stage: 'title' | 'introduction' | 'body' |
+ *                                'conclusion' | 'crossbook' | 'feedback'
+ * @param {number} turnInStage  - 1-indexed turn number within the current stage
+ * @param {string} studentLevel - 'beginner' | 'intermediate' | 'advanced'
+ * @returns {{ config: { model: string, maxTokens: number, label: string }, preset: string, reason: string }}
+ */
+export function selectModel(stage, turnInStage, studentLevel) {
+  let preset;
+  let reason;
+
+  if (stage === 'feedback') {
+    preset = 'feedback';
+    reason = 'feedback stage — template-driven, Haiku preferred';
+  } else if (stage === 'conclusion' || stage === 'crossbook') {
+    preset = 'complex';
+    reason = `${stage} stage — requires synthesis and nuance, Sonnet preferred`;
+  } else if (stage === 'body' && studentLevel === 'advanced') {
+    preset = 'complex';
+    reason = 'body stage with advanced student — high reasoning demand, Sonnet preferred';
+  } else if ((stage === 'title' || stage === 'introduction') && studentLevel === 'beginner') {
+    preset = 'simple';
+    reason = `${stage} stage for beginner (turn ${turnInStage}) — simple opening, Haiku preferred`;
+  } else {
+    preset = 'complex';
+    reason = `default routing for stage="${stage}", level="${studentLevel}", turn=${turnInStage}`;
+  }
+
+  const resolvedConfig = MODEL_CONFIGS[preset];
+  console.log(
+    `[TaskAdapter] stage="${stage}" level="${studentLevel}" turn=${turnInStage}` +
+    ` → preset="${preset}" model="${resolvedConfig.model}" (${reason})`
+  );
+  return { config: resolvedConfig, preset, reason };
+}
+
+// ============================================================================
+// SESSION COST STORE
+// ============================================================================
+
+/**
+ * In-memory session cost registry.
+ *
+ * Keys are sessionId strings; values are accumulated cost summaries produced
+ * by CostTracker.getSummary(). Updated after every API call in getAliceResponse().
+ *
+ * Note: this store is process-scoped and is cleared on server restart. Persist
+ * to a database for durability when the feature graduates from development.
+ *
+ * @type {Map<string, object>}
+ */
+const _sessionCostStore = new Map();
+
+/**
+ * Retrieve the accumulated cost summary for a session.
+ *
+ * Returns undefined when the session has not yet made any API calls (e.g.,
+ * if it was served entirely from mock data).
+ *
+ * @param {string} sessionId - The session identifier passed into getAliceResponse()
+ * @returns {object|undefined} CostTracker.getSummary() snapshot, or undefined
+ */
+export function getSessionCost(sessionId) {
+  return _sessionCostStore.get(sessionId);
+}
 
 // ============================================================================
 // CLIENT INITIALISATION
@@ -186,15 +286,21 @@ export async function getAliceResponse({
       });
     }
 
-    // Select the most cost-appropriate model for this session turn.
-    const { model, reason: modelReason } = selectModel('session_response', {
-      level,
-      turn,
-      historyLength: conversationHistory.length,
-    });
+    // Select the most cost-appropriate model using the TaskAdapter pattern.
+    // The local selectModel() maps stage + turn + level to a MODEL_CONFIGS
+    // preset; routerSelectModel() is kept as a lower-level fallback for other
+    // callers (feedback, metacognitive, rephrase) that still use task-type keys.
+    const {
+      config: adapterConfig,
+      preset: adapterPreset,
+      reason: modelReason,
+    } = selectModel(stage, turn, level);
+    const model = adapterConfig.model;
+    const adapterMaxTokens = adapterConfig.maxTokens;
 
-    // Initialise a per-call cost tracker (session-level tracking happens in
-    // the caller when sessionId is passed; here we track this individual call).
+    // Initialise a per-call cost tracker.  Session-level totals are persisted
+    // into _sessionCostStore after each response so getSessionCost() can
+    // query them without re-parsing individual call records.
     const costTracker = new CostTracker(sessionId || 'getAliceResponse');
 
     // Enrich system prompt with student context (non-blocking on failure).
@@ -225,7 +331,7 @@ export async function getAliceResponse({
       const response = await callWithRetry(
         () => anthropic.messages.create({
           model,
-          max_tokens: 300,
+          max_tokens: adapterMaxTokens,
           temperature: 0.7,
           system:   finalSystem,
           messages: finalMessages,
@@ -233,9 +339,23 @@ export async function getAliceResponse({
       );
 
       content = response.content[0]?.text || '';
-      inputTokens  += response.usage?.input_tokens  || 0;
-      outputTokens += response.usage?.output_tokens || 0;
-      costTracker.record(model, response.usage?.input_tokens || 0, response.usage?.output_tokens || 0);
+      const callInputTokens  = response.usage?.input_tokens  || 0;
+      const callOutputTokens = response.usage?.output_tokens || 0;
+      inputTokens  += callInputTokens;
+      outputTokens += callOutputTokens;
+
+      const { cost: callCost } = costTracker.record(model, callInputTokens, callOutputTokens);
+
+      // Log structured usage after each API call for observability.
+      console.log('[TaskAdapter] API call cost log:', {
+        sessionId:    sessionId || null,
+        attempt:      attempt + 1,
+        model,
+        preset:       adapterPreset,
+        inputTokens:  callInputTokens,
+        outputTokens: callOutputTokens,
+        estimatedCost: callCost,
+      });
 
       // Evaluate AI response quality before sending to student.
       evalResult = evaluateResponse(content, { stage, turn, level });
@@ -249,6 +369,12 @@ export async function getAliceResponse({
         `[Alice Engine] Eval harness flagged response for regeneration (attempt ${attempt + 1}): ${evalResult.details}`
       );
       // Second attempt uses slightly different temperature
+    }
+
+    // Persist the accumulated cost summary for this session into the in-memory
+    // store so callers can retrieve it via getSessionCost(sessionId).
+    if (sessionId) {
+      _sessionCostStore.set(sessionId, costTracker.getSummary());
     }
 
     // Grammar feedback is only surfaced for advanced students to avoid
@@ -270,8 +396,10 @@ export async function getAliceResponse({
       usage: {
         inputTokens,
         outputTokens,
-        model:       model,
-        modelReason: modelReason,
+        model,
+        modelPreset:  adapterPreset,
+        modelLabel:   adapterConfig.label,
+        modelReason,
       },
       costSummary: costTracker.getSummary(),
     };
@@ -314,7 +442,8 @@ export async function generateSessionFeedback(sessionData) {
     const feedbackPrompt = getSessionFeedbackPrompt(sessionData);
 
     // Feedback is template-driven with low reasoning demands — use HAIKU.
-    const { model, reason: modelReason } = selectModel('feedback');
+    // routerSelectModel() accepts task-type strings (not stage/turn/level tuples).
+    const { model, reason: modelReason } = routerSelectModel('feedback');
 
     const response = await callWithRetry(
       () => anthropic.messages.create({
@@ -447,7 +576,8 @@ export async function getMetacognitiveResponse({ studentName, bookTitle, level, 
     }
 
     // Metacognitive closing needs contextual nuance — use SONNET.
-    const { model } = selectModel('metacognitive');
+    // routerSelectModel() accepts task-type strings (not stage/turn/level tuples).
+    const { model } = routerSelectModel('metacognitive');
 
     // Apply prompt caching hints for the metacognitive system prompt.
     const { system: cachedSystem, messages: cachedMessages } =
@@ -501,7 +631,8 @@ export async function rephraseQuestion({ originalQuestion, studentName, level, b
     const systemPrompt = getRephrasePrompt(originalQuestion, studentName, level, bookTitle);
 
     // Rephrasing is simple reformatting — HAIKU is fast and cost-effective.
-    const { model } = selectModel('rephrase');
+    // routerSelectModel() accepts task-type strings (not stage/turn/level tuples).
+    const { model } = routerSelectModel('rephrase');
 
     const response = await callWithRetry(
       () => anthropic.messages.create({
@@ -528,9 +659,14 @@ export async function rephraseQuestion({ originalQuestion, studentName, level, b
 // ============================================================================
 
 export default {
+  // Core session functions
   getAliceResponse,
   generateSessionFeedback,
   formatConversationHistory,
   getMetacognitiveResponse,
-  rephraseQuestion
+  rephraseQuestion,
+  // TaskAdapter pattern — model routing and cost tracking
+  MODEL_CONFIGS,
+  selectModel,
+  getSessionCost,
 };

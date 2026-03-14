@@ -6,8 +6,12 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "test": "echo \"No tests configured yet\" && exit 0",
-    "test:watch": "echo \"No test runner configured\""
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "vitest": "^1.6.0"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.30.0",

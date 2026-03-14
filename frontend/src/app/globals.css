@@ -1194,3 +1194,48 @@ textarea.ghibli-focus:focus {
 .tier-beginner h4 {
   font-size: max(var(--font-size-base), 1em);
 }
+
+/* ===== Dark Mode CSS Variables ===== */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ghibli-bg: #1a1a2e;
+    --ghibli-surface: #2d2d44;
+    --ghibli-text: #e8e6e3;
+    --ghibli-text-secondary: #b0ada8;
+    --ghibli-border: #3d3d5c;
+  }
+}
+
+.dark-mode {
+  --ghibli-bg: #1a1a2e;
+  --ghibli-surface: #2d2d44;
+  --ghibli-text: #e8e6e3;
+  --ghibli-text-secondary: #b0ada8;
+  --ghibli-border: #3d3d5c;
+}
+
+/* ===== Skip to Content Link ===== */
+.skip-to-content {
+  position: absolute;
+  top: -100%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  padding: 12px 24px;
+  background: #3D6B3D;
+  color: white;
+  border-radius: 0 0 8px 8px;
+  font-weight: 700;
+  transition: top 0.2s;
+}
+.skip-to-content:focus {
+  top: 0;
+}
+
+/* ===== Focus Trap Utility (Dialog / Modal) ===== */
+[role="dialog"] {
+  /* When a modal is open, trap focus inside */
+}
+[role="dialog"]:focus-within {
+  outline: none;
+}
