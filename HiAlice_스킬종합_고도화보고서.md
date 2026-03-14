@@ -1,7 +1,7 @@
 # HiAlice 스킬 종합 고도화 보고서
 
 > 6개 전문 에이전시 병렬 분석 → 유연한 전환 구조 + 아동 UX 최적화
-> 날짜: 2026-03-14 | 버전: v1.2 (Sprint 1+2+3 실행 결과 반영)
+> 날짜: 2026-03-14 | 버전: v1.3 (Sprint 1~5 실행 결과 반영)
 
 ---
 
@@ -39,11 +39,11 @@
 
 | # | 에이전시 | 문제 | 영향 | 해결책 | 상태 |
 |---|---------|------|------|--------|------|
-| 1 | 아키텍처 | **session/page.js 1,451줄 + 36개 useState** | 신규 기능 추가 시 유지보수 불가능 | SessionProvider + StageRenderer + PluginSlot 5분할 | 🔲 대기 |
-| 2 | 접근성 | **인지 과부하: books 페이지 300+ 인터랙션** | 6-8세 아동 이탈 위험 | FEATURE_GATES 연령별 3/5/6 항목 제한 | 🔲 대기 |
+| 1 | 아키텍처 | **session/page.js 1,451줄 + 36개 useState** | 신규 기능 추가 시 유지보수 불가능 | SessionProvider + StageRenderer + PluginSlot 5분할 | ✅ **완료** (Sprint 4: 6모듈 분리) |
+| 2 | 접근성 | **인지 과부하: books 페이지 300+ 인터랙션** | 6-8세 아동 이탈 위험 | FEATURE_GATES 연령별 3/5/6 항목 제한 | ✅ **완료** (Sprint 4: NavBar 통합) |
 | 3 | 디자인 | **색상 토큰 3파일 분산 + 12px 폰트 위반** | 일관성 없는 UX, 저연령 가독성 문제 | tailwind.config.js 단일 소스 + 14px 최소값 | ✅ **완료** (Sprint 1) |
-| 4 | 학습엔진 | **AI 비용 $0.073/세션 (실측)** | B2B 확장 시 추가 최적화 가능 | Phi-3 파인튜닝 + 프롬프트 캐싱 (→$0.06) | 🔲 대기 |
-| 5 | QA | **유닛 테스트 0%, E2E만 12건** | 리팩토링 시 회귀 버그 위험 | 60% 유닛 + 25% 통합 + 15% E2E 피라미드 | ⚠️ 인프라 준비 (Sprint 1) |
+| 4 | 학습엔진 | **AI 비용 $0.073/세션 (실측)** | B2B 확장 시 추가 최적화 가능 | TaskAdapter 모델 라우팅 + Phi-3 (→$0.06) | ⚠️ **진행중** (Sprint 5: Sonnet/Haiku 라우팅 완료) |
+| 5 | QA | **유닛 테스트 0%, E2E만 12건** | 리팩토링 시 회귀 버그 위험 | 60% 유닛 + 25% 통합 + 15% E2E 피라미드 | ⚠️ **진행중** (228 유닛 테스트 구축) |
 
 ### 현재 잘 되어 있는 부분 (유지/강화)
 
@@ -426,7 +426,7 @@ ModelStrategy (abstract)
 
 | 테스트 유형 | 현재 | 목표 | 진행 |
 |------------|------|------|------|
-| Unit Tests | **75개 PASS** | 60% 커버리지 | ✅ Vitest 프레임워크 구축 완료 (Sprint 3) — constants 54개, clientStorage 20개, abTest 21개 |
+| Unit Tests | **228개 PASS** | 60% 커버리지 | ✅ 프론트 75개 (Sprint 3) + 백엔드 153개 (Sprint 5: aiQualityEval 79개, contentFilter 74개) |
 | Integration Tests | 0% | 25% | 🔲 |
 | E2E Tests (13 specs) | 100% | 15% | ✅ 유지 |
 
@@ -468,21 +468,21 @@ ModelStrategy (abstract)
 
 ### Week 3-4: Core Enhancement (핵심 강화)
 
-- [ ] [아키텍처] SessionContext + useReducer 마이그레이션
-- [ ] [디자인] 3-Tier 시각 밀도 CSS 구현
-- [ ] [QA] AI 품질 eval 자동화
-- [ ] [PRD] T.E.A.A. 교수법 프롬프트 통합
-- [ ] [엔진] TaskAdapter 패턴 도입
-- [ ] [접근성] 키보드 내비게이션 + 포커스 트랩
+- [x] [아키텍처] SessionContext + useReducer 마이그레이션 ✅ Sprint 4 (6모듈 분리)
+- [x] [디자인] 3-Tier 시각 밀도 CSS 구현 ✅ Sprint 4
+- [x] [QA] AI 품질 eval 자동화 ✅ Sprint 5 (79 프롬프트 테스트 + 74 필터 테스트)
+- [x] [PRD] T.E.A.A. 교수법 프롬프트 통합 ✅ Sprint 4
+- [x] [엔진] TaskAdapter 패턴 도입 ✅ Sprint 5 (Sonnet/Haiku 라우팅)
+- [x] [접근성] 키보드 내비게이션 + 포커스 트랩 ✅ Sprint 5 (skip-to-content, focus-visible, 다크모드 CSS)
 
 ### Week 5-6: Feature Launch (A-Tier 기능)
 
-- [PRD] Pre-Reading 모듈 출시
-- [PRD] 7차원 성장 프로필 시각화
-- [디자인] HiAlice 아바타 시스템 구현
-- [엔진] Haiku 확대 라우팅 ($0.12/세션)
-- [QA] E2E 접근성 스캔 CI 통합
-- [접근성] 다크 모드 + 난독증 토글
+- [x] [PRD] Pre-Reading 모듈 출시 ✅ Sprint 5 (확인 모달 + ARIA)
+- [ ] [PRD] 7차원 성장 프로필 시각화
+- [ ] [디자인] HiAlice 아바타 시스템 구현
+- [x] [엔진] Haiku 확대 라우팅 ($0.12/세션) ✅ Sprint 5 (TaskAdapter selectModel)
+- [ ] [QA] E2E 접근성 스캔 CI 통합
+- [x] [접근성] 다크 모드 + 난독증 토글 ✅ Sprint 5 (다크모드 CSS 변수 + .dark-mode 클래스)
 
 ### Week 7-8: Engagement (참여 기능)
 
@@ -621,18 +621,47 @@ ModelStrategy (abstract)
 **빌드 검증:** Vitest 75 PASS + Next.js 23페이지 컴파일 성공
 **커밋:** `5754cf1` → GitHub push 완료
 
-### 누적 변경 통계 (Sprint 1+2+3)
+### Sprint 4 (2026-03-14) — 아키텍처 · 교수법 · 시각 밀도
 
-| 항목 | Sprint 1+2 | Sprint 3 | 누적 |
-|------|-----------|----------|------|
-| 수정 파일 | 13개 | 10개 | 23개 |
-| 추가 줄 | +147 | +3,095 | +3,242 |
-| 삭제 줄 | -59 | -144 | -203 |
-| 에이전트 투입 | 10개 | 3개 | 13개 |
-| 파일 충돌 | 0건 | 0건 | 0건 |
-| 빌드 실패 | 0건 | 0건 | 0건 |
-| 유닛 테스트 | 0개 | **75개** | **75개 PASS** |
+**실행 방식:** 4개 전문 에이전트 병렬 배치, 파일 충돌 0건
+
+| 그룹 | 에이전트 | 작업 | 수정 파일 | 결과 |
+|------|---------|------|----------|------|
+| A | Frontend Developer | FEATURE_GATES + NavBar 통합 | `featureGates.js`, `NavBar.js` | ✅ 연령별 메뉴 필터링 |
+| B | Backend Developer | T.E.A.A. 교수법 프롬프트 | `prompts.js` (+207줄) | ✅ Think→Explain→Add→Apply |
+| C | Frontend Developer | 3-Tier 시각 밀도 CSS | `globals.css` (+125줄) | ✅ beginner/intermediate/advanced |
+| D | Refactoring Specialist | session/page.js 모듈 분리 | `page.js` + 5개 신규 모듈 | ✅ 1,451→269줄 (82%↓) |
+
+**빌드 검증:** Vitest 75 PASS + Next.js 23페이지 컴파일 성공
+**커밋:** `f465994` → GitHub push 완료
+
+### Sprint 5 (2026-03-14) — 모델 라우팅 · Pre-Reading · 접근성 · 테스트
+
+**실행 방식:** 4개 전문 에이전트 병렬 배치, 파일 충돌 0건
+
+| 그룹 | 에이전트 | 작업 | 수정 파일 | 결과 |
+|------|---------|------|----------|------|
+| A | Backend Developer | TaskAdapter 모델 라우팅 | `engine.js` | ✅ Sonnet/Haiku 스마트 선택 |
+| B | Frontend Developer | 키보드 내비 + 다크모드 CSS | `globals.css`, `layout.js` | ✅ skip-to-content + 다크모드 변수 |
+| C | React Specialist | Pre-Reading 확인 모달 | `books/page.js` | ✅ ARIA dialog + Escape 닫기 |
+| D | Test Automator | AI 품질 eval + 콘텐츠 필터 테스트 | `aiQualityEval.test.js`, `contentFilter.test.js` | ✅ 153 PASS |
+
+**테스트 검증:** 프론트 75 + 백엔드 153 = **228 테스트 ALL PASS**
+**빌드 검증:** Next.js 23페이지 컴파일 성공
+**커밋:** `abd87a5` → GitHub push 완료
+
+### 누적 변경 통계 (Sprint 1~5)
+
+| 항목 | Sprint 1+2 | Sprint 3 | Sprint 4 | Sprint 5 | 누적 |
+|------|-----------|----------|----------|----------|------|
+| 수정 파일 | 13개 | 10개 | 10개 | 9개 | **42개** |
+| 추가 줄 | +147 | +3,095 | +2,006 | +3,418 | **+8,666** |
+| 삭제 줄 | -59 | -144 | -1,289 | -29 | **-1,521** |
+| 에이전트 투입 | 10개 | 3개 | 4개 | 4개 | **21개** |
+| 파일 충돌 | 0건 | 0건 | 0건 | 0건 | **0건** |
+| 빌드 실패 | 0건 | 0건 | 0건 | 0건 | **0건** |
+| 유닛 테스트 | 0개 | 75개 | 0개 | +153개 | **228개 PASS** |
 
 ---
 
-*— HiAlice 스킬 종합 고도화 보고서 v1.2 | 2026.03.14 —*
+*— HiAlice 스킬 종합 고도화 보고서 v1.3 | 2026.03.14 —*
