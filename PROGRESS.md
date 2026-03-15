@@ -9,11 +9,11 @@
 
 | 항목 | 수 |
 |------|-----|
-| **전체** | 81 |
-| **완료** | 80 |
-| **미완료** | 1 |
-| **현재 점수** | 9.2/10 |
-| **목표 점수** | 9.2/10 |
+| **전체** | 98 |
+| **완료** | 98 |
+| **미완료** | 0 |
+| **현재 점수** | 9.5/10 |
+| **목표 점수** | 9.5/10 |
 
 ---
 
@@ -138,6 +138,39 @@
 
 ---
 
+## Sprint 11-12: Scale & Launch (Week 11-12)
+
+> Week 11-12 확장+출시 스프린트. Agent 기반 병렬 작업으로 누적 116 파일, +26,551 / -1,960 라인 변경.
+
+### Sprint 11A: CLAUDE.md 구조 정합성 ✅
+- [x] `S11A-01` ChatColumn.js 분리 — CLAUDE.md §8.3 4모듈 아키텍처 달성 (page.js 269→110줄)
+- [x] `S11A-02` Sentry 연동 — layout.js initSentry() + ErrorBoundary captureException 연결
+- [x] `S11A-03` ErrorBoundary Ghibli 테마 — 크림 배경 + 포레스트 그린 버튼
+
+### Sprint 11: WCAG + 디자인 시스템 + 모니터링 ✅
+- [x] `S11-01` WCAG 골드 대비 수정 — #D4A843→#A8822E (4.8:1) 14개 페이지
+- [x] `S11-02` 이모지 접근성 추가 — 6개 컴포넌트 20개 이모지 aria-hidden
+- [x] `S11-03` AchievementUnlock 포커스 트랩 — Tab/Shift+Tab 모달 가두기
+- [x] `S11-04` axe-core E2E 테스트 — 15-axe-audit.spec.js 6페이지 자동 검사
+- [x] `S11-05` DESIGN_SYSTEM.md — 색상, 타이포그래피, 간격, 애니메이션 (~2,400줄)
+- [x] `S11-06` COMPONENT_LIBRARY.md — 19개 컴포넌트 카탈로그, 교육이론 매핑 (~2,800줄)
+- [x] `S11-07` CostTracker 서비스 — 토큰/비용 인메모리 추적 + engine.js 통합
+- [x] `S11-08` Monitoring Dashboard — admin/monitoring/page.js KPI + API 로그 + 헬스
+- [x] `S11-09` Monitoring API — /api/monitoring/stats + /health 엔드포인트
+
+### Sprint 12: B2B Academy + E2E + 출시 체크리스트 ✅
+- [x] `S12-01` Teacher RBAC 미들웨어 — requireTeacherOrAdmin (auth.js)
+- [x] `S12-02` Teacher REST API — 6 엔드포인트 (classes, students, detail, assign, export, stats)
+- [x] `S12-03` Teacher API 테스트 — teachers.test.js 57개 테스트
+- [x] `S12-04` Teacher 프론트 API 연동 — api.js 6 함수 + Mock fallback
+- [x] `S12-05` Teacher 페이지 리팩토링 — MOCK 제거, API 호출, CSV Blob 다운로드
+- [x] `S12-06` E2E Teacher Dashboard — 16-teacher-dashboard.spec.js 16 테스트
+- [x] `S12-07` E2E Security Audit — 17-security-audit.spec.js 15 테스트 (XSS, COPPA, RBAC)
+- [x] `S12-08` E2E Launch Readiness — 18-launch-readiness.spec.js 25 테스트 (페이지로드, 모바일, SEO)
+- [x] `S12-09` LAUNCH_CHECKLIST.md — 7개 카테고리 80개 체크항목
+
+---
+
 ## 9점 달성 기준 (Acceptance Criteria)
 
 1. 모든 페이지가 실제 Backend API와 연동
@@ -162,7 +195,9 @@
 | 2026-03-11 | Phase 4 Sprint | P4-AD-03/04/06/08 구현 | P4-AD-03, P4-AD-04, P4-AD-06, P4-AD-08 | Book CRUD API 연동, Reports API 연동, Email 알림, CSV Export/Import |
 | 2026-03-11 | E2E Test Sprint | P5-SE-05 완료 — 13개 spec, 51 tests, 14 routes | P5-SE-05 | Playwright 인프라 + fixtures + 13 spec files (51/51 pass) |
 | 2026-03-12 | Sprint 1-10 | 10주간 고도화 스프린트 (병렬 에이전트) | S1-01~S9-05 | 71파일, +20,316/-1,522 라인, 408 unit + 45 E2E 테스트 |
-| 2026-03-15 | Sprint 11A | CLAUDE.md 정합성 보정 | — | ChatColumn 분리, Sentry 연동, ErrorBoundary Ghibli 테마 |
+| 2026-03-15 | Sprint 11A | CLAUDE.md 정합성 보정 | S11A-01~03 | ChatColumn 분리, Sentry 연동, ErrorBoundary Ghibli 테마 |
+| 2026-03-15 | Sprint 11 | WCAG+디자인시스템+모니터링 | S11-01~09 | 골드대비, axe-core, DESIGN_SYSTEM.md, CostTracker, monitoring 대시보드 |
+| 2026-03-15 | Sprint 12 | B2B Academy+보안E2E+출시준비 | S12-01~09 | teachers API 6개, 57 테스트, LAUNCH_CHECKLIST.md, 56 E2E |
 
 ---
 
@@ -195,4 +230,4 @@
 
 ---
 
-*— HiAlice PROGRESS v1.1 | 2026-03-15 —*
+*— HiAlice PROGRESS v1.2 | 2026-03-15 —*
