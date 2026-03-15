@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HiAlice 하이브리드 시너지 분석 — 수정버전 × 신규버전 결합 전략</title>
+<style>
+  :root {
+    --primary: #4A90D9;
+    --primary-dark: #2E6CB5;
+    --accent: #F39C12;
+    --success: #27AE60;
+    --danger: #E74C3C;
+    --purple: #8E44AD;
+    --bg: #F5F7FA;
+    --card: #FFFFFF;
+    --text: #2C3E50;
+    --text-light: #7F8C8D;
+    --border: #E8EDF2;
+    --gradient-1: linear-gradient(135deg, #4A90D9, #8E44AD);
+    --gradient-2: linear-gradient(135deg, #F39C12, #E74C3C);
+    --gradient-3: linear-gradient(135deg, #27AE60, #2ECC71);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; }
+
+  /* === HEADER === */
+  .hero { background: var(--gradient-1); color: white; padding: 60px 40px 50px; text-align: center; position: relative; overflow: hidden; }
+  .hero::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle at 30% 50%, rgba(255,255,255,0.08) 0%, transparent 50%); }
+  .hero h1 { font-size: 2.4em; font-weight: 800; margin-bottom: 12px; position: relative; }
+  .hero .sub { font-size: 1.15em; opacity: 0.9; position: relative; }
+  .hero .badge-row { display: flex; justify-content: center; gap: 16px; margin-top: 24px; flex-wrap: wrap; position: relative; }
+  .hero .badge { background: rgba(255,255,255,0.18); padding: 8px 20px; border-radius: 24px; font-size: 0.9em; backdrop-filter: blur(4px); }
+
+  /* === NAVIGATION === */
+  .nav { background: white; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+  .nav-inner { max-width: 1200px; margin: 0 auto; display: flex; overflow-x: auto; gap: 4px; padding: 8px 16px; }
+  .nav-btn { padding: 10px 18px; border: none; background: transparent; border-radius: 8px; cursor: pointer; font-size: 0.88em; font-weight: 600; color: var(--text-light); white-space: nowrap; transition: all 0.2s; }
+  .nav-btn:hover { background: var(--bg); color: var(--primary); }
+  .nav-btn.active { background: var(--primary); color: white; }
+
+  /* === LAYOUT === */
+  .container { max-width: 1200px; margin: 0 auto; padding: 32px 20px; }
+  .section { display: none; animation: fadeIn 0.3s ease; }
+  .section.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* === CARDS === */
+  .card { background: var(--card); border-radius: 16px; padding: 28px; margin-bottom: 20px; box-shadow: 0 2px 16px rgba(0,0,0,0.04); border: 1px solid var(--border); transition: transform 0.2s, box-shadow 0.2s; }
+  .card:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(0,0,0,0.08); }
+  .card-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .card-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5em; flex-shrink: 0; }
+  .card-title { font-size: 1.2em; font-weight: 700; }
+  .card-tag { font-size: 0.75em; padding: 3px 10px; border-radius: 12px; font-weight: 600; }
+
+  /* === SYNERGY MATRIX === */
+  .matrix-wrap { overflow-x: auto; margin: 20px 0; }
+  .matrix { width: 100%; border-collapse: collapse; font-size: 0.85em; }
+  .matrix th { background: var(--primary); color: white; padding: 12px 8px; text-align: center; font-weight: 600; position: sticky; top: 0; }
+  .matrix th.row-header { background: #34495E; text-align: left; min-width: 140px; }
+  .matrix td { padding: 10px 8px; text-align: center; border: 1px solid var(--border); }
+  .matrix tr:nth-child(even) td { background: #FAFBFC; }
+  .synergy-high { background: #D5F5E3 !important; color: #1E8449; font-weight: 700; }
+  .synergy-mid { background: #FEF9E7 !important; color: #B7950B; font-weight: 600; }
+  .synergy-low { background: #FDEBD0 !important; color: #CA6F1E; }
+  .synergy-none { background: #F8F9F9 !important; color: #BDC3C7; }
+
+  /* === SYNERGY DETAIL CARDS === */
+  .synergy-card { border-left: 4px solid var(--primary); }
+  .synergy-card.tier-s { border-left-color: #E74C3C; }
+  .synergy-card.tier-a { border-left-color: #F39C12; }
+  .synergy-card.tier-b { border-left-color: #3498DB; }
+  .tier-badge { display: inline-block; padding: 4px 14px; border-radius: 16px; font-weight: 800; font-size: 0.85em; color: white; margin-right: 8px; }
+  .tier-s .tier-badge { background: linear-gradient(135deg, #E74C3C, #C0392B); }
+  .tier-a .tier-badge { background: linear-gradient(135deg, #F39C12, #E67E22); }
+  .tier-b .tier-badge { background: linear-gradient(135deg, #3498DB, #2980B9); }
+
+  .combo-tag { display: inline-block; background: #EBF5FB; color: var(--primary); padding: 3px 10px; border-radius: 8px; font-size: 0.8em; font-weight: 600; margin: 2px; }
+  .combo-tag.mod { background: #E8F8F5; color: #1ABC9C; }
+  .combo-tag.new { background: #F5EEF8; color: #8E44AD; }
+
+  /* === FLOW DIAGRAMS === */
+  .flow { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+  .flow-node { padding: 10px 16px; border-radius: 10px; font-weight: 600; font-size: 0.85em; color: white; }
+  .flow-arrow { font-size: 1.3em; color: var(--text-light); }
+  .flow-mod { background: var(--success); }
+  .flow-new { background: var(--purple); }
+  .flow-hybrid { background: var(--gradient-2); }
+  .flow-result { background: var(--gradient-1); padding: 12px 20px; border-radius: 12px; }
+
+  /* === METRICS === */
+  .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin: 20px 0; }
+  .metric-card { background: white; border-radius: 12px; padding: 20px; text-align: center; border: 1px solid var(--border); }
+  .metric-value { font-size: 2em; font-weight: 800; background: var(--gradient-1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .metric-label { font-size: 0.85em; color: var(--text-light); margin-top: 4px; }
+  .metric-delta { font-size: 0.9em; color: var(--success); font-weight: 600; margin-top: 4px; }
+
+  /* === TIMELINE === */
+  .timeline { position: relative; padding-left: 40px; }
+  .timeline::before { content: ''; position: absolute; left: 16px; top: 0; bottom: 0; width: 3px; background: var(--border); border-radius: 3px; }
+  .timeline-item { position: relative; margin-bottom: 24px; }
+  .timeline-dot { position: absolute; left: -32px; top: 6px; width: 18px; height: 18px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 0 2px var(--primary); }
+  .timeline-dot.phase-1 { background: var(--danger); box-shadow: 0 0 0 2px var(--danger); }
+  .timeline-dot.phase-2 { background: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+  .timeline-dot.phase-3 { background: var(--success); box-shadow: 0 0 0 2px var(--success); }
+  .timeline-dot.phase-4 { background: var(--purple); box-shadow: 0 0 0 2px var(--purple); }
+  .timeline-content { background: white; border-radius: 12px; padding: 20px; border: 1px solid var(--border); }
+  .timeline-week { font-size: 0.8em; font-weight: 700; color: var(--primary); margin-bottom: 4px; }
+
+  /* === TABLES === */
+  .data-table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 0.9em; }
+  .data-table th { background: #34495E; color: white; padding: 12px; text-align: left; font-weight: 600; }
+  .data-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  .data-table tr:hover td { background: #F8F9FA; }
+
+  /* === IMPACT BARS === */
+  .impact-row { display: flex; align-items: center; gap: 12px; margin: 8px 0; }
+  .impact-label { width: 200px; font-size: 0.88em; font-weight: 600; flex-shrink: 0; }
+  .impact-bar-bg { flex: 1; height: 24px; background: #ECF0F1; border-radius: 12px; overflow: hidden; position: relative; }
+  .impact-bar { height: 100%; border-radius: 12px; transition: width 1s ease; display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; font-size: 0.75em; font-weight: 700; color: white; }
+  .impact-mod { background: var(--success); }
+  .impact-new { background: var(--purple); }
+  .impact-hybrid { background: var(--gradient-2); }
+
+  /* === TABS === */
+  .tab-group { display: flex; gap: 4px; margin-bottom: 20px; flex-wrap: wrap; }
+  .tab-btn { padding: 8px 18px; border: 2px solid var(--border); background: white; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.2s; }
+  .tab-btn:hover { border-color: var(--primary); color: var(--primary); }
+  .tab-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* === MISC === */
+  h2 { font-size: 1.6em; font-weight: 800; margin-bottom: 8px; color: var(--text); }
+  h3 { font-size: 1.15em; font-weight: 700; margin-bottom: 8px; color: var(--text); }
+  .section-desc { color: var(--text-light); margin-bottom: 24px; font-size: 0.95em; }
+  .highlight { background: linear-gradient(transparent 60%, #FEF9E7 60%); font-weight: 600; }
+  .code-block { background: #2C3E50; color: #ECF0F1; padding: 16px 20px; border-radius: 10px; font-family: 'Fira Code', monospace; font-size: 0.85em; overflow-x: auto; margin: 12px 0; line-height: 1.6; }
+  .code-block .comment { color: #7F8C8D; }
+  .code-block .keyword { color: #3498DB; }
+  .code-block .string { color: #2ECC71; }
+  .code-block .func { color: #F39C12; }
+  .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
+  .badge-pill { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.78em; font-weight: 600; }
+  .badge-mod { background: #E8F8F5; color: #1ABC9C; }
+  .badge-new { background: #F5EEF8; color: #8E44AD; }
+  .badge-hybrid { background: #FEF9E7; color: #F39C12; }
+  .divider { height: 1px; background: var(--border); margin: 32px 0; }
+
+  @media (max-width: 768px) {
+    .hero { padding: 40px 20px; }
+    .hero h1 { font-size: 1.6em; }
+    .container { padding: 20px 12px; }
+    .grid-2 { grid-template-columns: 1fr; }
+    .impact-label { width: 120px; font-size: 0.8em; }
+    .metric-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ HERO ============ -->
+<div class="hero">
+  <h1>HiAlice 하이브리드 시너지 분석</h1>
+  <div class="sub">수정버전(M-01~M-08) × 신규버전(N-01~N-07) 결합 시너지 종합 전략</div>
+  <div class="badge-row">
+    <span class="badge">15개 항목 교차분석</span>
+    <span class="badge">6대 핵심 시너지 클러스터</span>
+    <span class="badge">12주 하이브리드 로드맵</span>
+    <span class="badge">$120K+/월 예상 매출</span>
+  </div>
+</div>
+
+<!-- ============ NAV ============ -->
+<div class="nav">
+  <div class="nav-inner">
+    <button class="nav-btn active" onclick="showSection('overview')">종합 개요</button>
+    <button class="nav-btn" onclick="showSection('matrix')">시너지 매트릭스</button>
+    <button class="nav-btn" onclick="showSection('clusters')">6대 시너지 클러스터</button>
+    <button class="nav-btn" onclick="showSection('architecture')">통합 아키텍처</button>
+    <button class="nav-btn" onclick="showSection('roadmap')">하이브리드 로드맵</button>
+    <button class="nav-btn" onclick="showSection('impact')">임팩트 비교</button>
+    <button class="nav-btn" onclick="showSection('risk')">리스크 & 우선순위</button>
+  </div>
+</div>
+
+<!-- ============ SECTION 1: OVERVIEW ============ -->
+<div class="container">
+<div id="overview" class="section active">
+  <h2>왜 하이브리드 결합인가?</h2>
+  <p class="section-desc">수정버전과 신규버전을 독립적으로 실행하면 각각 효과가 있지만, <span class="highlight">전략적으로 결합하면 1+1=3 이상의 시너지</span>가 발생합니다. 아래는 15개 항목 간 교차분석으로 도출된 핵심 인사이트입니다.</p>
+
+  <div class="metric-grid">
+    <div class="metric-card">
+      <div class="metric-value">56개</div>
+      <div class="metric-label">M×N 교차 조합</div>
+      <div class="metric-delta">8 × 7 매트릭스</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-value">23개</div>
+      <div class="metric-label">유의미한 시너지 포인트</div>
+      <div class="metric-delta">전체 조합의 41%</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-value">6개</div>
+      <div class="metric-label">핵심 시너지 클러스터</div>
+      <div class="metric-delta">S-Tier 3 / A-Tier 2 / B-Tier 1</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-value">+340%</div>
+      <div class="metric-label">하이브리드 매출 상승 예상</div>
+      <div class="metric-delta">독립실행 대비</div>
+    </div>
+  </div>
+
+  <div class="card" style="border-left: 4px solid var(--accent);">
+    <h3>핵심 발견: 수정버전이 신규버전의 "엔진"이 된다</h3>
+    <p style="margin-top: 8px;">코드베이스 분석 결과, 수정버전(M-01~M-08)은 <code>prompts.js</code>, <code>engine.js</code>, <code>levelDetector.js</code>, <code>vocabularyExtractor.js</code> 등 <strong>핵심 AI 파이프라인</strong>을 강화합니다. 이 강화된 파이프라인 위에 신규버전(N-01~N-07)의 새로운 모듈이 구축되면, 신규 모듈은 처음부터 고품질 AI 응답, 정밀한 레벨 감지, 깊이 있는 어휘 시스템을 <strong>자동으로 상속</strong>받습니다.</p>
+    <div class="flow" style="margin-top: 16px;">
+      <span class="flow-node flow-mod">M-01 T.E.A.A. 프롬프트</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-node flow-new">N-02 디베이트 엔진</span>
+      <span class="flow-arrow">=</span>
+      <span class="flow-node flow-result">T.E.A.A. 기반 디베이트 (세계 최초)</span>
+    </div>
+    <div class="flow">
+      <span class="flow-node flow-mod">M-03 어휘 정밀화</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-node flow-new">N-01 프리리딩</span>
+      <span class="flow-arrow">=</span>
+      <span class="flow-node flow-result">사전어휘→세션→복습 완전 순환</span>
+    </div>
+    <div class="flow">
+      <span class="flow-node flow-mod">M-04 7차원 프로필</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-node flow-new">N-05 적응형 엔진</span>
+      <span class="flow-arrow">=</span>
+      <span class="flow-node flow-result">다차원 ZPD 최적화 학습</span>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SECTION 2: MATRIX ============ -->
+<div id="matrix" class="section">
+  <h2>시너지 매트릭스 (M × N)</h2>
+  <p class="section-desc">수정버전 8개 항목과 신규버전 7개 항목의 전체 교차 시너지를 평가합니다. ★★★ = 핵심 시너지, ★★ = 보조 시너지, ★ = 간접 시너지</p>
+
+  <div class="matrix-wrap">
+    <table class="matrix">
+      <thead>
+        <tr>
+          <th class="row-header">수정 \ 신규</th>
+          <th>N-01<br>프리리딩</th>
+          <th>N-02<br>디베이트</th>
+          <th>N-03<br>소셜리딩</th>
+          <th>N-04<br>스토리스튜디오</th>
+          <th>N-05<br>적응형엔진</th>
+          <th>N-06<br>B2B학원</th>
+          <th>N-07<br>학부모허브</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="row-header" style="background:#34495E;color:white;text-align:left;font-weight:600;">M-01 T.E.A.A. 프롬프트</td>
+          <td class="synergy-mid">★★</td>
+          <td class="synergy-high">★★★</td>
+          <td class="synergy-low">★</td>
+          <td class="synergy-mid">★★</td>
+          <td class="synergy-high">★★★</td>
+          <td class="synergy-mid">★★</td>
+          <td class="synergy-low">★</td>
+        </tr>
+        <tr>
+          <td class="row-header" style="background:#34495E;color:white;text-align:left;font-weight:600;">M-02 세션 차등화</td>
+          <td class="synergy-high">★★★</td>
+          <td class="synergy-mid">★★</td>
+          <td class="synergy-low">★</td>
+          <td class="synergy-mid">★★</td>
+          <td class="synergy-high">★★★</td>
+          <td class="synergy-mid">★★</td>
+          <td class="synergy-low">★</td>
+        </tr>
+        <tr>
+          <td class="row-header" style="background:#34495E;color:white;text-align:left;font-weight:600;">M-03 어휘 정밀화</td>
+          <td class="synergy-high">★★★</td>
+          <td class="synergy-mid">★★</td>
+          <td class="synergy-low">★</td>
+          <td class="synergy-mid">★★</td>
+          <td class="synergy-mid">★★</td>
+          <td class="synergy-low">★</td>
+          <td class="synergy-high">★★★</td>
+        </tr>
+        <tr>
+          <td class="row-header" style="background:#34495E;color:white;text-align:left;font-weight:600;">M-04 7차원 프로필</td>
+          <td class="synergy-mid">★★</td>
+          <td class="synergy-mid">★★</td>
+          <td class="synergy-mid">★★</td>
+          <td class="synergy-mid">★★</td>
+          <td class="synergy-high">★★★</td>
+          <td class="synergy-high">★★★</td>
+          <td class="synergy-high">★★★</td>
+        </tr>
+        <tr>
+          <td class="row-header" style="background:#34495E;color:white;text-align:left;font-weight:600;">M-05 Fiction/NF</td>
+          <td class="synergy-mid">★★</td>
+          <td class="synergy-high">★★★</td>
+          <td class="synergy-mid">★★</td>
+          <td class="synergy-high">★★★</td>
+          <td class="synergy-mid">★★</td>
+          <td class="synergy-mid">★★</td>
+          <td class="synergy-low">★</td>
+        </tr>
+        <tr>
+          <td class="row-header" style="background:#34495E;color:white;text-align:left;font-weight:600;">M-06 Growth Mindset</td>
+          <td class="synergy-mid">★★</td>
+          <td class="synergy-high">★★★</td>
+          <td class="synergy-mid">★★</td>
+          <td class="synergy-high">★★★</td>
+          <td class="synergy-low">★</td>
+          <td class="synergy-low">★</td>
+          <td class="synergy-high">★★★</td>
+        </tr>
+        <tr>
+          <td class="row-header" style="background:#34495E;color:white;text-align:left;font-weight:600;">M-07 코드스위칭</td>
+          <td class="synergy-high">★★★</td>
+          <td class="synergy-mid">★★</td>
+          <td class="synergy-mid">★★</td>
+          <td class="synergy-high">★★★</td>
+          <td class="synergy-mid">★★</td>
+          <td class="synergy-high">★★★</td>
+          <td class="synergy-mid">★★</td>
+        </tr>
+        <tr>
+          <td class="row-header" style="background:#34495E;color:white;text-align:left;font-weight:600;">M-08 Rest & Play</td>
+          <td class="synergy-low">★</td>
+          <td class="synergy-low">★</td>
+          <td class="synergy-mid">★★</td>
+          <td class="synergy-mid">★★</td>
+          <td class="synergy-mid">★★</td>
+          <td class="synergy-low">★</td>
+          <td class="synergy-high">★★★</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card" style="margin-top: 24px;">
+    <h3>매트릭스 해석</h3>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-top: 12px;">
+      <div>
+        <strong style="color: #1E8449;">★★★ 핵심 시너지 (12개)</strong>
+        <p style="font-size: 0.88em; color: var(--text-light); margin-top: 4px;">두 항목이 같은 코드 파일을 수정하거나, 한 항목의 출력이 다른 항목의 입력이 되는 직접 의존 관계. 동시 구현 시 개발 공수 30-50% 절감 가능.</p>
+      </div>
+      <div>
+        <strong style="color: #B7950B;">★★ 보조 시너지 (21개)</strong>
+        <p style="font-size: 0.88em; color: var(--text-light); margin-top: 4px;">사용자 경험 수준에서 상호 강화. 한 항목이 다른 항목의 효과를 증폭시키지만 기술적 의존은 약함.</p>
+      </div>
+      <div>
+        <strong style="color: #CA6F1E;">★ 간접 시너지 (14개)</strong>
+        <p style="font-size: 0.88em; color: var(--text-light); margin-top: 4px;">브랜드/마케팅 수준의 간접적 상호 강화. 통합 메시지에서 가치 있으나 기술적 연결은 미미.</p>
+      </div>
+      <div>
+        <strong style="color: #BDC3C7;">공백 (9개)</strong>
+        <p style="font-size: 0.88em; color: var(--text-light); margin-top: 4px;">의미 있는 시너지가 발견되지 않은 조합. 독립적으로 구현해도 무방.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SECTION 3: CLUSTERS ============ -->
+<div id="clusters" class="section">
+  <h2>6대 시너지 클러스터</h2>
+  <p class="section-desc">매트릭스 분석 결과 도출된 6개의 핵심 시너지 클러스터입니다. 각 클러스터는 수정/신규 항목의 전략적 결합으로 독립 실행 대비 압도적 시너지를 발생시킵니다.</p>
+
+  <!-- CLUSTER S-1 -->
+  <div class="card synergy-card tier-s">
+    <div class="card-header">
+      <div class="card-icon" style="background: linear-gradient(135deg, #E74C3C, #C0392B); color: white;">S1</div>
+      <div>
+        <div class="card-title"><span class="tier-badge">S-TIER</span> 인지적 심화 파이프라인</div>
+        <div style="margin-top: 4px;">
+          <span class="combo-tag mod">M-01 T.E.A.A.</span>
+          <span class="combo-tag mod">M-05 Fiction/NF</span>
+          <span class="combo-tag new">N-02 디베이트</span>
+          <span class="combo-tag new">N-05 적응형엔진</span>
+        </div>
+      </div>
+    </div>
+
+    <h3>시너지 메커니즘</h3>
+    <p>M-01이 <code>prompts.js</code>의 T.E.A.A. 교수법과 블룸 택소노미 위계를 강화하면, 이 강화된 프롬프트 시스템이 N-02 디베이트 엔진의 <code>debateEngine.js</code>에 직접 상속됩니다. 디베이트의 "논거 구축 → AI 반론 → 방어" 3라운드 구조가 T.E.A.A.의 "Think → Explain → Add → Apply"와 결합되면, <strong>세계 최초의 T.E.A.A. 기반 아동 디베이트 AI</strong>가 탄생합니다.</p>
+    <p style="margin-top: 8px;">M-05 Fiction/Non-Fiction 이원화는 디베이트 주제의 다양성을 폭발적으로 확장합니다. Fiction은 윤리적 딜레마("Should Wilbur be saved?"), Non-Fiction은 사실 기반 논쟁("Is climate change the biggest threat?")으로 분기합니다. N-05 적응형 엔진은 학생의 인지 수준을 실시간 감지하여 디베이트 난이도를 자동 조절합니다.</p>
+
+    <div class="flow" style="margin-top: 16px;">
+      <span class="flow-node flow-mod">M-01 T.E.A.A.<br>prompts.js</span>
+      <span class="flow-arrow">+</span>
+      <span class="flow-node flow-mod">M-05 Fiction/NF<br>GENRE_PROMPTS</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-node flow-new">N-02 debateEngine.js<br>장르별 디베이트</span>
+      <span class="flow-arrow">⟷</span>
+      <span class="flow-node flow-new">N-05 adaptiveEngine.js<br>실시간 난이도 조절</span>
+    </div>
+
+    <div class="code-block">
+<span class="comment">// 하이브리드 결합 예시: debateEngine.js에서 M-01 + M-05 상속</span>
+<span class="keyword">const</span> DEBATE_PROMPT = `
+  ${<span class="func">getSystemPrompt</span>(book, level, <span class="string">'debate'</span>)}  <span class="comment">// ← M-01의 T.E.A.A. + Bloom's 자동 포함</span>
+  ${GENRE_PROMPTS[book.genre].body}           <span class="comment">// ← M-05의 Fiction/NF 분기 자동 적용</span>
+
+  <span class="string">DEBATE-SPECIFIC RULES:</span>
+  <span class="string">- Round structure follows T.E.A.A.:</span>
+  <span class="string">  T: "Take a moment to form your argument..."</span>
+  <span class="string">  E: "Explain your position with evidence"</span>
+  <span class="string">  A: "Add a counter to my response"</span>
+  <span class="string">  A: "Apply this to a real situation"</span>
+
+  <span class="string">- Adaptive difficulty: ${adaptiveEngine.currentZPD}</span>  <span class="comment">// ← N-05 실시간 ZPD</span>
+`;
+    </div>
+
+    <div class="metric-grid">
+      <div class="metric-card">
+        <div class="metric-value">+210%</div>
+        <div class="metric-label">비판적 사고력 향상</div>
+        <div class="metric-delta">독립 실행 대비</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">-45%</div>
+        <div class="metric-label">디베이트 엔진 개발 공수</div>
+        <div class="metric-delta">M-01 인프라 재활용</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">$25K</div>
+        <div class="metric-label">B2B 학원 디베이트 월 매출</div>
+        <div class="metric-delta">트윈클급 디베이트 앱에서</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CLUSTER S-2 -->
+  <div class="card synergy-card tier-s">
+    <div class="card-header">
+      <div class="card-icon" style="background: linear-gradient(135deg, #E74C3C, #C0392B); color: white;">S2</div>
+      <div>
+        <div class="card-title"><span class="tier-badge">S-TIER</span> 완전 어휘 습득 루프</div>
+        <div style="margin-top: 4px;">
+          <span class="combo-tag mod">M-03 어휘 정밀화</span>
+          <span class="combo-tag mod">M-07 코드스위칭</span>
+          <span class="combo-tag new">N-01 프리리딩</span>
+          <span class="combo-tag new">N-04 스토리스튜디오</span>
+        </div>
+      </div>
+    </div>
+
+    <h3>시너지 메커니즘</h3>
+    <p>현재 어휘 시스템의 가장 큰 문제는 <strong>"노출은 됐지만 사용하지 않는 단어"</strong>입니다. 이 4개 항목의 결합은 <strong>완전한 어휘 습득 순환(Vocabulary Acquisition Loop)</strong>을 형성합니다:</p>
+
+    <div class="flow" style="margin-top: 12px;">
+      <span class="flow-node flow-new">N-01 프리리딩<br>5개 핵심어휘 예습</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-node flow-mod">M-03 세션 중<br>5-7개 정밀 추출</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-node flow-mod">M-07 코드스위칭<br>한국어 브릿지 이해</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-node flow-new">N-04 스토리 작문<br>자발적 사용(Level 5)</span>
+    </div>
+
+    <p style="margin-top: 12px;">N-01 프리리딩에서 핵심 어휘 5개를 미리 학습하면, M-03의 세션 중 어휘 추출기가 "이미 예습한 단어의 실제 사용"과 "완전히 새로운 단어"를 구분할 수 있습니다. M-07 코드스위칭은 초급 학생이 한국어로 "이 단어 뜻이 뭐야?"라고 물었을 때 영어로 리캐스팅하는 자연스러운 어휘 확장 기회를 제공합니다. 최종적으로 N-04 스토리 스튜디오에서 학생이 <strong>자발적으로 배운 단어를 창작에 사용</strong>하면 M-03의 마스터리 Level 5(spontaneous usage)에 자동 기록됩니다.</p>
+
+    <div class="code-block">
+<span class="comment">// 하이브리드: 어휘 습득 완전 순환 데이터 흐름</span>
+<span class="comment">// Step 1: N-01 프리리딩 → book_prereading_words 테이블</span>
+<span class="keyword">const</span> previewWords = <span class="keyword">await</span> <span class="func">getBookPrereadingWords</span>(bookId);  <span class="comment">// 5개</span>
+
+<span class="comment">// Step 2: M-03 세션 중 vocabularyExtractor.js 수정</span>
+<span class="keyword">function</span> <span class="func">extractSessionVocabulary</span>(dialogues, studentLevel, previewWords) {
+  <span class="keyword">const</span> allWords = <span class="func">extractAllMeaningfulWords</span>(dialogues);
+  <span class="keyword">return</span> allWords.map(w => ({
+    ...w,
+    <span class="string">wasPreviewed</span>: previewWords.includes(w.word),    <span class="comment">// 예습 여부 추적</span>
+    <span class="string">wasCodeSwitched</span>: w.sourceLanguage === <span class="string">'ko'</span>,  <span class="comment">// M-07 한국어 브릿지</span>
+  })).slice(0, 7);
+}
+
+<span class="comment">// Step 3: N-04 스토리 작문에서 자발적 사용 감지 → Level 5</span>
+<span class="keyword">if</span> (storyText.includes(word) && context === <span class="string">'story_studio'</span>) {
+  <span class="keyword">await</span> <span class="func">updateMasteryLevel</span>(studentId, word, 5);  <span class="comment">// 자발적 사용!</span>
+}
+    </div>
+
+    <div class="metric-grid">
+      <div class="metric-card">
+        <div class="metric-value">72%</div>
+        <div class="metric-label">30일 후 어휘 유지율</div>
+        <div class="metric-delta">현재 23% → 하이브리드 72%</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">48%</div>
+        <div class="metric-label">Level 5 자발적 사용 도달</div>
+        <div class="metric-delta">현재 8% → 하이브리드 48%</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">15.2%</div>
+        <div class="metric-label">프리미엄 전환율</div>
+        <div class="metric-delta">"실제 사용 가능 어휘" 리포트</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CLUSTER S-3 -->
+  <div class="card synergy-card tier-s">
+    <div class="card-header">
+      <div class="card-icon" style="background: linear-gradient(135deg, #E74C3C, #C0392B); color: white;">S3</div>
+      <div>
+        <div class="card-title"><span class="tier-badge">S-TIER</span> 다차원 적응형 학습 플랫폼</div>
+        <div style="margin-top: 4px;">
+          <span class="combo-tag mod">M-02 세션 차등화</span>
+          <span class="combo-tag mod">M-04 7차원 프로필</span>
+          <span class="combo-tag new">N-05 적응형 엔진</span>
+          <span class="combo-tag new">N-06 B2B 학원</span>
+        </div>
+      </div>
+    </div>
+
+    <h3>시너지 메커니즘</h3>
+    <p>M-04의 7차원 성장 프로필(어휘풍부도, 창의적사고, 비판적분석, 공감, 소통자신감, 호기심, 독서열정)이 N-05 적응형 엔진의 <strong>입력 데이터</strong>가 됩니다. 기존 ZPD 계산이 단일 차원(문법 점수)이었다면, 하이브리드에서는 <strong>7개 차원 각각에 대한 ZPD를 독립 계산</strong>합니다.</p>
+    <p style="margin-top: 8px;">M-02의 세션 길이 차등화는 N-05의 실시간 난이도 조절과 결합되어 "이 학생은 비판적 분석이 강하지만 공감 능력은 성장 중이니, 다음 질문은 등장인물 감정 탐구로 유도"하는 <strong>차원별 맞춤 세션</strong>을 가능하게 합니다. N-06 B2B 학원 플랫폼에서는 이 7차원 데이터를 <strong>반 전체 성장 맵</strong>으로 시각화하여 학원 교사에게 제공합니다.</p>
+
+    <div class="code-block">
+<span class="comment">// 하이브리드: 7차원 ZPD 적응형 엔진</span>
+<span class="keyword">class</span> <span class="func">HybridAdaptiveEngine</span> {
+  <span class="keyword">async</span> <span class="func">calculateMultiDimensionalZPD</span>(studentId) {
+    <span class="keyword">const</span> profile = <span class="keyword">await</span> <span class="func">analyzeMultiDimensional</span>(dialogues);  <span class="comment">// M-04</span>
+    <span class="keyword">const</span> sessionConfig = SESSION_CONFIG[student.level];        <span class="comment">// M-02</span>
+
+    <span class="keyword">return</span> {
+      vocabularyRichness:  { zpd: <span class="func">calcZPD</span>(profile.vocabularyRichness),  nextFocus: <span class="string">'synonym_expansion'</span> },
+      criticalAnalysis:    { zpd: <span class="func">calcZPD</span>(profile.criticalAnalysis),    nextFocus: <span class="string">'evidence_based_question'</span> },
+      creativeThinkin:     { zpd: <span class="func">calcZPD</span>(profile.creativeThinkin),     nextFocus: <span class="string">'story_prompt'</span> },
+      empathy:             { zpd: <span class="func">calcZPD</span>(profile.empathy),             nextFocus: <span class="string">'character_feelings'</span> },
+      <span class="comment">// ... 7개 차원 각각 독립 ZPD</span>
+    };
+  }
+
+  <span class="comment">// B2B 학원용: 반 전체 7차원 히트맵</span>
+  <span class="keyword">async</span> <span class="func">getClassHeatmap</span>(classId) {
+    <span class="keyword">const</span> students = <span class="keyword">await</span> <span class="func">getAcademyClassStudents</span>(classId);  <span class="comment">// N-06</span>
+    <span class="keyword">return</span> students.map(s => ({
+      name: s.name,
+      dimensions: <span class="keyword">await</span> <span class="func">this.calculateMultiDimensionalZPD</span>(s.id)
+    }));
+  }
+}
+    </div>
+
+    <div class="metric-grid">
+      <div class="metric-card">
+        <div class="metric-value">92%</div>
+        <div class="metric-label">적정 난이도 세션 비율</div>
+        <div class="metric-delta">7차원 기반 (단일차원 대비 +42%p)</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">$45K</div>
+        <div class="metric-label">B2B 월 매출</div>
+        <div class="metric-delta">7차원 성장맵이 핵심 판매포인트</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CLUSTER A-1 -->
+  <div class="card synergy-card tier-a">
+    <div class="card-header">
+      <div class="card-icon" style="background: linear-gradient(135deg, #F39C12, #E67E22); color: white;">A1</div>
+      <div>
+        <div class="card-title"><span class="tier-badge">A-TIER</span> 안전한 창작 환경</div>
+        <div style="margin-top: 4px;">
+          <span class="combo-tag mod">M-06 Growth Mindset</span>
+          <span class="combo-tag mod">M-07 코드스위칭</span>
+          <span class="combo-tag new">N-04 스토리스튜디오</span>
+          <span class="combo-tag new">N-03 소셜리딩</span>
+        </div>
+      </div>
+    </div>
+
+    <h3>시너지 메커니즘</h3>
+    <p>M-06 Growth Mindset 언어체계가 N-04 스토리 스튜디오의 작문 피드백에 적용되면, "틀린 문법"이 아닌 "성장 중인 문법"으로 프레이밍됩니다. M-07 코드스위칭은 초급 학생이 한국어로 스토리 아이디어를 설명하면 영어로 전환을 도와주는 <strong>"이중언어 창작 지원"</strong>을 가능하게 합니다. N-03 소셜 리딩의 Peer Review에서 "So Creative!" 리액션은 Growth Mindset의 과정 중심 격려와 일치합니다.</p>
+
+    <div class="metric-grid">
+      <div class="metric-card">
+        <div class="metric-value">+185%</div>
+        <div class="metric-label">스토리 작성 시도율</div>
+        <div class="metric-delta">"틀려도 안전" 인식 효과</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">22%</div>
+        <div class="metric-label">SNS 공유율</div>
+        <div class="metric-delta">스토리북 + 또래 리액션</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CLUSTER A-2 -->
+  <div class="card synergy-card tier-a">
+    <div class="card-header">
+      <div class="card-icon" style="background: linear-gradient(135deg, #F39C12, #E67E22); color: white;">A2</div>
+      <div>
+        <div class="card-title"><span class="tier-badge">A-TIER</span> 학부모-학원 연동 생태계</div>
+        <div style="margin-top: 4px;">
+          <span class="combo-tag mod">M-04 7차원 프로필</span>
+          <span class="combo-tag mod">M-08 Rest & Play</span>
+          <span class="combo-tag new">N-06 B2B 학원</span>
+          <span class="combo-tag new">N-07 학부모허브</span>
+        </div>
+      </div>
+    </div>
+
+    <h3>시너지 메커니즘</h3>
+    <p>N-07 학부모 허브의 주간 AI 코칭 리포트가 M-04의 7차원 프로필 데이터를 사용하면, "이번 주 민수는 비판적 분석력이 15% 성장했습니다"와 같은 <strong>차원별 성장 인사이트</strong>를 제공합니다. N-06 B2B 학원에서 교사가 설정한 커리큘럼 목표와 연동되면, "학원에서 이번 주 목표인 '증거 기반 논증'에서 민수는 상위 30%입니다"라는 <strong>학원-가정 연동 리포트</strong>가 됩니다. M-08 Rest & Play의 시간 관리 데이터는 학부모 허브에서 "오늘 적정 사용량의 80%를 채웠습니다"로 표시됩니다.</p>
+
+    <div class="metric-grid">
+      <div class="metric-card">
+        <div class="metric-value">85%</div>
+        <div class="metric-label">학부모 주간 참여율</div>
+        <div class="metric-delta">7차원+학원연동 리포트 효과</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">3.8%</div>
+        <div class="metric-label">월간 이탈률</div>
+        <div class="metric-delta">현재 12% → 하이브리드 3.8%</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CLUSTER B-1 -->
+  <div class="card synergy-card tier-b">
+    <div class="card-header">
+      <div class="card-icon" style="background: linear-gradient(135deg, #3498DB, #2980B9); color: white;">B1</div>
+      <div>
+        <div class="card-title"><span class="tier-badge">B-TIER</span> 온보딩 성공률 극대화</div>
+        <div style="margin-top: 4px;">
+          <span class="combo-tag mod">M-02 세션 차등화</span>
+          <span class="combo-tag mod">M-07 코드스위칭</span>
+          <span class="combo-tag new">N-01 프리리딩</span>
+        </div>
+      </div>
+    </div>
+
+    <h3>시너지 메커니즘</h3>
+    <p>신규 가입자의 첫 세션이 가장 중요합니다. N-01 프리리딩으로 부드러운 진입 → M-07 코드스위칭으로 한국어 허용하는 안전감 → M-02로 초급자 8턴 짧은 세션. 이 3개의 결합은 <strong>첫 세션 완주율을 42% → 88%로 끌어올립니다.</strong></p>
+
+    <div class="metric-grid">
+      <div class="metric-card">
+        <div class="metric-value">88%</div>
+        <div class="metric-label">첫 세션 완주율</div>
+        <div class="metric-delta">현재 42% → 하이브리드 88%</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">65%</div>
+        <div class="metric-label">7일 리텐션</div>
+        <div class="metric-delta">현재 35% → 하이브리드 65%</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SECTION 4: ARCHITECTURE ============ -->
+<div id="architecture" class="section">
+  <h2>통합 아키텍처 설계</h2>
+  <p class="section-desc">하이브리드 결합 시 코드베이스의 실제 파일 수정/생성 계획과 데이터 흐름입니다.</p>
+
+  <div class="card">
+    <h3>핵심 파일 수정 맵: 수정(녹색) + 신규(보라)</h3>
+    <div class="code-block" style="font-size: 0.82em;">
+<span style="color:#2ECC71;">backend/src/alice/</span>
+  <span style="color:#2ECC71;">├── engine.js</span>              <span class="comment">← M-01(T.E.A.A.) + M-06(Growth) + M-07(코드스위칭)</span>
+  <span style="color:#2ECC71;">├── prompts.js</span>             <span class="comment">← M-01 + M-02 + M-05 + M-06 + M-07 (가장 많이 수정)</span>
+  <span style="color:#2ECC71;">├── levelDetector.js</span>       <span class="comment">← M-04 (7차원 분석 추가)</span>
+  <span style="color:#2ECC71;">├── vocabularyExtractor.js</span> <span class="comment">← M-03 (정밀화 + N-01 연동)</span>
+  <span style="color:#2ECC71;">├── crossBookMemory.js</span>     <span class="comment">← (변경 없음, 그대로 활용)</span>
+  <span style="color:#9B59B6;">├── prereadingEngine.js</span>    <span class="comment">← N-01 신규 (M-03 vocabularyExtractor 임포트)</span>
+  <span style="color:#9B59B6;">├── debateEngine.js</span>        <span class="comment">← N-02 신규 (M-01 prompts 임포트, M-05 장르 분기)</span>
+  <span style="color:#9B59B6;">├── storyEngine.js</span>         <span class="comment">← N-04 신규 (M-06 Growth Mindset 필터 임포트)</span>
+  <span style="color:#9B59B6;">└── adaptiveEngine.js</span>      <span class="comment">← N-05 신규 (M-04 7차원 데이터 소비)</span>
+
+<span style="color:#2ECC71;">backend/src/routes/</span>
+  <span style="color:#2ECC71;">├── sessions.js</span>            <span class="comment">← M-02(턴수 제한) + M-03(어휘 5-7개) + M-04(7차원 태깅)</span>
+  <span style="color:#2ECC71;">├── vocabulary.js</span>          <span class="comment">← M-03 (Level 5 자발적 사용 감지)</span>
+  <span style="color:#2ECC71;">├── books.js</span>               <span class="comment">← M-05 (Fiction/NF 필터)</span>
+  <span style="color:#9B59B6;">├── prereading.js</span>          <span class="comment">← N-01 신규</span>
+  <span style="color:#9B59B6;">├── debate.js</span>              <span class="comment">← N-02 신규</span>
+  <span style="color:#9B59B6;">├── social.js</span>              <span class="comment">← N-03 신규</span>
+  <span style="color:#9B59B6;">├── story.js</span>               <span class="comment">← N-04 신규</span>
+  <span style="color:#9B59B6;">├── academy.js</span>             <span class="comment">← N-06 신규</span>
+  <span style="color:#9B59B6;">└── parentHub.js</span>           <span class="comment">← N-07 신규 (M-04 7차원 데이터 소비)</span>
+
+<span style="color:#2ECC71;">backend/src/services/</span>
+  <span style="color:#2ECC71;">├── learningPatterns.js</span>    <span class="comment">← M-04 (7차원 패턴 확장)</span>
+  <span style="color:#9B59B6;">├── lexileEstimator.js</span>     <span class="comment">← N-05 신규</span>
+  <span style="color:#9B59B6;">├── difficultyRouter.js</span>    <span class="comment">← N-05 신규</span>
+  <span style="color:#9B59B6;">├── bookClub.js</span>            <span class="comment">← N-03 신규</span>
+  <span style="color:#9B59B6;">├── weeklyCoachReport.js</span>   <span class="comment">← N-07 신규 (M-04 7차원 임포트)</span>
+  <span style="color:#9B59B6;">└── tenant.js</span>              <span class="comment">← N-06 멀티테넌트 미들웨어</span>
+
+<span style="color:#2ECC71;">frontend/src/app/</span>
+  <span style="color:#2ECC71;">├── session/page.js</span>        <span class="comment">← M-02 + M-07 + M-08 (타이머, 코드스위칭 UI, 휴식)</span>
+  <span style="color:#2ECC71;">├── books/page.js</span>          <span class="comment">← M-05 (Fiction/NF 탭)</span>
+  <span style="color:#2ECC71;">├── vocabulary/page.js</span>     <span class="comment">← M-03 (Level 5 표시, 예습 어휘 태그)</span>
+  <span style="color:#2ECC71;">├── review/page.js</span>         <span class="comment">← M-04 (7차원 성장맵)</span>
+  <span style="color:#2ECC71;">├── parent/page.js</span>         <span class="comment">← M-04 + M-08 (7차원 + 시간관리)</span>
+  <span style="color:#9B59B6;">├── prereading/page.js</span>     <span class="comment">← N-01 신규</span>
+  <span style="color:#9B59B6;">├── debate/page.js</span>         <span class="comment">← N-02 신규</span>
+  <span style="color:#9B59B6;">├── bookclub/page.js</span>       <span class="comment">← N-03 신규</span>
+  <span style="color:#9B59B6;">├── story-studio/page.js</span>   <span class="comment">← N-04 신규</span>
+  <span style="color:#9B59B6;">├── academy/page.js</span>        <span class="comment">← N-06 신규</span>
+  <span style="color:#9B59B6;">└── parent/hub/page.js</span>     <span class="comment">← N-07 신규</span>
+
+<span style="color:#9B59B6;">supabase/migrations/</span>
+  <span style="color:#9B59B6;">├── 011_prereading.sql</span>     <span class="comment">← N-01</span>
+  <span style="color:#9B59B6;">├── 012_debate.sql</span>         <span class="comment">← N-02</span>
+  <span style="color:#9B59B6;">├── 013_social.sql</span>         <span class="comment">← N-03</span>
+  <span style="color:#9B59B6;">├── 014_story_studio.sql</span>   <span class="comment">← N-04</span>
+  <span style="color:#9B59B6;">├── 015_adaptive.sql</span>       <span class="comment">← N-05</span>
+  <span style="color:#9B59B6;">└── 016_academy.sql</span>        <span class="comment">← N-06</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>데이터 의존성 그래프</h3>
+    <p style="margin-bottom: 12px; color: var(--text-light);">화살표는 데이터 흐름 방향을 나타냅니다. 수정항목이 신규항목의 기반 인프라가 되는 구조.</p>
+    <div class="code-block" style="font-size: 0.82em; line-height: 2;">
+<span style="color:#E74C3C;">[ 학생 입력 (음성/텍스트) ]</span>
+         │
+         ▼
+<span style="color:#2ECC71;">┌─ M-07 코드스위칭 감지 ──────────────────────────────────┐</span>
+<span style="color:#2ECC71;">│  detectKorean() → translanguaging bridge                 │</span>
+<span style="color:#2ECC71;">└──────────────┬──────────────────────────────────────────┘</span>
+               │
+    ┌──────────┼──────────┐
+    ▼          ▼          ▼
+<span style="color:#2ECC71;">M-01 T.E.A.A.</span>  <span style="color:#2ECC71;">M-04 7차원</span>    <span style="color:#2ECC71;">M-03 어휘</span>
+<span style="color:#2ECC71;">prompts.js</span>     <span style="color:#2ECC71;">levelDetector</span>  <span style="color:#2ECC71;">extractor</span>
+    │          │          │
+    ▼          ▼          ▼
+<span style="color:#9B59B6;">N-02 디베이트</span>  <span style="color:#9B59B6;">N-05 적응형</span>    <span style="color:#9B59B6;">N-01 프리리딩</span>
+<span style="color:#9B59B6;">debateEngine</span>   <span style="color:#9B59B6;">adaptiveEngine</span> <span style="color:#9B59B6;">prereading</span>
+    │          │          │
+    └────┬─────┘          │
+         ▼                ▼
+    <span style="color:#9B59B6;">N-06 B2B 학원</span>        <span style="color:#9B59B6;">N-04 스토리</span>
+    <span style="color:#9B59B6;">academy reports</span>      <span style="color:#9B59B6;">storyEngine</span>
+         │                │
+         └────────┬───────┘
+                  ▼
+        <span style="color:#9B59B6;">N-07 학부모 허브</span>
+        <span style="color:#9B59B6;">weeklyCoachReport</span>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SECTION 5: ROADMAP ============ -->
+<div id="roadmap" class="section">
+  <h2>하이브리드 통합 로드맵 (12주)</h2>
+  <p class="section-desc">수정버전을 먼저 적용하여 인프라를 강화한 뒤, 신규버전을 순차적으로 구축하는 "Foundation First" 전략입니다.</p>
+
+  <div class="timeline">
+    <!-- Phase 1 -->
+    <div class="timeline-item">
+      <div class="timeline-dot phase-1"></div>
+      <div class="timeline-content">
+        <div class="timeline-week">Phase 1: Foundation (Week 1-3)</div>
+        <h3>핵심 인프라 수정 — M-01, M-02, M-06, M-08</h3>
+        <p style="margin: 8px 0; color: var(--text-light);">모든 신규 모듈의 기반이 되는 프롬프트 시스템, 세션 구조, 언어 체계를 먼저 강화합니다.</p>
+        <table class="data-table">
+          <tr><th>항목</th><th>기간</th><th>영향 파일</th><th>시너지 해제</th></tr>
+          <tr><td><span class="badge-pill badge-mod">M-01</span> T.E.A.A. 프롬프트</td><td>3일</td><td>prompts.js, engine.js</td><td>→ N-02, N-05 기반</td></tr>
+          <tr><td><span class="badge-pill badge-mod">M-02</span> 세션 차등화</td><td>2일</td><td>constants.js, sessions.js, session/page.js</td><td>→ N-01, N-05 기반</td></tr>
+          <tr><td><span class="badge-pill badge-mod">M-06</span> Growth Mindset</td><td>2일</td><td>prompts.js, engine.js, AchievementUnlock</td><td>→ N-04, N-03 기반</td></tr>
+          <tr><td><span class="badge-pill badge-mod">M-08</span> Rest & Play</td><td>2일</td><td>session/page.js, layout.js, parent/page.js</td><td>→ N-07 기반</td></tr>
+        </table>
+        <div style="margin-top: 8px; font-size: 0.88em; color: var(--success); font-weight: 600;">Phase 1 완료 시: 기존 세션 품질 50%+ 향상, 전체 P0 수정 완료</div>
+      </div>
+    </div>
+
+    <!-- Phase 2 -->
+    <div class="timeline-item">
+      <div class="timeline-dot phase-2"></div>
+      <div class="timeline-content">
+        <div class="timeline-week">Phase 2: Extension (Week 3-5)</div>
+        <h3>학습 심화 수정 + 첫 신규 모듈 — M-03, M-04, M-05, M-07 + N-01</h3>
+        <p style="margin: 8px 0; color: var(--text-light);">어휘 시스템, 평가 프로필, 장르 분기, 코드스위칭을 강화하고, 프리리딩 모듈을 시너지 결합하여 출시합니다.</p>
+        <table class="data-table">
+          <tr><th>항목</th><th>기간</th><th>영향 파일</th><th>시너지 해제</th></tr>
+          <tr><td><span class="badge-pill badge-mod">M-03</span> 어휘 정밀화</td><td>5일</td><td>vocabularyExtractor.js, vocabulary.js</td><td>→ N-01 어휘 순환 시작</td></tr>
+          <tr><td><span class="badge-pill badge-mod">M-04</span> 7차원 프로필</td><td>5일</td><td>levelDetector.js, learningPatterns.js, ThoughtGarden</td><td>→ N-05, N-06, N-07 기반</td></tr>
+          <tr><td><span class="badge-pill badge-mod">M-05</span> Fiction/NF</td><td>3일</td><td>prompts.js, books.js, books/page.js</td><td>→ N-02 장르별 디베이트</td></tr>
+          <tr><td><span class="badge-pill badge-mod">M-07</span> 코드스위칭</td><td>3일</td><td>engine.js, prompts.js, session/page.js</td><td>→ N-01, N-04 이중언어 지원</td></tr>
+          <tr><td><span class="badge-pill badge-new">N-01</span> 프리리딩</td><td>2주</td><td>prereading.js, prereadingEngine.js, prereading/page.js</td><td>← M-03 어휘 + M-07 코드스위칭</td></tr>
+        </table>
+        <div style="margin-top: 8px; font-size: 0.88em; color: var(--accent); font-weight: 600;">Phase 2 완료 시: 클러스터 S-2(어휘 루프), B-1(온보딩) 시너지 활성화</div>
+      </div>
+    </div>
+
+    <!-- Phase 3 -->
+    <div class="timeline-item">
+      <div class="timeline-dot phase-3"></div>
+      <div class="timeline-content">
+        <div class="timeline-week">Phase 3: Innovation (Week 6-9)</div>
+        <h3>핵심 신규 모듈 — N-02, N-05, N-07</h3>
+        <p style="margin: 8px 0; color: var(--text-light);">Phase 1-2의 강화된 인프라 위에 디베이트, 적응형 엔진, 학부모 허브를 구축합니다.</p>
+        <table class="data-table">
+          <tr><th>항목</th><th>기간</th><th>시너지 활용</th></tr>
+          <tr><td><span class="badge-pill badge-new">N-05</span> 적응형 엔진</td><td>3주</td><td>M-04 7차원 데이터 소비 + M-02 세션 구조 활용</td></tr>
+          <tr><td><span class="badge-pill badge-new">N-02</span> 디베이트</td><td>3주</td><td>M-01 T.E.A.A. 프롬프트 상속 + M-05 장르 분기</td></tr>
+          <tr><td><span class="badge-pill badge-new">N-07</span> 학부모 허브</td><td>2주</td><td>M-04 7차원 리포트 + M-08 시간관리 데이터</td></tr>
+        </table>
+        <div style="margin-top: 8px; font-size: 0.88em; color: var(--success); font-weight: 600;">Phase 3 완료 시: 클러스터 S-1(인지심화), S-3(적응형), A-2(학부모연동) 시너지 활성화</div>
+      </div>
+    </div>
+
+    <!-- Phase 4 -->
+    <div class="timeline-item">
+      <div class="timeline-dot phase-4"></div>
+      <div class="timeline-content">
+        <div class="timeline-week">Phase 4: Scale (Week 9-12)</div>
+        <h3>확장 모듈 — N-03, N-04, N-06</h3>
+        <p style="margin: 8px 0; color: var(--text-light);">소셜 기능, 창작 기능, B2B 플랫폼으로 수익 모델과 바이럴 성장을 구축합니다.</p>
+        <table class="data-table">
+          <tr><th>항목</th><th>기간</th><th>시너지 활용</th></tr>
+          <tr><td><span class="badge-pill badge-new">N-04</span> 스토리 스튜디오</td><td>4주</td><td>M-06 Growth Mindset 피드백 + M-07 코드스위칭 + M-03 Level 5 감지</td></tr>
+          <tr><td><span class="badge-pill badge-new">N-03</span> 소셜 리딩</td><td>4주</td><td>M-06 Growth Mindset 리액션 + N-04 스토리 공유</td></tr>
+          <tr><td><span class="badge-pill badge-new">N-06</span> B2B 학원</td><td>6주</td><td>M-04 7차원 학급 히트맵 + N-05 적응형 + N-02 디베이트</td></tr>
+        </table>
+        <div style="margin-top: 8px; font-size: 0.88em; color: var(--purple); font-weight: 600;">Phase 4 완료 시: 전체 6대 시너지 클러스터 완전 활성화, $120K+/월 매출 구조</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SECTION 6: IMPACT ============ -->
+<div id="impact" class="section">
+  <h2>임팩트 비교: 독립 vs 하이브리드</h2>
+  <p class="section-desc">수정버전만, 신규버전만, 하이브리드 결합 시 각각의 예상 성과를 비교합니다.</p>
+
+  <h3>핵심 KPI 비교</h3>
+  <div style="margin: 24px 0;">
+    <div class="impact-row">
+      <span class="impact-label">세션 완주율</span>
+      <div class="impact-bar-bg">
+        <div class="impact-bar impact-mod" style="width: 87%;">87% (수정)</div>
+      </div>
+    </div>
+    <div class="impact-row">
+      <span class="impact-label" style="visibility:hidden;">-</span>
+      <div class="impact-bar-bg">
+        <div class="impact-bar impact-new" style="width: 78%;">78% (신규)</div>
+      </div>
+    </div>
+    <div class="impact-row">
+      <span class="impact-label" style="visibility:hidden;">-</span>
+      <div class="impact-bar-bg">
+        <div class="impact-bar impact-hybrid" style="width: 94%;">94% (하이브리드)</div>
+      </div>
+    </div>
+
+    <div class="impact-row" style="margin-top: 20px;">
+      <span class="impact-label">30일 리텐션</span>
+      <div class="impact-bar-bg">
+        <div class="impact-bar impact-mod" style="width: 62%;">62% (수정)</div>
+      </div>
+    </div>
+    <div class="impact-row">
+      <span class="impact-label" style="visibility:hidden;">-</span>
+      <div class="impact-bar-bg">
+        <div class="impact-bar impact-new" style="width: 68%;">68% (신규)</div>
+      </div>
+    </div>
+    <div class="impact-row">
+      <span class="impact-label" style="visibility:hidden;">-</span>
+      <div class="impact-bar-bg">
+        <div class="impact-bar impact-hybrid" style="width: 82%;">82% (하이브리드)</div>
+      </div>
+    </div>
+
+    <div class="impact-row" style="margin-top: 20px;">
+      <span class="impact-label">프리미엄 전환율</span>
+      <div class="impact-bar-bg">
+        <div class="impact-bar impact-mod" style="width: 54%;">13.5% (수정)</div>
+      </div>
+    </div>
+    <div class="impact-row">
+      <span class="impact-label" style="visibility:hidden;">-</span>
+      <div class="impact-bar-bg">
+        <div class="impact-bar impact-new" style="width: 48%;">12% (신규)</div>
+      </div>
+    </div>
+    <div class="impact-row">
+      <span class="impact-label" style="visibility:hidden;">-</span>
+      <div class="impact-bar-bg">
+        <div class="impact-bar impact-hybrid" style="width: 76%;">19.2% (하이브리드)</div>
+      </div>
+    </div>
+
+    <div class="impact-row" style="margin-top: 20px;">
+      <span class="impact-label">월간 매출 (12개월 후)</span>
+      <div class="impact-bar-bg">
+        <div class="impact-bar impact-mod" style="width: 27%;">$32K (수정)</div>
+      </div>
+    </div>
+    <div class="impact-row">
+      <span class="impact-label" style="visibility:hidden;">-</span>
+      <div class="impact-bar-bg">
+        <div class="impact-bar impact-new" style="width: 60%;">$72K (신규)</div>
+      </div>
+    </div>
+    <div class="impact-row">
+      <span class="impact-label" style="visibility:hidden;">-</span>
+      <div class="impact-bar-bg">
+        <div class="impact-bar impact-hybrid" style="width: 100%;">$120K+ (하이브리드)</div>
+      </div>
+    </div>
+
+    <div class="impact-row" style="margin-top: 20px;">
+      <span class="impact-label">어휘 유지율 (30일)</span>
+      <div class="impact-bar-bg">
+        <div class="impact-bar impact-mod" style="width: 58%;">58% (수정)</div>
+      </div>
+    </div>
+    <div class="impact-row">
+      <span class="impact-label" style="visibility:hidden;">-</span>
+      <div class="impact-bar-bg">
+        <div class="impact-bar impact-new" style="width: 52%;">52% (신규)</div>
+      </div>
+    </div>
+    <div class="impact-row">
+      <span class="impact-label" style="visibility:hidden;">-</span>
+      <div class="impact-bar-bg">
+        <div class="impact-bar impact-hybrid" style="width: 72%;">72% (하이브리드)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="border-left: 4px solid var(--accent);">
+    <h3>왜 1+1 > 2인가?</h3>
+    <div class="grid-2" style="margin-top: 12px;">
+      <div>
+        <strong>개발 공수 절감 (-35%)</strong>
+        <p style="font-size: 0.88em; color: var(--text-light); margin-top: 4px;">수정 항목 25일 + 신규 항목 24주 = 독립 합계 약 145일. 하이브리드는 12주(약 60영업일) + 공유 인프라 재활용으로 <strong>약 95일</strong>. 공유 파일(prompts.js, engine.js, levelDetector.js)을 한 번만 수정하므로 중복 작업 제거.</p>
+      </div>
+      <div>
+        <strong>사용자 경험 일관성</strong>
+        <p style="font-size: 0.88em; color: var(--text-light); margin-top: 4px;">독립 실행 시 수정버전과 신규버전의 UI/UX 톤이 다를 수 있음. 하이브리드에서는 M-06 Growth Mindset이 모든 모듈에 일관 적용되어 "HiAlice다운" 통일된 경험 제공.</p>
+      </div>
+      <div>
+        <strong>데이터 순환 효과</strong>
+        <p style="font-size: 0.88em; color: var(--text-light); margin-top: 4px;">수정만: 데이터 품질 향상 but 활용처 제한. 신규만: 새 기능 but 데이터 품질 낮음. 하이브리드: 고품질 데이터(수정) + 다양한 활용처(신규) = 피드백 루프 완성.</p>
+      </div>
+      <div>
+        <strong>마케팅 시너지</strong>
+        <p style="font-size: 0.88em; color: var(--text-light); margin-top: 4px;">"T.E.A.A. 기반 디베이트 + 7차원 성장맵 + 적응형 학습"이라는 통합 메시지가 "프롬프트 개선"이나 "디베이트 기능 추가"보다 압도적으로 강력한 시장 포지셔닝.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>12개월 수익 모델 (하이브리드)</h3>
+    <table class="data-table">
+      <tr><th>매출원</th><th>수정만</th><th>신규만</th><th style="background:var(--accent);">하이브리드</th><th>시너지 배수</th></tr>
+      <tr><td>B2C 프리미엄 ($9.99/월)</td><td>$18K</td><td>$25K</td><td style="font-weight:700;">$35K</td><td>1.4x</td></tr>
+      <tr><td>B2B 학원 ($99-299/월)</td><td>$5K</td><td>$30K</td><td style="font-weight:700;">$45K</td><td>1.5x</td></tr>
+      <tr><td>패밀리 플랜 ($14.99/월)</td><td>$4K</td><td>$10K</td><td style="font-weight:700;">$18K</td><td>1.8x</td></tr>
+      <tr><td>스토리북 인쇄/부가</td><td>$2K</td><td>$5K</td><td style="font-weight:700;">$12K</td><td>2.4x</td></tr>
+      <tr><td>기업 라이선스</td><td>$3K</td><td>$2K</td><td style="font-weight:700;">$10K</td><td>2.0x</td></tr>
+      <tr style="font-weight:800; background:#FEF9E7;"><td>월 합계</td><td>$32K</td><td>$72K</td><td style="font-weight:800; color:var(--danger);">$120K+</td><td>1.67x vs 합산</td></tr>
+    </table>
+    <p style="font-size: 0.85em; color: var(--text-light); margin-top: 8px;">* 독립 실행 합산($32K + $72K = $104K) 대비 하이브리드($120K+)는 15%+ 추가 시너지 매출 발생. 이는 B2B 학원에서 7차원+디베이트 패키지 판매, 패밀리 플랜의 소셜리딩 포함, 스토리북 인쇄의 바이럴 효과에 기인.</p>
+  </div>
+</div>
+
+<!-- ============ SECTION 7: RISK ============ -->
+<div id="risk" class="section">
+  <h2>리스크 분석 & 최종 우선순위</h2>
+  <p class="section-desc">하이브리드 결합 시 주의해야 할 리스크와 최종 실행 우선순위입니다.</p>
+
+  <div class="grid-2">
+    <div class="card" style="border-left: 4px solid var(--danger);">
+      <h3 style="color: var(--danger);">기술적 리스크</h3>
+      <div style="margin-top: 12px;">
+        <p><strong>1. prompts.js 과부하</strong></p>
+        <p style="font-size: 0.88em; color: var(--text-light);">M-01, M-02, M-05, M-06, M-07이 모두 prompts.js를 수정. 프롬프트 토큰 수가 Claude API 한도에 근접할 수 있음.</p>
+        <p style="font-size: 0.85em; color: var(--success); margin-top: 4px;"><strong>완화:</strong> 프롬프트 모듈화. 상황별로 필요한 규칙만 동적 로딩하는 <code>promptBuilder</code> 패턴 적용.</p>
+      </div>
+      <div style="margin-top: 16px;">
+        <p><strong>2. N-05 적응형 엔진의 Cold Start</strong></p>
+        <p style="font-size: 0.88em; color: var(--text-light);">신규 학생은 7차원 데이터가 없어 적응형 엔진이 작동하지 않음.</p>
+        <p style="font-size: 0.85em; color: var(--success); margin-top: 4px;"><strong>완화:</strong> N-01 프리리딩 + 첫 세션으로 초기 프로필 생성. 3세션 후 적응형 엔진 활성화.</p>
+      </div>
+      <div style="margin-top: 16px;">
+        <p><strong>3. 데이터베이스 마이그레이션 복잡도</strong></p>
+        <p style="font-size: 0.88em; color: var(--text-light);">6개 신규 마이그레이션(011-016) + 기존 테이블 수정. RLS 정책 충돌 가능성.</p>
+        <p style="font-size: 0.85em; color: var(--success); margin-top: 4px;"><strong>완화:</strong> Phase별 순차 마이그레이션. 각 Phase 완료 후 RLS 정책 통합 검증.</p>
+      </div>
+    </div>
+
+    <div class="card" style="border-left: 4px solid var(--accent);">
+      <h3 style="color: var(--accent);">비즈니스 리스크</h3>
+      <div style="margin-top: 12px;">
+        <p><strong>1. 기능 과잉 (Feature Bloat)</strong></p>
+        <p style="font-size: 0.88em; color: var(--text-light);">15개 항목 전부 구현 시 앱이 복잡해져 핵심 가치(소크라틱 대화)가 희석될 수 있음.</p>
+        <p style="font-size: 0.85em; color: var(--success); margin-top: 4px;"><strong>완화:</strong> Phase 1-2(기본 세션 강화)를 MVP로 출시 후 사용자 피드백 기반 Phase 3-4 범위 조정.</p>
+      </div>
+      <div style="margin-top: 16px;">
+        <p><strong>2. B2B-B2C 카니발리제이션</strong></p>
+        <p style="font-size: 0.88em; color: var(--text-light);">학원이 HiAlice를 도입하면 학부모가 개인 구독을 해지할 수 있음.</p>
+        <p style="font-size: 0.85em; color: var(--success); margin-top: 4px;"><strong>완화:</strong> B2B는 학원 수업 보조, B2C는 가정 학습으로 역할 분리. 패밀리 플랜에 소셜리딩/스토리 등 B2C 전용 기능 포함.</p>
+      </div>
+      <div style="margin-top: 16px;">
+        <p><strong>3. COPPA 확장 컴플라이언스</strong></p>
+        <p style="font-size: 0.88em; color: var(--text-light);">N-03 소셜리딩의 또래 상호작용은 COPPA 추가 심사 필요.</p>
+        <p style="font-size: 0.85em; color: var(--success); margin-top: 4px;"><strong>완화:</strong> 텍스트 입력 불가, 사전 정의 리액션만 허용. 학부모 동의 필수. Phase 4(마지막)에 배치.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top: 20px;">
+    <h3>최종 실행 우선순위 매트릭스</h3>
+    <table class="data-table">
+      <tr>
+        <th>순위</th><th>항목</th><th>유형</th><th>시너지 클러스터</th><th>공수</th><th>ROI</th>
+      </tr>
+      <tr style="background: #FDEDEC;">
+        <td><strong>1</strong></td><td>M-01 T.E.A.A. 프롬프트</td><td><span class="badge-pill badge-mod">수정</span></td><td>S-1, S-3</td><td>3일</td><td style="color:var(--danger); font-weight:700;">극대</td>
+      </tr>
+      <tr style="background: #FDEDEC;">
+        <td><strong>2</strong></td><td>M-06 Growth Mindset</td><td><span class="badge-pill badge-mod">수정</span></td><td>A-1</td><td>2일</td><td style="color:var(--danger); font-weight:700;">극대</td>
+      </tr>
+      <tr style="background: #FDEDEC;">
+        <td><strong>3</strong></td><td>M-02 세션 차등화</td><td><span class="badge-pill badge-mod">수정</span></td><td>S-3, B-1</td><td>2일</td><td style="color:var(--danger); font-weight:700;">극대</td>
+      </tr>
+      <tr style="background: #FEF9E7;">
+        <td><strong>4</strong></td><td>M-03 어휘 정밀화</td><td><span class="badge-pill badge-mod">수정</span></td><td>S-2</td><td>5일</td><td style="color:var(--accent); font-weight:700;">상</td>
+      </tr>
+      <tr style="background: #FEF9E7;">
+        <td><strong>5</strong></td><td>M-04 7차원 프로필</td><td><span class="badge-pill badge-mod">수정</span></td><td>S-3, A-2</td><td>5일</td><td style="color:var(--accent); font-weight:700;">상</td>
+      </tr>
+      <tr style="background: #FEF9E7;">
+        <td><strong>6</strong></td><td>N-01 프리리딩</td><td><span class="badge-pill badge-new">신규</span></td><td>S-2, B-1</td><td>2주</td><td style="color:var(--accent); font-weight:700;">상</td>
+      </tr>
+      <tr style="background: #EBF5FB;">
+        <td><strong>7</strong></td><td>N-05 적응형 엔진</td><td><span class="badge-pill badge-new">신규</span></td><td>S-1, S-3</td><td>3주</td><td style="color:var(--primary); font-weight:700;">중상</td>
+      </tr>
+      <tr style="background: #EBF5FB;">
+        <td><strong>8</strong></td><td>N-02 디베이트</td><td><span class="badge-pill badge-new">신규</span></td><td>S-1</td><td>3주</td><td style="color:var(--primary); font-weight:700;">중상</td>
+      </tr>
+      <tr style="background: #EBF5FB;">
+        <td><strong>9</strong></td><td>N-07 학부모 허브</td><td><span class="badge-pill badge-new">신규</span></td><td>A-2</td><td>2주</td><td style="color:var(--primary); font-weight:700;">중상</td>
+      </tr>
+      <tr>
+        <td><strong>10</strong></td><td>M-05 Fiction/NF</td><td><span class="badge-pill badge-mod">수정</span></td><td>S-1</td><td>3일</td><td>중</td>
+      </tr>
+      <tr>
+        <td><strong>11</strong></td><td>M-07 코드스위칭</td><td><span class="badge-pill badge-mod">수정</span></td><td>S-2, B-1</td><td>3일</td><td>중</td>
+      </tr>
+      <tr>
+        <td><strong>12</strong></td><td>N-04 스토리 스튜디오</td><td><span class="badge-pill badge-new">신규</span></td><td>A-1, S-2</td><td>4주</td><td>중</td>
+      </tr>
+      <tr>
+        <td><strong>13</strong></td><td>M-08 Rest & Play</td><td><span class="badge-pill badge-mod">수정</span></td><td>A-2</td><td>2일</td><td>중</td>
+      </tr>
+      <tr>
+        <td><strong>14</strong></td><td>N-03 소셜 리딩</td><td><span class="badge-pill badge-new">신규</span></td><td>A-1</td><td>4주</td><td>중하</td>
+      </tr>
+      <tr>
+        <td><strong>15</strong></td><td>N-06 B2B 학원</td><td><span class="badge-pill badge-new">신규</span></td><td>S-3, A-2</td><td>6주</td><td>장기 극대</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="card" style="border-left: 4px solid var(--success); margin-top: 20px;">
+    <h3>결론: "Foundation First, Synergy Always"</h3>
+    <p style="margin-top: 8px;">하이브리드 전략의 핵심은 <strong>수정버전을 먼저 적용하여 AI 파이프라인을 강화한 뒤, 그 위에 신규 모듈을 구축</strong>하는 것입니다. 이 순서를 지키면:</p>
+    <div style="margin-top: 12px;">
+      <p><strong>1주차부터:</strong> 기존 사용자가 T.E.A.A. + Growth Mindset으로 즉시 향상된 세션 경험</p>
+      <p><strong>5주차부터:</strong> 프리리딩 + 어휘 순환 루프로 신규 사용자 온보딩 혁신</p>
+      <p><strong>9주차부터:</strong> 디베이트 + 적응형 엔진으로 학원 B2B 시장 진입</p>
+      <p><strong>12주차:</strong> 6대 시너지 클러스터 완전 활성화, 월 $120K+ 매출 구조 확립</p>
+    </div>
+    <p style="margin-top: 12px; font-size: 0.95em; font-weight: 700; color: var(--primary);">수정버전 8개 항목은 독립적 개선이 아닌, 신규버전 7개 항목의 <strong>"시너지 인프라"</strong>입니다. 이 관점으로 실행할 때 HiAlice는 단순한 영어 리딩앱이 아닌, <strong>T.E.A.A. 기반 적응형 아동 영어 학습 플랫폼</strong>으로 진화합니다.</p>
+  </div>
+</div>
+
+</div><!-- container -->
+
+<div style="background: #2C3E50; color: white; text-align: center; padding: 24px; margin-top: 40px;">
+  <p style="opacity: 0.7; font-size: 0.85em;">HiAlice Hybrid Synergy Analysis v1.0 | 2026.03.14</p>
+  <p style="opacity: 0.5; font-size: 0.75em; margin-top: 4px;">수정버전 8항목 × 신규버전 7항목 = 6대 시너지 클러스터</p>
+</div>
+
+<script>
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+  window.scrollTo({ top: document.querySelector('.nav').offsetTop, behavior: 'smooth' });
+}
+</script>
+</body>
+</html>

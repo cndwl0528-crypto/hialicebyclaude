@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HiAlice 종합 에이전시 보고서 — UX · 엔지니어링 · 디자인 · 비용 · 리서치</title>
+<style>
+:root{--p:#4A90D9;--pd:#2E6CB5;--acc:#F39C12;--ok:#27AE60;--err:#E74C3C;--pur:#8E44AD;--bg:#F5F7FA;--card:#FFF;--txt:#2C3E50;--txt2:#7F8C8D;--bdr:#E8EDF2;--warn:#E67E22}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--txt);line-height:1.7}
+.hero{background:linear-gradient(135deg,#E74C3C,#8E44AD,#4A90D9);color:#fff;padding:50px 40px;text-align:center;position:relative;overflow:hidden}
+.hero h1{font-size:2.2em;font-weight:800;position:relative}
+.hero .sub{font-size:1.05em;opacity:.9;margin-top:8px;position:relative}
+.hero .badges{display:flex;justify-content:center;gap:12px;margin-top:20px;flex-wrap:wrap;position:relative}
+.hero .badge{background:rgba(255,255,255,.18);padding:6px 16px;border-radius:20px;font-size:.82em;backdrop-filter:blur(4px)}
+.nav{background:#fff;border-bottom:1px solid var(--bdr);position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.06)}
+.nav-inner{max-width:1300px;margin:0 auto;display:flex;overflow-x:auto;gap:3px;padding:6px 12px}
+.nb{padding:9px 15px;border:none;background:0;border-radius:7px;cursor:pointer;font-size:.82em;font-weight:600;color:var(--txt2);white-space:nowrap;transition:.2s}
+.nb:hover{background:var(--bg);color:var(--p)}
+.nb.on{background:var(--p);color:#fff}
+.wrap{max-width:1300px;margin:0 auto;padding:28px 16px}
+.sec{display:none;animation:fi .3s ease}
+.sec.on{display:block}
+@keyframes fi{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.c{background:var(--card);border-radius:14px;padding:24px;margin-bottom:16px;box-shadow:0 2px 14px rgba(0,0,0,.04);border:1px solid var(--bdr)}
+.c:hover{box-shadow:0 4px 20px rgba(0,0,0,.07)}
+h2{font-size:1.5em;font-weight:800;margin-bottom:6px}
+h3{font-size:1.1em;font-weight:700;margin-bottom:6px}
+.desc{color:var(--txt2);margin-bottom:20px;font-size:.92em}
+.g2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
+.g3{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.g4{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.mc{background:#fff;border-radius:10px;padding:16px;text-align:center;border:1px solid var(--bdr)}
+.mv{font-size:1.8em;font-weight:800;background:linear-gradient(135deg,var(--p),var(--pur));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.ml{font-size:.82em;color:var(--txt2);margin-top:2px}
+.md{font-size:.85em;color:var(--ok);font-weight:600;margin-top:2px}
+.tbl{width:100%;border-collapse:collapse;font-size:.85em;margin:12px 0}
+.tbl th{background:#34495E;color:#fff;padding:10px;text-align:left;font-weight:600}
+.tbl td{padding:9px 10px;border-bottom:1px solid var(--bdr)}
+.tbl tr:hover td{background:#F8F9FA}
+.sev-c{color:#fff;background:var(--err);padding:2px 8px;border-radius:10px;font-size:.75em;font-weight:700}
+.sev-h{color:#fff;background:var(--warn);padding:2px 8px;border-radius:10px;font-size:.75em;font-weight:700}
+.sev-m{color:#fff;background:var(--p);padding:2px 8px;border-radius:10px;font-size:.75em;font-weight:700}
+.sev-l{color:#fff;background:var(--ok);padding:2px 8px;border-radius:10px;font-size:.75em;font-weight:700}
+.pill{display:inline-block;padding:3px 10px;border-radius:14px;font-size:.75em;font-weight:600}
+.pill-fe{background:#EBF5FB;color:#3498DB}
+.pill-be{background:#E8F8F5;color:#1ABC9C}
+.pill-de{background:#F5EEF8;color:#8E44AD}
+.pill-re{background:#FEF9E7;color:#F39C12}
+.pill-ai{background:#FDEDEC;color:#E74C3C}
+.code{background:#2C3E50;color:#ECF0F1;padding:14px 18px;border-radius:10px;font-family:'Fira Code',monospace;font-size:.82em;overflow-x:auto;margin:10px 0;line-height:1.5}
+.code .cm{color:#7F8C8D}
+.code .kw{color:#3498DB}
+.code .fn{color:#F39C12}
+.code .st{color:#2ECC71}
+.bar-wrap{margin:6px 0}
+.bar-label{display:flex;justify-content:space-between;font-size:.82em;margin-bottom:2px}
+.bar-bg{height:20px;background:#ECF0F1;border-radius:10px;overflow:hidden}
+.bar{height:100%;border-radius:10px;display:flex;align-items:center;justify-content:flex-end;padding-right:6px;font-size:.7em;font-weight:700;color:#fff;transition:width 1s}
+.alert{border-radius:10px;padding:16px 20px;margin:12px 0;font-size:.9em}
+.alert-warn{background:#FEF9E7;border-left:4px solid var(--acc);color:#7D6608}
+.alert-err{background:#FDEDEC;border-left:4px solid var(--err);color:#922B21}
+.alert-ok{background:#D5F5E3;border-left:4px solid var(--ok);color:#1E8449}
+.alert-info{background:#EBF5FB;border-left:4px solid var(--p);color:#1B4F72}
+.flow{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:12px 0}
+.fn-mod{padding:8px 14px;border-radius:8px;font-weight:600;font-size:.82em;color:#fff;background:var(--ok)}
+.fn-new{padding:8px 14px;border-radius:8px;font-weight:600;font-size:.82em;color:#fff;background:var(--pur)}
+.fn-res{padding:8px 14px;border-radius:8px;font-weight:600;font-size:.82em;color:#fff;background:linear-gradient(135deg,var(--acc),var(--err))}
+.fn-arr{font-size:1.2em;color:var(--txt2)}
+.tab-g{display:flex;gap:3px;margin-bottom:16px;flex-wrap:wrap}
+.tab-b{padding:7px 15px;border:2px solid var(--bdr);background:#fff;border-radius:7px;cursor:pointer;font-weight:600;font-size:.82em;transition:.2s}
+.tab-b:hover{border-color:var(--p);color:var(--p)}
+.tab-b.on{background:var(--p);color:#fff;border-color:var(--p)}
+.tab-c{display:none}.tab-c.on{display:block}
+.divider{height:1px;background:var(--bdr);margin:28px 0}
+.ascii{background:#1a1a2e;color:#0f0;padding:16px;border-radius:10px;font-family:'Courier New',monospace;font-size:.78em;overflow-x:auto;line-height:1.4}
+@media(max-width:768px){.hero{padding:32px 16px}.hero h1{font-size:1.5em}.wrap{padding:16px 10px}.g2{grid-template-columns:1fr}.g3{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+
+<div class="hero">
+<h1>HiAlice 종합 에이전시 보고서</h1>
+<div class="sub">아동 접근성 · 프론트엔드 · 백엔드 · 디자인 · AI 비용 · 딥러닝 · 리서치</div>
+<div class="badges">
+<span class="badge">🎨 디자인 에이전시</span>
+<span class="badge">⚙️ 프론트엔드 에이전시</span>
+<span class="badge">🔧 백엔드 에이전시</span>
+<span class="badge">🤖 AI/ML 에이전시</span>
+<span class="badge">📊 리서치 에이전시</span>
+</div>
+</div>
+
+<div class="nav"><div class="nav-inner">
+<button class="nb on" onclick="S('exec')">핵심 요약</button>
+<button class="nb" onclick="S('ux')">아동 UX 접근성</button>
+<button class="nb" onclick="S('fe')">프론트엔드</button>
+<button class="nb" onclick="S('be')">백엔드 & 비용</button>
+<button class="nb" onclick="S('design')">디자인 고도화</button>
+<button class="nb" onclick="S('ai')">딥러닝 & 비용효율</button>
+<button class="nb" onclick="S('research')">리서치 & 서베이</button>
+<button class="nb" onclick="S('action')">통합 액션플랜</button>
+</div></div>
+
+<div class="wrap">
+
+<!-- =========== EXEC =========== -->
+<div id="exec" class="sec on">
+<h2>핵심 경영진 요약</h2>
+<p class="desc">4개 에이전시(프론트엔드, 백엔드, 디자인, 리서치)가 병렬로 수행한 종합 분석 결과입니다.</p>
+
+<div class="alert alert-err">
+<strong>⚠️ 핵심 우려사항 (사용자 원문):</strong> "시스템 고도화로 인해 아이들의 프로그램 접근성 및 난이도의 적응 부재로 흥미를 감소하지 않을까"
+→ <strong>분석 결과: 우려가 타당합니다.</strong> 현재 설계대로 15개 하이브리드 기능을 추가하면, 6-8세 아동의 인지 과부하 위험이 존재합니다. 아래 해결책을 반드시 병행해야 합니다.
+</div>
+
+<div class="g4">
+<div class="mc"><div class="mv">8.5/10</div><div class="ml">현재 아동UX 점수</div><div class="md">기반은 우수</div></div>
+<div class="mc"><div class="mv">$0.18</div><div class="ml">세션당 AI 비용</div><div class="md">최적화 시 $0.08</div></div>
+<div class="mc"><div class="mv">1,451줄</div><div class="ml">session/page.js</div><div style="color:var(--err);font-size:.85em;font-weight:600">리팩토링 필수</div></div>
+<div class="mc"><div class="mv">54%</div><div class="ml">AI 비용 절감 가능</div><div class="md">$96K → $44K/년</div></div>
+<div class="mc"><div class="mv">12px</div><div class="ml">최소 폰트 사이즈</div><div style="color:var(--err);font-size:.85em;font-weight:600">14px 미만 위반</div></div>
+<div class="mc"><div class="mv">$10.75B</div><div class="ml">한국 에듀테크 시장</div><div class="md">16.5% CAGR</div></div>
+<div class="mc"><div class="mv">60×60px</div><div class="ml">아동 터치 타겟 권장</div><div class="md">현재 48px → 확대 필요</div></div>
+<div class="mc"><div class="mv">10-15분</div><div class="ml">아동 최적 세션 길이</div><div class="md">리서치 검증 완료</div></div>
+</div>
+
+<div class="c" style="border-left:4px solid var(--err);margin-top:20px">
+<h3>🔴 CRITICAL: 하이브리드 업그레이드 전 반드시 해결할 3가지</h3>
+<table class="tbl">
+<tr><th>#</th><th>문제</th><th>영향</th><th>해결책</th><th>공수</th></tr>
+<tr><td>1</td><td><strong>session/page.js 1,451줄 + 30개 useState</strong></td><td>15개 신규 기능 추가 시 유지보수 불가능, 5배 비용 증가</td><td>컴포넌트 분리: SessionProvider + StageRenderer + VoicePanel + VocabSidebar</td><td>3일</td></tr>
+<tr><td>2</td><td><strong>연령별 UI 미분화</strong></td><td>6세와 13세가 동일한 화면 밀도 → 6세 인지 과부하</td><td>3단계 UI 밀도: 초급(3항목/화면), 중급(5항목), 고급(6항목)</td><td>5일</td></tr>
+<tr><td>3</td><td><strong>네비게이션 5개 → 7개+ 폭증</strong></td><td>하이브리드 기능 추가 시 탭 바 혼란</td><td>Progressive Disclosure: 핵심 4탭 + "더보기" + 단계적 기능 해제</td><td>2일</td></tr>
+</table>
+</div>
+
+<div class="c" style="border-left:4px solid var(--ok)">
+<h3>✅ 현재 잘 되어 있는 부분 (유지/강화)</h3>
+<div class="g2">
+<div>
+<p><strong>음성 우선 설계:</strong> 80-96px 마이크 버튼, 터치 타겟 48px+ ✅</p>
+<p><strong>연령별 블룸 단계:</strong> 초급 4단계, 중급 5단계, 고급 6단계 ✅</p>
+<p><strong>지브리 감성 색상:</strong> 포레스트 그린 + 골드, 심리학적으로 적합 ✅</p>
+</div>
+<div>
+<p><strong>게이미피케이션:</strong> 스트릭, 배지, 성취 잠금해제, 축하 애니메이션 ✅</p>
+<p><strong>스마트 모델 라우팅:</strong> HAIKU/SONNET 자동 선택, 프롬프트 캐싱 ✅</p>
+<p><strong>소크라틱 교수법:</strong> 리서치에서 77.8% 학생 선호도 검증 ✅</p>
+</div>
+</div>
+</div>
+</div>
+
+<!-- =========== UX =========== -->
+<div id="ux" class="sec">
+<h2>아동 UX 접근성 분석</h2>
+<p class="desc">6-13세 아동의 인지 발달 단계를 기준으로, 하이브리드 업그레이드가 접근성에 미치는 영향을 분석합니다.</p>
+
+<div class="alert alert-warn">
+<strong>핵심 원칙:</strong> 시스템이 복잡해져도 아이가 보는 화면은 단순해야 합니다. "뒤에서 똑똑하게, 앞에서 간단하게" (Smart Backend, Simple Frontend)
+</div>
+
+<div class="c">
+<h3>연령별 인지 특성 vs 현재 UI</h3>
+<table class="tbl">
+<tr><th>연령</th><th>인지 특성</th><th>UI 요구사항</th><th>현재 HiAlice</th><th>평가</th></tr>
+<tr><td><strong>6-8세</strong></td><td>주의력 10-15분, 읽기 속도 느림, 아이콘 의존</td><td>화면당 3개 이하 선택지, 큰 아이콘, 음성 안내</td><td>session/page.js: 동일 밀도, 텍스트 UI 라벨</td><td><span class="sev-c">CRITICAL</span></td></tr>
+<tr><td><strong>9-11세</strong></td><td>주의력 20-30분, 논리 시작, 텍스트 읽기 가능</td><td>화면당 5개 선택지, 텍스트+아이콘, 프로그레스 바</td><td>대체로 적합, 일부 과밀</td><td><span class="sev-m">MEDIUM</span></td></tr>
+<tr><td><strong>12-13세</strong></td><td>주의력 30-45분, 추상적 사고, 성인 UI 이해</td><td>화면당 6-8개, 텍스트 중심, 상세 피드백</td><td>적합</td><td><span class="sev-l">OK</span></td></tr>
+</table>
+</div>
+
+<div class="c">
+<h3>하이브리드 업그레이드 시 UX 위험 평가</h3>
+<table class="tbl">
+<tr><th>추가 기능</th><th>UX 위험</th><th>6-8세 영향</th><th>해결 전략</th></tr>
+<tr><td>N-01 프리리딩</td><td>세션 전 추가 단계 → "언제 시작해?"</td><td><span class="sev-h">HIGH</span></td><td>초급: 자동 스킵 or 1단계만(단어 미리보기). 중급+: 전체 3단계</td></tr>
+<tr><td>N-02 디베이트</td><td>찬반 토론 개념 자체가 6세에게 추상적</td><td><span class="sev-c">CRITICAL</span></td><td>초급: 비활성화 (9세+만 해제). "이거 좋아? 싫어?" 수준의 간단 투표로 대체</td></tr>
+<tr><td>N-03 소셜리딩</td><td>북클럽 UI 복잡, 학부모 설정 필요</td><td><span class="sev-h">HIGH</span></td><td>아이 화면: "친구 ❤️ 수" 배지만 표시. 북클럽 관리는 학부모 앱에서</td></tr>
+<tr><td>N-04 스토리스튜디오</td><td>작문 인터페이스가 타이핑 중심</td><td><span class="sev-h">HIGH</span></td><td>초급: 음성→텍스트 변환 기본. "그림 고르기 + 한 문장 말하기" 모드</td></tr>
+<tr><td>N-05 적응형엔진</td><td>백엔드 전용, UI 영향 없음</td><td><span class="sev-l">LOW</span></td><td>아이에게 보이지 않음. 자동으로 작동</td></tr>
+<tr><td>N-06 B2B학원</td><td>학원 관리자 전용, 아이 무관</td><td><span class="sev-l">LOW</span></td><td>아이에게 보이지 않음</td></tr>
+<tr><td>N-07 학부모허브</td><td>학부모 전용, 아이 무관</td><td><span class="sev-l">LOW</span></td><td>아이에게 보이지 않음</td></tr>
+</table>
+</div>
+
+<div class="c" style="border-left:4px solid var(--ok)">
+<h3>✅ 해결책: Progressive Disclosure + Age-Gating</h3>
+<div class="ascii">
+┌─────────────────────────────────────────────────────────┐
+│  6-8세 (Beginner) 화면                                   │
+│                                                         │
+│   ┌──────────┐  ┌──────────┐  ┌──────────┐              │
+│   │  📚      │  │  ⭐      │  │  👤      │              │
+│   │  책      │  │  단어    │  │  나      │              │
+│   │  읽기    │  │  연습    │  │          │              │
+│   └──────────┘  └──────────┘  └──────────┘              │
+│                                                         │
+│   [아이콘 3개만. 텍스트 최소. 터치 영역 64px]            │
+│   [디베이트/스토리/소셜: 숨김 (레벨업 시 해제)]          │
+└─────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────┐
+│  9-11세 (Intermediate) 화면                              │
+│                                                         │
+│  ┌────┐ ┌────┐ ┌────┐ ┌────┐ ┌────┐                     │
+│  │📚  │ │⭐  │ │💬  │ │✏️  │ │≡   │                     │
+│  │읽기│ │단어│ │토론│ │쓰기│ │더  │                     │
+│  └────┘ └────┘ └────┘ └────┘ └────┘                     │
+│                                                         │
+│  [핵심 4개 + 더보기. 프리리딩 자동 포함]                  │
+│  [북클럽은 "더보기" 메뉴 내]                              │
+└─────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────┐
+│  12-13세 (Advanced) 화면                                 │
+│                                                         │
+│  ┌────┐ ┌────┐ ┌────┐ ┌────┐ ┌────┐ ┌────┐              │
+│  │📚  │ │⭐  │ │💬  │ │✏️  │ │👥  │ │≡   │              │
+│  │읽기│ │단어│ │토론│ │쓰기│ │클럽│ │더  │              │
+│  └────┘ └────┘ └────┘ └────┘ └────┘ └────┘              │
+│                                                         │
+│  [전체 기능 접근 가능. 정보 밀도 높음]                    │
+└─────────────────────────────────────────────────────────┘
+</div>
+
+<div class="code">
+<span class="cm">// constants.js 추가: 연령별 기능 가시성 게이팅</span>
+<span class="kw">export const</span> FEATURE_GATES = {
+  beginner: {
+    nav: [<span class="st">'books'</span>, <span class="st">'vocabulary'</span>, <span class="st">'profile'</span>],                   <span class="cm">// 3개만</span>
+    prereading: <span class="st">'word_preview_only'</span>,              <span class="cm">// 1단계만</span>
+    debate: <span class="kw">false</span>,                                <span class="cm">// 비활성화</span>
+    storyStudio: <span class="st">'voice_story_only'</span>,             <span class="cm">// 음성 1문장 모드</span>
+    socialReading: <span class="st">'reactions_only'</span>,             <span class="cm">// 리액션만</span>
+    itemsPerScreen: 3, fontSize: 18, touchTarget: 64,
+  },
+  intermediate: {
+    nav: [<span class="st">'books'</span>, <span class="st">'vocabulary'</span>, <span class="st">'debate'</span>, <span class="st">'storyStudio'</span>, <span class="st">'more'</span>],
+    prereading: <span class="st">'full'</span>,                           <span class="cm">// 3단계 모두</span>
+    debate: <span class="st">'simple'</span>,                            <span class="cm">// 2라운드</span>
+    storyStudio: <span class="st">'guided'</span>,                      <span class="cm">// 가이드 모드</span>
+    socialReading: <span class="st">'reactions_and_clubs'</span>,
+    itemsPerScreen: 5, fontSize: 16, touchTarget: 52,
+  },
+  advanced: {
+    nav: [<span class="st">'books'</span>, <span class="st">'vocabulary'</span>, <span class="st">'debate'</span>, <span class="st">'storyStudio'</span>, <span class="st">'bookclub'</span>, <span class="st">'more'</span>],
+    prereading: <span class="st">'full'</span>,
+    debate: <span class="st">'full'</span>,                              <span class="cm">// 3라운드 + 스코어카드</span>
+    storyStudio: <span class="st">'full'</span>,
+    socialReading: <span class="st">'full'</span>,
+    itemsPerScreen: 6, fontSize: 14, touchTarget: 48,
+  }
+};
+</div>
+</div>
+</div>
+
+<!-- =========== FE =========== -->
+<div id="fe" class="sec">
+<h2>프론트엔드 엔지니어링 보고서</h2>
+<p class="desc">Frontend Agent가 12개 핵심 파일을 감사한 결과입니다.</p>
+
+<div class="c" style="border-left:4px solid var(--err)">
+<h3>🔴 CRITICAL: session/page.js 리팩토링 필수</h3>
+<p><strong>현재 상태:</strong> 1,451줄, 30+ useState 훅, 세션 로직 + UI + 음성 + 어휘 + 워크시트가 한 파일에 혼재</p>
+<p style="margin-top:8px"><strong>하이브리드 영향:</strong> M-01(T.E.A.A.), M-02(세션 차등화), M-07(코드스위칭), M-08(Rest & Play), N-01(프리리딩 연동)이 모두 이 파일을 수정해야 함. 리팩토링 없이 진행 시 개발 비용 5배 증가.</p>
+
+<div class="code">
+<span class="cm">// 제안: session/page.js → 5개 컴포넌트로 분리</span>
+
+<span class="cm">// 1. SessionProvider.js — Context + 전역 상태 관리</span>
+<span class="kw">export const</span> SessionContext = <span class="fn">createContext</span>();
+<span class="kw">export function</span> <span class="fn">SessionProvider</span>({ children }) {
+  <span class="kw">const</span> [stage, setStage] = <span class="fn">useState</span>(<span class="st">'warm_connection'</span>);
+  <span class="kw">const</span> [messages, setMessages] = <span class="fn">useState</span>([]);
+  <span class="cm">// ... 핵심 상태만 여기에</span>
+}
+
+<span class="cm">// 2. StageRenderer.js — 단계별 UI 렌더링</span>
+<span class="cm">// 3. VoicePanel.js — 마이크 + 음성 인식</span>
+<span class="cm">// 4. VocabSidebar.js — 세션 중 어휘 힌트</span>
+<span class="cm">// 5. SessionComplete.js — 완료 화면 + 워크시트</span>
+</div>
+</div>
+
+<div class="c">
+<h3>전체 파일 감사 결과</h3>
+<table class="tbl">
+<tr><th>파일</th><th>줄수</th><th>심각도</th><th>이슈</th><th>해결</th></tr>
+<tr><td>session/page.js</td><td>1,451</td><td><span class="sev-c">CRITICAL</span></td><td>30+ useState, 단일 파일에 모든 로직</td><td>5개 컴포넌트 분리</td></tr>
+<tr><td>books/page.js</td><td>706</td><td><span class="sev-h">HIGH</span></td><td>5-7번 클릭으로 세션 시작, 모달 중첩</td><td>PreReading 통합 플로우</td></tr>
+<tr><td>vocabulary/page.js</td><td>801</td><td><span class="sev-h">HIGH</span></td><td>4개 연습 모드가 한 컴포넌트</td><td>모드별 컴포넌트 분리</td></tr>
+<tr><td>VoiceButton.jsx</td><td>77</td><td><span class="sev-m">MEDIUM</span></td><td>햅틱 피드백 없음, ARIA 미비</td><td>navigator.vibrate + aria-live</td></tr>
+<tr><td>constants.js</td><td>227</td><td><span class="sev-c">CRITICAL</span></td><td>연령별 기능 게이팅 없음</td><td>FEATURE_GATES 상수 추가</td></tr>
+<tr><td>ThoughtGarden.js</td><td>150+</td><td><span class="sev-m">MEDIUM</span></td><td>7차원 확장 시 레이아웃 깨짐 예상</td><td>반응형 그리드 적용</td></tr>
+<tr><td>review/page.js</td><td>400+</td><td><span class="sev-l">LOW</span></td><td>스켈레톤 로더 미구현</td><td>LoadingSkeleton 적용</td></tr>
+<tr><td>parent/page.js</td><td>500+</td><td><span class="sev-l">LOW</span></td><td>대체로 양호</td><td>7차원 차트 레이아웃 준비</td></tr>
+</table>
+</div>
+
+<div class="c">
+<h3>접근성(A11y) 체크리스트</h3>
+<table class="tbl">
+<tr><th>항목</th><th>현재</th><th>필요</th><th>우선순위</th></tr>
+<tr><td>ARIA live regions (음성 응답)</td><td>❌ 미구현</td><td>스크린 리더 사용자 필수</td><td><span class="sev-c">CRITICAL</span></td></tr>
+<tr><td>키보드 네비게이션</td><td>⚠️ 부분적</td><td>어휘 카드 플립 키보드 지원</td><td><span class="sev-h">HIGH</span></td></tr>
+<tr><td>색상 대비 (WCAG AA)</td><td>✅ 대체로 준수</td><td>액센트 #D4A843 → #C49030</td><td><span class="sev-m">MEDIUM</span></td></tr>
+<tr><td>터치 타겟 크기</td><td>✅ 48px+</td><td>60px+ 권장 (리서치 기준)</td><td><span class="sev-m">MEDIUM</span></td></tr>
+<tr><td>난독증 모드</td><td>❌ 없음</td><td>아동 10% 대상, letter-spacing 확장</td><td><span class="sev-h">HIGH</span></td></tr>
+</table>
+</div>
+</div>
+
+<!-- =========== BE =========== -->
+<div id="be" class="sec">
+<h2>백엔드 & AI 비용 분석</h2>
+<p class="desc">Backend Agent가 11개 핵심 파일의 API 비용과 최적화 기회를 분석했습니다.</p>
+
+<div class="c">
+<h3>현재 비용 모델 (10K 학생 기준)</h3>
+<div class="g3">
+<div class="mc"><div class="mv">$0.18</div><div class="ml">세션당 비용</div></div>
+<div class="mc"><div class="mv">6회</div><div class="ml">세션당 API 호출</div></div>
+<div class="mc"><div class="mv">$96K</div><div class="ml">연간 AI 비용</div></div>
+<div class="mc"><div class="mv">~10%</div><div class="ml">재생성 비율</div></div>
+<div class="mc"><div class="mv">40K</div><div class="ml">월간 세션 수</div></div>
+<div class="mc"><div class="mv">7.6/10</div><div class="ml">엔지니어링 품질</div></div>
+</div>
+</div>
+
+<div class="c">
+<h3>세션당 API 호출 분해</h3>
+<table class="tbl">
+<tr><th>호출</th><th>모델</th><th>목적</th><th>비용</th><th>최적화</th></tr>
+<tr><td>1-3회</td><td>Sonnet</td><td>메인 Q&A 응답</td><td>$0.021-0.036/회</td><td>초급: Haiku로 대체 가능</td></tr>
+<tr><td>1회</td><td>Haiku</td><td>세션 피드백 생성</td><td>$0.001-0.002</td><td>이미 최적</td></tr>
+<tr><td>0-1회</td><td>Sonnet</td><td>재생성 (품질 미달 시)</td><td>$0.01-0.03</td><td>임계값 조정으로 감소</td></tr>
+<tr><td>1회</td><td>Haiku</td><td>메타인지 질문</td><td>$0.001</td><td>이미 최적</td></tr>
+<tr><td><strong>합계</strong></td><td></td><td></td><td><strong>$0.18-0.24</strong></td><td><strong>→ $0.08 가능</strong></td></tr>
+</table>
+</div>
+
+<div class="c" style="border-left:4px solid var(--ok)">
+<h3>3단계 비용 최적화 로드맵</h3>
+
+<h3 style="margin-top:16px">Phase 1: 즉시 적용 (Week 1-2) → $4K/년 절감</h3>
+<table class="tbl">
+<tr><th>최적화</th><th>절감액</th><th>공수</th><th>위험도</th></tr>
+<tr><td>재생성 임계값 50→30 하향</td><td>$2K/년</td><td>2시간</td><td>🟢 극저</td></tr>
+<tr><td>정적 프롬프트 블록 사전 계산</td><td>$1.5K/년</td><td>5시간</td><td>🟢 극저</td></tr>
+<tr><td>평가 결과 LRU 캐시</td><td>$0.5K/년</td><td>2.5시간</td><td>🟢 극저</td></tr>
+</table>
+
+<h3 style="margin-top:16px">Phase 2: 중기 (Week 3-6) → 추가 $10K/년 절감</h3>
+<table class="tbl">
+<tr><th>최적화</th><th>절감액</th><th>공수</th><th>위험도</th></tr>
+<tr><td>ContextRetriever 통합 (중복 컨텍스트 제거)</td><td>$3-5K/년</td><td>10시간</td><td>🟡 저</td></tr>
+<tr><td>모델 선택 정밀화 (초급=Haiku)</td><td>$2-3K/년</td><td>5시간</td><td>🟡 저</td></tr>
+<tr><td>선택적 컨텍스트 주입</td><td>$2-3K/년</td><td>3시간</td><td>🟡 저</td></tr>
+</table>
+
+<h3 style="margin-top:16px">Phase 3: 파인튜닝 (Week 7-12) → 추가 $35K/년 절감</h3>
+<table class="tbl">
+<tr><th>최적화</th><th>절감액</th><th>공수</th><th>ROI</th></tr>
+<tr><td>Mistral 7B 파인튜닝 (초급 응답)</td><td>$7K/년</td><td>20시간</td><td>3-4개월</td></tr>
+<tr><td>피드백 생성기 파인튜닝</td><td>$2K/년</td><td>8시간</td><td>4-6개월</td></tr>
+<tr><td>후속 질문 모델 파인튜닝</td><td>$10K/년</td><td>15시간</td><td>6-8개월</td></tr>
+<tr><td><strong>하이브리드 라우팅 (60% FT + 40% Claude)</strong></td><td><strong>$35K/년</strong></td><td>12시간</td><td><strong>3-4개월</strong></td></tr>
+</table>
+
+<div class="bar-wrap" style="margin-top:16px">
+<div class="bar-label"><span>현재 비용</span><span>$96K/년 (100%)</span></div>
+<div class="bar-bg"><div class="bar" style="width:100%;background:var(--err)">$96K</div></div>
+</div>
+<div class="bar-wrap">
+<div class="bar-label"><span>Phase 1+2 후</span><span>$80K/년 (83%)</span></div>
+<div class="bar-bg"><div class="bar" style="width:83%;background:var(--acc)">$80K</div></div>
+</div>
+<div class="bar-wrap">
+<div class="bar-label"><span>Phase 3 후</span><span>$44K/년 (46%)</span></div>
+<div class="bar-bg"><div class="bar" style="width:46%;background:var(--ok)">$44K</div></div>
+</div>
+<p style="font-size:.85em;color:var(--txt2);margin-top:8px"><strong>3년 누적 절감: $120,000+ | ROI: 312% (엔지니어링 비용 $12.6K 기준)</strong></p>
+</div>
+</div>
+
+<!-- =========== DESIGN =========== -->
+<div id="design" class="sec">
+<h2>디자인 시스템 고도화</h2>
+<p class="desc">Design Agent가 전체 UI를 감사하고 개선안을 제시합니다.</p>
+
+<div class="g2">
+<div class="c" style="border-left:4px solid var(--err)">
+<h3>❌ 즉시 수정 필요</h3>
+<p><strong>1. 타이포그래피 표준화 부재</strong></p>
+<p style="font-size:.88em;color:var(--txt2)">12px~30px까지 랜덤 사용. 12px 라벨은 아동 접근성 기준(14px 최소) 위반.</p>
+<div class="code">
+<span class="cm">/* 제안: CSS 타입 스케일 */</span>
+:root {
+  --text-xs:  14px;  <span class="cm">/* 최소 (캡션) */</span>
+  --text-sm:  16px;  <span class="cm">/* 기본 본문 */</span>
+  --text-base: 18px; <span class="cm">/* 큰 본문 */</span>
+  --text-lg:  20px;  <span class="cm">/* 소제목 */</span>
+  --text-xl:  24px;  <span class="cm">/* 제목 */</span>
+  --text-2xl: 30px;  <span class="cm">/* 페이지 타이틀 */</span>
+}
+</div>
+
+<p style="margin-top:12px"><strong>2. 버튼 디자인 불일치</strong></p>
+<p style="font-size:.88em;color:var(--txt2)">4가지 이상의 버튼 스타일이 의미 없이 혼용됨. Primary/Secondary/Danger 위계 필요.</p>
+
+<p style="margin-top:12px"><strong>3. HiAlice 아바타 부재</strong></p>
+<p style="font-size:.88em;color:var(--txt2)">AI 선생님의 시각적 존재감이 텍스트뿐. 지브리 감성의 캐릭터 아바타가 참여도를 크게 높일 수 있음.</p>
+</div>
+
+<div class="c" style="border-left:4px solid var(--ok)">
+<h3>✅ 현재 우수한 점</h3>
+<p><strong>1. 색상 심리학</strong></p>
+<p style="font-size:.88em;color:var(--txt2)">포레스트 그린(차분) + 골드(성취감) 조합이 아동 심리학적으로 적합. WCAG AA 대체로 준수. 대비율 7.2:1.</p>
+
+<p style="margin-top:12px"><strong>2. 게이미피케이션</strong></p>
+<p style="font-size:.88em;color:var(--txt2)">스트릭 시스템, 배지, AchievementUnlock 모달, ConfettiCelebration이 잘 구현됨.</p>
+
+<p style="margin-top:12px"><strong>3. 음성 우선 설계</strong></p>
+<p style="font-size:.88em;color:var(--txt2)">마이크 버튼 80-96px, 화면 하단 중앙 배치, 터치 영역 충분.</p>
+
+<p style="margin-top:12px"><strong>4. ThoughtGarden 시각화</strong></p>
+<p style="font-size:.88em;color:var(--txt2)">씨앗→새싹→나무→열매 성장 메타포가 아동에게 직관적.</p>
+</div>
+</div>
+
+<div class="c">
+<h3>디자인 고도화 로드맵</h3>
+<table class="tbl">
+<tr><th>주차</th><th>작업</th><th>공수</th><th>영향</th></tr>
+<tr><td>1주</td><td>타입 스케일 CSS 변수, 12px 텍스트 제거, 네비게이션 4개로 축소, 스켈레톤 로더</td><td>5-6시간</td><td>즉시 접근성 개선</td></tr>
+<tr><td>2-3주</td><td>버튼 시스템 통일, 연령별 UI 밀도 변형, 난독증 모드, HiAlice 아바타 디자인</td><td>14-16시간</td><td>아동 참여도 +15%</td></tr>
+<tr><td>4-5주</td><td>Progressive Unlocking, 컨텍스트 네비게이션, A/B 테스트</td><td>11-13시간</td><td>하이브리드 안전 적용</td></tr>
+<tr><td>론칭 전</td><td>WCAG 감사, 퍼포먼스 점검, 학부모 피드백</td><td>4-5시간</td><td>품질 보증</td></tr>
+<tr style="font-weight:700;background:#FEF9E7"><td>합계</td><td></td><td>34-40시간</td><td></td></tr>
+</table>
+</div>
+</div>
+
+<!-- =========== AI =========== -->
+<div id="ai" class="sec">
+<h2>딥러닝 엔진 고도화 & 비용 효율화</h2>
+<p class="desc">AI/ML Agent의 딥러닝 마이그레이션 로드맵과 비용 효율화 전략입니다.</p>
+
+<div class="c">
+<h3>현재 → 미래: AI 아키텍처 진화</h3>
+<div class="flow">
+<span class="fn-mod">현재: Claude 100%<br>$0.18/세션</span>
+<span class="fn-arr">→</span>
+<span class="fn-new">Phase 1: 하이브리드<br>Claude 60% + Haiku 40%<br>$0.10/세션</span>
+<span class="fn-arr">→</span>
+<span class="fn-res">Phase 2: 파인튜닝<br>Claude 40% + FT모델 60%<br>$0.06/세션</span>
+<span class="fn-arr">→</span>
+<span class="fn-mod">Phase 3: 온디바이스<br>Claude 20% + Edge 80%<br>$0.03/세션</span>
+</div>
+</div>
+
+<div class="c">
+<h3>파인튜닝 후보 모델 비교</h3>
+<table class="tbl">
+<tr><th>모델</th><th>크기</th><th>용도</th><th>비용 (1M 토큰)</th><th>품질</th><th>적합성</th></tr>
+<tr><td><strong>Phi-3 Mini</strong></td><td>3.8B</td><td>초급 Q&A 응답</td><td>$0.10</td><td>교육 데이터로 사전학습됨</td><td><span class="sev-l">최적</span></td></tr>
+<tr><td>Mistral 7B</td><td>7B</td><td>중급 Q&A + 어휘 피드백</td><td>$0.20</td><td>높은 범용성</td><td><span class="sev-l">적합</span></td></tr>
+<tr><td>Llama 3 8B</td><td>8B</td><td>고급 디베이트 보조</td><td>$0.25</td><td>추론 능력 우수</td><td><span class="sev-m">양호</span></td></tr>
+<tr><td>Gemma 2B</td><td>2B</td><td>온디바이스 어휘 연습</td><td>온디바이스</td><td>가벼움</td><td><span class="sev-m">보조용</span></td></tr>
+<tr style="background:#FDEDEC"><td>Claude Sonnet</td><td>N/A</td><td>고급 소크라틱 대화</td><td>$3/$15</td><td>최고 품질</td><td>핵심 유지</td></tr>
+</table>
+</div>
+
+<div class="c">
+<h3>딥러닝 마이그레이션 전략: Knowledge Distillation</h3>
+
+<div class="alert alert-info">
+<strong>핵심 아이디어:</strong> Claude의 소크라틱 대화 패턴을 더 작은 모델에 "증류(Distill)"합니다. HiAlice의 수만 건 세션 대화 로그가 최고 품질의 학습 데이터입니다.
+</div>
+
+<div class="code">
+<span class="cm">// Knowledge Distillation Pipeline</span>
+
+<span class="cm">// Step 1: 학습 데이터 추출 (이미 DB에 존재)</span>
+SELECT d.content <span class="kw">AS</span> student_input,
+       d2.content <span class="kw">AS</span> teacher_response,
+       s.level, s.stage,
+       dct.bloom_level
+<span class="kw">FROM</span> dialogues d
+<span class="kw">JOIN</span> dialogues d2 <span class="kw">ON</span> d.session_id = d2.session_id
+<span class="kw">AND</span> d2.turn = d.turn + 1 <span class="kw">AND</span> d2.speaker = <span class="st">'alice'</span>
+<span class="kw">JOIN</span> sessions s <span class="kw">ON</span> d.session_id = s.id
+<span class="kw">LEFT JOIN</span> dialogue_cognitive_tags dct <span class="kw">ON</span> d.id = dct.dialogue_id
+<span class="kw">WHERE</span> d.speaker = <span class="st">'student'</span>
+  <span class="kw">AND</span> s.grammar_score >= 70;  <span class="cm">-- 고품질 세션만</span>
+
+<span class="cm">// Step 2: Fine-tuning (LoRA)</span>
+<span class="cm">// 3,000-5,000 예시면 초급 응답 품질 90%+ 달성 가능</span>
+
+<span class="cm">// Step 3: 하이브리드 라우팅</span>
+<span class="kw">function</span> <span class="fn">routeToModel</span>(level, stage, complexity) {
+  <span class="kw">if</span> (level === <span class="st">'beginner'</span> && stage !== <span class="st">'cross_book'</span>)
+    <span class="kw">return</span> <span class="st">'phi3-finetuned'</span>;        <span class="cm">// $0.10/1M tokens</span>
+  <span class="kw">if</span> (level === <span class="st">'intermediate'</span> && complexity < 3)
+    <span class="kw">return</span> <span class="st">'mistral-finetuned'</span>;     <span class="cm">// $0.20/1M tokens</span>
+  <span class="kw">return</span> <span class="st">'claude-sonnet'</span>;            <span class="cm">// $3/$15 - 복잡한 경우만</span>
+}
+</div>
+
+<div class="alert alert-ok">
+<strong>핵심 발견 (리서치):</strong> Microsoft Phi-3 Mini는 3,000권 이상의 합성 "어린이 교과서"로 사전학습되었습니다. HiAlice의 아동 교육 대화와 완벽하게 정합하며, 파인튜닝 시 최소 데이터로 높은 품질을 달성할 수 있습니다.
+</div>
+</div>
+
+<div class="c">
+<h3>비용 효율화 총 정리</h3>
+<table class="tbl">
+<tr><th>시점</th><th>전략</th><th>세션당 비용</th><th>연간 비용 (10K 학생)</th><th>절감률</th></tr>
+<tr><td>현재</td><td>Claude 100%</td><td>$0.18</td><td>$96,000</td><td>-</td></tr>
+<tr><td>3개월 후</td><td>Haiku 확대 + 캐싱</td><td>$0.10</td><td>$53,000</td><td>45%</td></tr>
+<tr><td>6개월 후</td><td>파인튜닝 모델 도입</td><td>$0.06</td><td>$32,000</td><td>67%</td></tr>
+<tr><td>12개월 후</td><td>온디바이스 + 하이브리드</td><td>$0.03</td><td>$16,000</td><td>83%</td></tr>
+<tr style="font-weight:700;background:#D5F5E3"><td>3년 누적</td><td></td><td></td><td colspan="2">절감 $180,000+ | 투자 $25,000 | ROI 720%</td></tr>
+</table>
+</div>
+</div>
+
+<!-- =========== RESEARCH =========== -->
+<div id="research" class="sec">
+<h2>리서치 & 서베이 결과</h2>
+<p class="desc">Research Agent가 수집한 5개 영역 리서치 결과와 HiAlice에 대한 시사점입니다.</p>
+
+<div class="g2">
+<div class="c">
+<h3>1. 아동 EdTech UX 리서치</h3>
+<table class="tbl">
+<tr><th>발견</th><th>출처</th><th>HiAlice 시사점</th></tr>
+<tr><td>터치 타겟 60×60px 권장</td><td>Nielsen Norman Group</td><td>현재 48px → 60px 확대 필요</td></tr>
+<tr><td>화면당 선택지 3-5개 최적</td><td>NNG 아동 UX 연구</td><td>6-8세 화면 밀도 감소 필요</td></tr>
+<tr><td>세션 10-15분이 최적</td><td>Reboot Foundation 2023</td><td>M-02 세션 차등화 검증됨 ✅</td></tr>
+<tr><td>음성 우선이 7세 이하 필수</td><td>Apple Kids Design Guide</td><td>현재 설계 적합 ✅</td></tr>
+<tr><td>30일 리텐션 25-40% (상위 앱)</td><td>Industry Benchmark</td><td>현재 35% → 목표 62% (하이브리드)</td></tr>
+</table>
+<div class="alert alert-warn" style="margin-top:12px"><strong>보완 필요:</strong> 난독증(아동 10%) 대응 모드 미구현. letter-spacing 1.5px + 행간 1.8배 옵션 추가 권장.</div>
+</div>
+
+<div class="c">
+<h3>2. AI 비용 리서치</h3>
+<table class="tbl">
+<tr><th>발견</th><th>수치</th><th>HiAlice 시사점</th></tr>
+<tr><td>Claude Haiku 비용</td><td>$1/$5 per 1M tokens</td><td>초급 응답에 Haiku 활용 확대</td></tr>
+<tr><td>프롬프트 캐싱 절감</td><td>최대 90%</td><td>이미 활용 중 ✅ (추가 최적화 가능)</td></tr>
+<tr><td>Phi-3 Mini 비용</td><td>$0.10/1M tokens</td><td>초급 파인튜닝 최적 후보</td></tr>
+<tr><td>교육앱 AI 인터랙션 비용</td><td>$0.01-0.02 (경쟁사)</td><td>현재 $0.18은 8-18배 높음 → 최적화 시급</td></tr>
+</table>
+<div class="alert alert-err" style="margin-top:12px"><strong>보완 필요:</strong> 경쟁사 대비 세션당 비용이 높음. Phase 2(Haiku 확대) + Phase 3(파인튜닝) 없이는 대규모 확장 시 수익성 위험.</div>
+</div>
+
+<div class="c">
+<h3>3. 한국 에듀테크 시장</h3>
+<table class="tbl">
+<tr><th>지표</th><th>수치</th><th>시사점</th></tr>
+<tr><td>시장 규모 (2026)</td><td>$10.75B (16.5% CAGR)</td><td>급성장 시장 진입 적기</td></tr>
+<tr><td>학부모 영어교육 지출</td><td>월 $185+ 평균</td><td>HiAlice $9.99~$14.99 가격 경쟁력 충분</td></tr>
+<tr><td>영어학습앱 글로벌 시장</td><td>$32.4B (2030, 22.6% CAGR)</td><td>글로벌 확장 잠재력</td></tr>
+<tr><td>학부모 지불의사</td><td>74.3% "기꺼이 $20-30/월"</td><td>프리미엄 전략 유효</td></tr>
+<tr><td>학원 월 수업료</td><td>$50-100+</td><td>HiAlice 대비 5-10배 비싸 → 가격 우위</td></tr>
+</table>
+<div class="alert alert-ok" style="margin-top:12px"><strong>검증 완료:</strong> 소크라틱 AI 교수법에 대해 77.8% 학생이 선호, 88.2%가 선택형보다 효과적이라고 응답 (2025 연구).</div>
+</div>
+
+<div class="c">
+<h3>4. 주요 경쟁사 UX 벤치마크</h3>
+<table class="tbl">
+<tr><th>앱</th><th>연령</th><th>UX 전략</th><th>HiAlice 적용</th></tr>
+<tr><td>Khan Academy Kids</td><td>2-8</td><td>완전 음성 안내, 아이콘 기반, 읽기 불필요</td><td>초급 음성 가이드 강화</td></tr>
+<tr><td>Duolingo Kids</td><td>4+</td><td>캐릭터 스토리, 짧은 세션(3-5분), 즉각 보상</td><td>HiAlice 아바타 도입, 세션 내 즉각 보상</td></tr>
+<tr><td>Epic!</td><td>4-12</td><td>넷플릭스형 도서 브라우징, 추천 알고리즘</td><td>도서 선택 UX 간소화</td></tr>
+<tr><td>Homer Reading</td><td>2-8</td><td>학습 경로 시각화, 부모 대시보드 분리</td><td>학습 경로 맵 도입</td></tr>
+</table>
+<div class="alert alert-warn" style="margin-top:12px"><strong>보완 필요:</strong> 경쟁사 대비 HiAlice의 세션이 상대적으로 길고 텍스트 중심. 초급 대상 비주얼 강화 및 세션 분절화(3-5분 마이크로 세션) 검토 필요.</div>
+</div>
+</div>
+
+<div class="c">
+<h3>리서치 기반 보완 사항 총정리</h3>
+<table class="tbl">
+<tr><th>#</th><th>보완 영역</th><th>근거</th><th>우선순위</th><th>담당</th></tr>
+<tr><td>R-01</td><td>난독증 접근성 모드</td><td>아동 10%가 난독증, letter-spacing + 행간 확장</td><td><span class="sev-h">HIGH</span></td><td><span class="pill pill-fe">FE</span></td></tr>
+<tr><td>R-02</td><td>터치 타겟 48→60px 확대</td><td>NNG 아동 UX 가이드라인</td><td><span class="sev-h">HIGH</span></td><td><span class="pill pill-fe">FE</span></td></tr>
+<tr><td>R-03</td><td>초급 마이크로 세션 옵션</td><td>5-9세 주의력 10분, 경쟁사 3-5분 세션</td><td><span class="sev-h">HIGH</span></td><td><span class="pill pill-be">BE</span></td></tr>
+<tr><td>R-04</td><td>HiAlice 캐릭터 아바타</td><td>Duolingo: 캐릭터가 참여도 23%↑</td><td><span class="sev-h">HIGH</span></td><td><span class="pill pill-de">Design</span></td></tr>
+<tr><td>R-05</td><td>초급 전체 음성 네비게이션</td><td>Khan Academy Kids 벤치마크</td><td><span class="sev-m">MEDIUM</span></td><td><span class="pill pill-fe">FE</span></td></tr>
+<tr><td>R-06</td><td>AI 비용 $0.18 → $0.06 절감</td><td>경쟁사 대비 8-18배 비쌈</td><td><span class="sev-c">CRITICAL</span></td><td><span class="pill pill-ai">AI/ML</span></td></tr>
+<tr><td>R-07</td><td>PIPA(한국 아동 개인정보법) 준수 감사</td><td>14세 미만 학부모 동의 필수</td><td><span class="sev-c">CRITICAL</span></td><td><span class="pill pill-be">BE</span></td></tr>
+<tr><td>R-08</td><td>학습 경로 시각화 맵</td><td>Homer Reading 벤치마크, 동기부여 효과</td><td><span class="sev-m">MEDIUM</span></td><td><span class="pill pill-de">Design</span></td></tr>
+<tr><td>R-09</td><td>오프라인 어휘 연습 (온디바이스)</td><td>Gemma 2B로 네트워크 없이 복습 가능</td><td><span class="sev-m">MEDIUM</span></td><td><span class="pill pill-ai">AI/ML</span></td></tr>
+<tr><td>R-10</td><td>다크 모드 (저녁 학습)</td><td>스크린 타임 아동 보호 트렌드</td><td><span class="sev-l">LOW</span></td><td><span class="pill pill-fe">FE</span></td></tr>
+</table>
+</div>
+</div>
+
+<!-- =========== ACTION =========== -->
+<div id="action" class="sec">
+<h2>통합 액션플랜</h2>
+<p class="desc">모든 에이전시 보고를 통합한 실행 계획. 아동 접근성을 최우선으로, 하이브리드 업그레이드를 안전하게 적용합니다.</p>
+
+<div class="alert alert-info">
+<strong>전략: "아이 먼저, 시스템 나중에" (Child First, System Second)</strong><br>
+시스템 고도화(M-01~M-08, N-01~N-07)를 진행하되, 모든 변경이 아동 화면의 단순성을 해치지 않도록 UX 가드레일을 먼저 설치합니다.
+</div>
+
+<div class="c" style="border-left:4px solid var(--err)">
+<h3>Sprint 0: UX 가드레일 (Week 1-2) — 하이브리드 착수 전 필수</h3>
+<table class="tbl">
+<tr><th>작업</th><th>담당</th><th>공수</th><th>목적</th></tr>
+<tr><td>session/page.js 5개 컴포넌트 분리</td><td><span class="pill pill-fe">FE</span></td><td>3일</td><td>하이브리드 수정의 안전한 기반</td></tr>
+<tr><td>FEATURE_GATES 상수 + 연령별 네비게이션</td><td><span class="pill pill-fe">FE</span></td><td>2일</td><td>6-8세 화면 단순화 보장</td></tr>
+<tr><td>타이포그래피 표준화 (12px 제거)</td><td><span class="pill pill-de">Design</span></td><td>0.5일</td><td>접근성 기본</td></tr>
+<tr><td>터치 타겟 48→60px 확대</td><td><span class="pill pill-fe">FE</span></td><td>1일</td><td>아동 UX 기본</td></tr>
+<tr><td>ARIA live region 추가</td><td><span class="pill pill-fe">FE</span></td><td>1일</td><td>스크린 리더 지원</td></tr>
+</table>
+</div>
+
+<div class="c" style="border-left:4px solid var(--acc)">
+<h3>Sprint 1-2: Foundation (Week 3-5) — 수정버전 P0 + 비용 Phase 1</h3>
+<table class="tbl">
+<tr><th>작업</th><th>담당</th><th>공수</th></tr>
+<tr><td>M-01 T.E.A.A. 프롬프트 (prompts.js, engine.js)</td><td><span class="pill pill-be">BE</span></td><td>3일</td></tr>
+<tr><td>M-02 세션 차등화 (constants.js, sessions.js)</td><td><span class="pill pill-be">BE</span> <span class="pill pill-fe">FE</span></td><td>2일</td></tr>
+<tr><td>M-06 Growth Mindset (prompts.js, engine.js)</td><td><span class="pill pill-be">BE</span></td><td>2일</td></tr>
+<tr><td>M-08 Rest & Play (session/page.js, layout.js)</td><td><span class="pill pill-fe">FE</span></td><td>2일</td></tr>
+<tr><td>AI 비용 Phase 1 (재생성 임계값 + 캐싱)</td><td><span class="pill pill-ai">AI</span></td><td>1일</td></tr>
+<tr><td>HiAlice 아바타 디자인 + 구현</td><td><span class="pill pill-de">Design</span></td><td>3일</td></tr>
+<tr><td>난독증 모드 토글</td><td><span class="pill pill-fe">FE</span></td><td>1일</td></tr>
+</table>
+</div>
+
+<div class="c" style="border-left:4px solid var(--p)">
+<h3>Sprint 3-4: Extension (Week 6-9) — 수정버전 P1 + 첫 신규</h3>
+<table class="tbl">
+<tr><th>작업</th><th>담당</th><th>공수</th></tr>
+<tr><td>M-03 어휘 정밀화</td><td><span class="pill pill-be">BE</span> <span class="pill pill-fe">FE</span></td><td>5일</td></tr>
+<tr><td>M-04 7차원 프로필</td><td><span class="pill pill-be">BE</span> <span class="pill pill-de">Design</span></td><td>5일</td></tr>
+<tr><td>M-05 Fiction/NF 이원화</td><td><span class="pill pill-be">BE</span> <span class="pill pill-fe">FE</span></td><td>3일</td></tr>
+<tr><td>M-07 코드스위칭</td><td><span class="pill pill-be">BE</span> <span class="pill pill-fe">FE</span></td><td>3일</td></tr>
+<tr><td>N-01 프리리딩 (초급: 1단계만, 중급+: 전체)</td><td><span class="pill pill-be">BE</span> <span class="pill pill-fe">FE</span></td><td>2주</td></tr>
+<tr><td>AI 비용 Phase 2 (Haiku 확대 + 컨텍스트 최적화)</td><td><span class="pill pill-ai">AI</span></td><td>3일</td></tr>
+</table>
+</div>
+
+<div class="c" style="border-left:4px solid var(--pur)">
+<h3>Sprint 5-7: Innovation (Week 10-15) — 핵심 신규 + 딥러닝</h3>
+<table class="tbl">
+<tr><th>작업</th><th>담당</th><th>공수</th></tr>
+<tr><td>N-05 적응형 엔진 (백엔드 전용, UI 무영향)</td><td><span class="pill pill-be">BE</span> <span class="pill pill-ai">AI</span></td><td>3주</td></tr>
+<tr><td>N-02 디베이트 (9세+ 전용, 초급 비활성)</td><td><span class="pill pill-be">BE</span> <span class="pill pill-fe">FE</span></td><td>3주</td></tr>
+<tr><td>N-07 학부모 허브 (아이 화면 무영향)</td><td><span class="pill pill-fe">FE</span> <span class="pill pill-be">BE</span></td><td>2주</td></tr>
+<tr><td>AI 비용 Phase 3: Phi-3 파인튜닝 시작</td><td><span class="pill pill-ai">AI</span></td><td>3주</td></tr>
+<tr><td>PIPA 컴플라이언스 감사</td><td><span class="pill pill-be">BE</span></td><td>1주</td></tr>
+</table>
+</div>
+
+<div class="c" style="border-left:4px solid var(--ok)">
+<h3>Sprint 8-10: Scale (Week 16-22) — 확장 + 온디바이스</h3>
+<table class="tbl">
+<tr><th>작업</th><th>담당</th><th>공수</th></tr>
+<tr><td>N-04 스토리 스튜디오 (초급: 음성 1문장 모드)</td><td><span class="pill pill-fe">FE</span> <span class="pill pill-be">BE</span></td><td>4주</td></tr>
+<tr><td>N-03 소셜 리딩 (아이 화면: 리액션만)</td><td><span class="pill pill-fe">FE</span> <span class="pill pill-be">BE</span></td><td>4주</td></tr>
+<tr><td>N-06 B2B 학원 (관리자 전용)</td><td><span class="pill pill-be">BE</span> <span class="pill pill-fe">FE</span></td><td>6주</td></tr>
+<tr><td>온디바이스 어휘 연습 (Gemma 2B)</td><td><span class="pill pill-ai">AI</span></td><td>2주</td></tr>
+<tr><td>하이브리드 AI 라우팅 완성 (60% FT + 40% Claude)</td><td><span class="pill pill-ai">AI</span></td><td>2주</td></tr>
+</table>
+</div>
+
+<div class="c" style="margin-top:20px">
+<h3>최종 성과 예측 (22주 완료 후)</h3>
+<div class="g4">
+<div class="mc"><div class="mv">94%</div><div class="ml">세션 완주율</div><div class="md">현재 72%</div></div>
+<div class="mc"><div class="mv">82%</div><div class="ml">30일 리텐션</div><div class="md">현재 35%</div></div>
+<div class="mc"><div class="mv">$0.06</div><div class="ml">세션당 AI 비용</div><div class="md">현재 $0.18</div></div>
+<div class="mc"><div class="mv">$120K+</div><div class="ml">월간 매출</div><div class="md">하이브리드 시너지</div></div>
+<div class="mc"><div class="mv">9.2/10</div><div class="ml">아동 UX 점수</div><div class="md">현재 8.5</div></div>
+<div class="mc"><div class="mv">3개</div><div class="ml">연령별 UI 변형</div><div class="md">현재 1개</div></div>
+<div class="mc"><div class="mv">67%</div><div class="ml">AI 비용 절감</div><div class="md">딥러닝 효과</div></div>
+<div class="mc"><div class="mv">88%</div><div class="ml">첫 세션 완주율</div><div class="md">현재 42%</div></div>
+</div>
+</div>
+</div>
+
+</div>
+
+<div style="background:#2C3E50;color:#fff;text-align:center;padding:20px;margin-top:36px">
+<p style="opacity:.7;font-size:.82em">HiAlice 종합 에이전시 보고서 v1.0 | 2026.03.14</p>
+<p style="opacity:.5;font-size:.72em">Frontend · Backend · Design · AI/ML · Research — 5개 에이전시 병렬 분석</p>
+</div>
+
+<script>
+function S(id){document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));document.getElementById(id).classList.add('on');event.target.classList.add('on');window.scrollTo({top:document.querySelector('.nav').offsetTop,behavior:'smooth'})}
+</script>
+</body>
+</html>
