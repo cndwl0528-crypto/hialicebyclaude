@@ -19,6 +19,7 @@ import notificationsRouter from './routes/notifications.js';
 import safetyRouter from './routes/safety.js';
 import syncRouter from './routes/sync.js';
 import experimentsRouter from './routes/experiments.js';
+import bookClubRouter from './routes/bookClub.js';
 import { contentFilterMiddleware } from './middleware/contentFilter.js';
 
 // Validate required environment variables at startup.
@@ -128,6 +129,7 @@ app.use('/api/notifications', notificationsRouter);
 app.use('/api/safety', safetyRouter);
 app.use('/api/sync', syncRouter);
 app.use('/api/experiments', experimentsRouter);
+app.use('/api/book-clubs', bookClubRouter);
 
 // Sentry error handler (no-op when SENTRY_DSN is not set)
 app.use(sentryErrorHandler);
