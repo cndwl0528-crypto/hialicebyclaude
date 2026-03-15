@@ -1,7 +1,7 @@
 # PROGRESS.md — HiAlice 프로젝트 진행 현황
 
 > **Single Source of Truth** — 모든 태스크의 통합 체크리스트
-> 마지막 업데이트: 2026-03-11
+> 마지막 업데이트: 2026-03-15
 
 ---
 
@@ -9,8 +9,8 @@
 
 | 항목 | 수 |
 |------|-----|
-| **전체** | 56 |
-| **완료** | 55 |
+| **전체** | 81 |
+| **완료** | 80 |
 | **미완료** | 1 |
 | **현재 점수** | 9.2/10 |
 | **목표 점수** | 9.2/10 |
@@ -95,6 +95,49 @@
 
 ---
 
+## Sprint 1-10: Weekly Enhancement Sprints (Week 1-10)
+
+> 10주간의 고도화 스프린트. Agent 기반 병렬 작업으로 누적 71 파일, +20,316 / -1,522 라인 변경.
+
+### Week 1-2 (Sprint 1-2): UI 통일 + 접근성 기초 ✅
+- [x] `S1-01` 색상 통일 — 전체 페이지 Ghibli 팔레트 적용
+- [x] `S1-02` CSS 변수 시스템 — tailwind.config.js + constants.js 통합
+- [x] `S1-03` 이모지 접근성 — aria-hidden + sr-only 라벨
+- [x] `S1-04` PIN 기반 학생 인증 — 4자리 PIN 로그인
+- [x] `S1-05` 부모 가이드 — 학부모 학습 안내 시스템
+
+### Week 3-4 (Sprint 3-4): 아키텍처 정비 ✅
+- [x] `S3-01` SessionContext 분리 — 세션 상태/로직 독립 모듈화
+- [x] `S3-02` 3-Tier CSS 시스템 — 연령별 UI 밀도 차등 적용
+- [x] `S3-03` T.E.A.A. 교수법 구현 — TEAA_PHASES + 레벨별 가이던스
+- [x] `S3-04` TaskAdapter 패턴 — API-Mock 어댑터 인터페이스
+- [x] `S3-05` 키보드 내비게이션 — 전체 페이지 접근성 키보드 지원
+
+### Week 5-6 (Sprint 5-6): 교육 이론 고도화 ✅
+- [x] `S5-01` Pre-Reading 모듈 — 배경지식 활성화 + 예측 활동
+- [x] `S5-02` 7차원 레이더 차트 — GrowthRadar SVG 비고츠키 ZPD
+- [x] `S5-03` 아바타 시스템 — 학생 프로필 아바타 선택/표시
+- [x] `S5-04` Haiku 라우팅 — 비핵심 단계 Haiku 모델 사용 (비용 최적화)
+- [x] `S5-05` 다크모드 — OS 감지 + 수동 토글
+- [x] `S5-06` E2E 접근성 테스트 — Playwright axe-core 통합
+
+### Week 7-8 (Sprint 7-8): 기능 확장 ✅
+- [x] `S7-01` Debate Mode — AI와 찬반 토론 기능
+- [x] `S7-02` AI Story Studio — 창작 글쓰기 모드
+- [x] `S7-03` Plugin 시스템 — 확장 가능한 플러그인 아키텍처
+- [x] `S7-04` 파인튜닝 파이프라인 — 모델 최적화 인프라
+- [x] `S7-05` 마이크로 인터랙션 — 터치 피드백 + 전환 애니메이션
+- [x] `S7-06` 아동 UX E2E — 6세 사용 시나리오 테스트
+
+### Week 9-10 (Sprint 9-10): 커뮤니티 + 운영 ✅
+- [x] `S9-01` Book Club 시스템 — 그룹 리뷰 + 투표 + 토론 보드
+- [x] `S9-02` COPPA 데이터 관리 — 보호자 데이터 조회/삭제 요청 기능
+- [x] `S9-03` Parent Learning Hub — 보호자 교육 리소스 허브
+- [x] `S9-04` Phi-3 A/B 테스트 — sonnet_full / haiku_boost / phi3_local 실험
+- [x] `S9-05` k6 성능 테스트 — health-check, api-endpoints, session-flow
+
+---
+
 ## 9점 달성 기준 (Acceptance Criteria)
 
 1. 모든 페이지가 실제 Backend API와 연동
@@ -118,6 +161,8 @@
 | 2026-03-11 | Continuity Setup | 작업 연속성 시스템 구축 | — | PROGRESS.md 생성 |
 | 2026-03-11 | Phase 4 Sprint | P4-AD-03/04/06/08 구현 | P4-AD-03, P4-AD-04, P4-AD-06, P4-AD-08 | Book CRUD API 연동, Reports API 연동, Email 알림, CSV Export/Import |
 | 2026-03-11 | E2E Test Sprint | P5-SE-05 완료 — 13개 spec, 51 tests, 14 routes | P5-SE-05 | Playwright 인프라 + fixtures + 13 spec files (51/51 pass) |
+| 2026-03-12 | Sprint 1-10 | 10주간 고도화 스프린트 (병렬 에이전트) | S1-01~S9-05 | 71파일, +20,316/-1,522 라인, 408 unit + 45 E2E 테스트 |
+| 2026-03-15 | Sprint 11A | CLAUDE.md 정합성 보정 | — | ChatColumn 분리, Sentry 연동, ErrorBoundary Ghibli 테마 |
 
 ---
 
@@ -150,4 +195,4 @@
 
 ---
 
-*— HiAlice PROGRESS v1.0 | 2026-03-11 —*
+*— HiAlice PROGRESS v1.1 | 2026-03-15 —*

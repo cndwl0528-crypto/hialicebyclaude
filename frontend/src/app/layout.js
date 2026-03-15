@@ -7,6 +7,7 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 import OfflineBanner from '@/components/OfflineBanner';
 import { clearClientSession, getCurrentUser, logout } from '@/services/api';
 import { getItem, setItem, hydrateSessionFromLocal } from '@/lib/clientStorage';
+import { initSentry } from '@/lib/sentry';
 import './globals.css';
 
 export default function RootLayout({ children }) {
@@ -50,6 +51,11 @@ export default function RootLayout({ children }) {
           console.warn('ServiceWorker registration failed:', error);
         });
     }
+  }, []);
+
+  // Initialize Sentry once on app startup (client-side only).
+  useEffect(() => {
+    initSentry();
   }, []);
 
   // Track whether the initial hydration pass has completed.

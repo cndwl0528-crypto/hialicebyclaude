@@ -18,7 +18,11 @@ export async function initSentry() {
   if (!dsn) return;
 
   try {
-    Sentry = await import('@sentry/nextjs');
+    // Use an indirect dynamic import so webpack does not attempt to statically
+    // bundle @sentry/nextjs when the package is not installed.
+    // eslint-disable-next-line no-new-func
+    const dynamicImport = new Function('specifier', 'return import(specifier)');
+    Sentry = await dynamicImport('@sentry/nextjs');
     Sentry.init({
       dsn,
       environment: process.env.NODE_ENV || 'development',
