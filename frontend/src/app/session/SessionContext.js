@@ -27,6 +27,7 @@ import useSpeech from '@/hooks/useSpeech';
 import { STAGE_GUIDE, getCurrentGuideQuestion } from '@/lib/stageQuestions';
 import { pauseSession as apiPauseSession } from '@/services/api';
 import { getItem } from '@/lib/clientStorage';
+import { emitHook } from '@/lib/pluginRegistry';
 
 // ── Stage constants ────────────────────────────────────────────────────────────
 // Internal API stage keys — these are sent to the backend and never changed
@@ -256,6 +257,9 @@ export function SessionProvider({ children }) {
   const silenceTimerRef = useRef(null);
   const activeRowRef = useRef(null);
   const latestTranscriptRef = useRef('');
+  // Captures the latest student message text so plugin hooks in processApiResponse
+  // and processMockResponse can include it without prop-drilling.
+  const lastStudentMessageRef = useRef('');
 
   // ── Speech hook ────────────────────────────────────────────────────────────
   const { isListening, transcript, speak, startListening, stopListening, supported } = useSpeech();
@@ -509,6 +513,15 @@ export function SessionProvider({ children }) {
       setMessages([initialMessage]);
       speak(openingContent);
       setShowSkipButton(true);
+
+      // Plugin hook: notify plugins that a new session has started
+      emitHook('onSessionStart', {
+        bookId: resolvedBookId,
+        bookTitle: resolvedBookTitle,
+        studentLevel: getItem('studentLevel') || 'intermediate',
+        studentAge: getItem('studentAge'),
+        stages: activeStages,
+      });
     } catch (err) {
       console.error('Error initializing session:', err);
       setApiAvailable(false);
@@ -532,6 +545,10 @@ export function SessionProvider({ children }) {
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   function showStageTransitionAnimation(stageName, stageIndex) {
+    // Capture the current stage name before the async transition so the plugin
+    // hook receives the correct "fromStage" value even inside the setTimeout.
+    const fromStageName = activeStages[currentStage];
+
     setNextStageName(stageName);
     setShowStageTransition(true);
 
@@ -540,6 +557,12 @@ export function SessionProvider({ children }) {
       setCurrentTurn(0);
       setBodyReasonCount(0);
       setShowStageTransition(false);
+
+      // Plugin hook: notify plugins of the stage advance
+      emitHook('onStageAdvance', fromStageName, stageName, {
+        turn: currentTurn,
+        messages,
+      });
 
       const transitionMessage = {
         id: Date.now(),
@@ -612,12 +635,23 @@ export function SessionProvider({ children }) {
           if (achievementsEarned.length > 0) {
             setPendingAchievements(achievementsEarned);
             setShowAchievements(true);
+            // Plugin hook: emit once per achievement earned
+            for (const achievement of achievementsEarned) {
+              emitHook('onAchievementUnlocked', achievement);
+            }
           }
         }
       } catch (err) {
         console.warn('Error completing session on backend:', err);
       }
     }
+
+    // Plugin hook: session has ended — emit before showing the completion screen
+    emitHook('onSessionEnd', {
+      bookId,
+      totalTurns: messages.filter((m) => m.speaker === 'student').length,
+      duration,
+    }, stageScores);
 
     // Show AI feedback card before transitioning to the completion screen
     if (capturedAiFeedback) {
@@ -639,10 +673,11 @@ export function SessionProvider({ children }) {
   // Keeping it scoped here avoids stale conversation state during stage jumps.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const processApiResponse = useCallback(async (data) => {
+    const aliceResponseContent = data.reply?.content || data.content || data.message;
     const aliceMessage = {
       id: Date.now() + 1,
       speaker: 'alice',
-      content: data.reply?.content || data.content || data.message,
+      content: aliceResponseContent,
       timestamp: new Date(),
       stage: activeStages[currentStage],
     };
@@ -663,7 +698,15 @@ export function SessionProvider({ children }) {
       shownVocabWordsRef.current = new Set([...shownVocabWordsRef.current, vocabHit.word]);
       // Small delay so the AI message appears in the chat before the card pops up
       setTimeout(() => setVocabCard(vocabHit), 600);
+      // Plugin hook: vocabulary word detected in API response
+      emitHook('onVocabDetected', vocabHit.word, {
+        definition: vocabHit.definition,
+        example: vocabHit.example,
+      });
     }
+
+    // Plugin hook: a full turn (student → Alice) has completed
+    emitHook('onTurnComplete', activeStages[currentStage], currentTurn, lastStudentMessageRef.current, aliceResponseContent);
 
     if (data.grammarScore !== undefined) {
       setStageScores((prev) => ({
@@ -708,7 +751,15 @@ export function SessionProvider({ children }) {
     if (vocabHit) {
       shownVocabWordsRef.current = new Set([...shownVocabWordsRef.current, vocabHit.word]);
       setTimeout(() => setVocabCard(vocabHit), 600);
+      // Plugin hook: vocabulary word detected in mock response
+      emitHook('onVocabDetected', vocabHit.word, {
+        definition: vocabHit.definition,
+        example: vocabHit.example,
+      });
     }
+
+    // Plugin hook: a full turn (student → Alice) has completed
+    emitHook('onTurnComplete', activeStages[currentStage], currentTurn, lastStudentMessageRef.current, content);
 
     const nextTurn = currentTurn + 1;
 
@@ -739,6 +790,10 @@ export function SessionProvider({ children }) {
 
     setError(null);
     setLoading(true);
+
+    // Capture text in a ref so processApiResponse / processMockResponse can
+    // forward it to plugin hooks without needing it passed as a parameter.
+    lastStudentMessageRef.current = text;
 
     const studentMessage = {
       id: Date.now(),
