@@ -55,6 +55,12 @@ export const EXPERIMENTS = {
     variants: ['during_session', 'after_session', 'both'],
     status: 'active',
   },
+  ai_model: {
+    name: 'ai_model',
+    description: 'AI model tier comparison for cost optimization',
+    variants: ['sonnet_full', 'haiku_boost', 'phi3_local'],
+    status: 'active',
+  },
 };
 
 // ============================================================================

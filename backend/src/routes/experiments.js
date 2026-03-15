@@ -61,6 +61,13 @@ export const EXPERIMENTS = {
     status: 'active',
     createdAt: '2026-03-05T00:00:00.000Z',
   },
+  ai_model: {
+    name: 'ai_model',
+    description: 'AI model tier comparison for cost optimization',
+    variants: ['sonnet_full', 'haiku_boost', 'phi3_local'],
+    status: 'active',
+    createdAt: '2026-03-15T00:00:00.000Z',
+  },
 };
 
 // ============================================================================
@@ -363,6 +370,11 @@ router.get('/:name/results', adminAuth, (req, res) => {
         during_session: { participants: 167, completionRate: 0.62, vocabRetentionRate: 0.49, avgNewWordsPerSession: 5.2 },
         after_session:  { participants: 171, completionRate: 0.74, vocabRetentionRate: 0.61, avgNewWordsPerSession: 6.8 },
         both:           { participants: 169, completionRate: 0.70, vocabRetentionRate: 0.68, avgNewWordsPerSession: 7.4 },
+      },
+      ai_model: {
+        sonnet_full:  { participants: 156, completionRate: 0.78, avgGrammarScore: 84, avgCostPerSession: 0.12, avgResponseLatency: 2.1 },
+        haiku_boost:  { participants: 161, completionRate: 0.74, avgGrammarScore: 79, avgCostPerSession: 0.04, avgResponseLatency: 0.8 },
+        phi3_local:   { participants: 148, completionRate: 0.66, avgGrammarScore: 71, avgCostPerSession: 0.01, avgResponseLatency: 1.5 },
       },
     };
 
