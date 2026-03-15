@@ -22,6 +22,8 @@ import experimentsRouter from './routes/experiments.js';
 import bookClubRouter from './routes/bookClub.js';
 import monitoringRouter from './routes/monitoring.js';
 import { contentFilterMiddleware } from './middleware/contentFilter.js';
+import teachersRouter from './routes/teachers.js';
+import { authMiddleware, requireTeacherOrAdmin } from './middleware/auth.js';
 
 // Validate required environment variables at startup.
 // Exits the process in production if critical vars are missing.
@@ -132,6 +134,7 @@ app.use('/api/sync', syncRouter);
 app.use('/api/experiments', experimentsRouter);
 app.use('/api/book-clubs', bookClubRouter);
 app.use('/api/monitoring', monitoringRouter);
+app.use('/api/teachers', authMiddleware, requireTeacherOrAdmin, teachersRouter);
 
 // Sentry error handler (no-op when SENTRY_DSN is not set)
 app.use(sentryErrorHandler);

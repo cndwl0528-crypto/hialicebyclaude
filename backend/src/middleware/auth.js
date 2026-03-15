@@ -82,3 +82,18 @@ export function requireParent(req, res, next) {
   }
   next();
 }
+
+/**
+ * Require teacher, admin, or super_admin role.
+ * Must be used after authMiddleware so req.user is already populated.
+ */
+export function requireTeacherOrAdmin(req, res, next) {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  const role = req.user.role;
+  if (!['teacher', 'admin', 'super_admin'].includes(role)) {
+    return res.status(403).json({ error: 'Teacher or admin access required' });
+  }
+  next();
+}

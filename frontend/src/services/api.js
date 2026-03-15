@@ -946,6 +946,288 @@ export async function getCoppaStatus(email) {
 }
 
 // ---------------------------------------------------------------------------
+// Teacher / Academy APIs
+// ---------------------------------------------------------------------------
+
+/**
+ * Get all classes for the authenticated teacher.
+ * GET /teachers/classes
+ *
+ * Returns: { classes: [{ id, label, time, studentCount }] }
+ */
+export async function getTeacherClasses() {
+  if (USE_MOCK) {
+    return {
+      classes: [
+        { id: 'morning', label: 'Morning Class', time: 'Mon / Wed / Fri  9:00 AM', studentCount: 4 },
+        { id: 'afternoon', label: 'Afternoon Class', time: 'Tue / Thu  2:00 PM', studentCount: 3 },
+        { id: 'saturday', label: 'Saturday Group', time: 'Sat  10:00 AM', studentCount: 2 },
+      ],
+    };
+  }
+
+  return apiFetch('/teachers/classes');
+}
+
+/**
+ * Get students enrolled in a specific class.
+ * GET /teachers/classes/:classId/students
+ *
+ * Returns: { students: [{ id, classId, name, avatarEmoji, age, level, booksReviewed,
+ *   avgScore, lastActive, status, streak, totalWords, recentSessions, recentWords, aiFeedback }] }
+ *
+ * @param {string} classId
+ */
+export async function getClassStudents(classId) {
+  if (USE_MOCK) {
+    const ALL_STUDENTS = [
+      {
+        id: 's1', classId: 'morning', name: 'Mia Chen', avatarEmoji: '🌸', age: 9,
+        level: 'intermediate', booksReviewed: 12, avgScore: 87,
+        lastActive: new Date(Date.now() - 1 * 86400000).toISOString(),
+        status: 'active', streak: 7, totalWords: 142,
+        recentSessions: [
+          { bookTitle: "Charlotte's Web", grammarScore: 88, completedAt: new Date(Date.now() - 86400000).toISOString(), vocabCount: 14 },
+          { bookTitle: 'The Secret Garden', grammarScore: 85, completedAt: new Date(Date.now() - 7 * 86400000).toISOString(), vocabCount: 11 },
+          { bookTitle: 'Matilda', grammarScore: 90, completedAt: new Date(Date.now() - 14 * 86400000).toISOString(), vocabCount: 18 },
+        ],
+        recentWords: ['curious', 'adventure', 'determined', 'magnificent', 'compassion'],
+        aiFeedback: 'Mia demonstrates excellent critical thinking. Encourage her to use more complex sentence structures.',
+      },
+      {
+        id: 's2', classId: 'morning', name: 'Leo Park', avatarEmoji: '⚡', age: 10,
+        level: 'intermediate', booksReviewed: 8, avgScore: 74,
+        lastActive: new Date(Date.now() - 3 * 86400000).toISOString(),
+        status: 'active', streak: 3, totalWords: 89,
+        recentSessions: [
+          { bookTitle: 'Magic Tree House', grammarScore: 76, completedAt: new Date(Date.now() - 3 * 86400000).toISOString(), vocabCount: 8 },
+          { bookTitle: 'Diary of a Wimpy Kid', grammarScore: 72, completedAt: new Date(Date.now() - 10 * 86400000).toISOString(), vocabCount: 9 },
+          { bookTitle: 'Captain Underpants', grammarScore: 74, completedAt: new Date(Date.now() - 17 * 86400000).toISOString(), vocabCount: 7 },
+        ],
+        recentWords: ['hilarious', 'obstacle', 'sneaky', 'mischievous', 'embarrassed'],
+        aiFeedback: 'Leo engages enthusiastically. Focus on expanding vocabulary and using more descriptive language.',
+      },
+      {
+        id: 's3', classId: 'morning', name: 'Sophie Kim', avatarEmoji: '🌙', age: 8,
+        level: 'beginner', booksReviewed: 5, avgScore: 65,
+        lastActive: new Date(Date.now() - 9 * 86400000).toISOString(),
+        status: 'needs_attention', streak: 0, totalWords: 52,
+        recentSessions: [
+          { bookTitle: 'The Very Hungry Caterpillar', grammarScore: 68, completedAt: new Date(Date.now() - 9 * 86400000).toISOString(), vocabCount: 5 },
+          { bookTitle: 'Where the Wild Things Are', grammarScore: 63, completedAt: new Date(Date.now() - 19 * 86400000).toISOString(), vocabCount: 6 },
+          { bookTitle: 'Goodnight Moon', grammarScore: 64, completedAt: new Date(Date.now() - 28 * 86400000).toISOString(), vocabCount: 4 },
+        ],
+        recentWords: ['peaceful', 'forest', 'journey', 'afraid', 'cozy'],
+        aiFeedback: 'Sophie is making steady progress. Consistent practice is key — aim for at least 2 sessions per week.',
+      },
+      {
+        id: 's4', classId: 'morning', name: 'James Yoo', avatarEmoji: '🦁', age: 12,
+        level: 'advanced', booksReviewed: 18, avgScore: 92,
+        lastActive: new Date(Date.now() - 1 * 86400000).toISOString(),
+        status: 'active', streak: 14, totalWords: 231,
+        recentSessions: [
+          { bookTitle: 'A Wrinkle in Time', grammarScore: 94, completedAt: new Date(Date.now() - 86400000).toISOString(), vocabCount: 22 },
+          { bookTitle: 'The Hobbit', grammarScore: 91, completedAt: new Date(Date.now() - 8 * 86400000).toISOString(), vocabCount: 25 },
+          { bookTitle: 'Percy Jackson', grammarScore: 90, completedAt: new Date(Date.now() - 15 * 86400000).toISOString(), vocabCount: 20 },
+        ],
+        recentWords: ['formidable', 'perplexed', 'inevitable', 'tenacious', 'luminous'],
+        aiFeedback: 'James is an outstanding student. Challenge him with more complex themes and encourage literary analysis.',
+      },
+      {
+        id: 's5', classId: 'afternoon', name: 'Ava Nguyen', avatarEmoji: '🌺', age: 9,
+        level: 'intermediate', booksReviewed: 10, avgScore: 81,
+        lastActive: new Date(Date.now() - 2 * 86400000).toISOString(),
+        status: 'active', streak: 5, totalWords: 118,
+        recentSessions: [
+          { bookTitle: 'Winnie-the-Pooh', grammarScore: 82, completedAt: new Date(Date.now() - 2 * 86400000).toISOString(), vocabCount: 12 },
+          { bookTitle: 'The BFG', grammarScore: 80, completedAt: new Date(Date.now() - 9 * 86400000).toISOString(), vocabCount: 13 },
+          { bookTitle: 'Fantastic Mr Fox', grammarScore: 81, completedAt: new Date(Date.now() - 16 * 86400000).toISOString(), vocabCount: 10 },
+        ],
+        recentWords: ['elegant', 'peculiar', 'vibrant', 'curious', 'generous'],
+        aiFeedback: 'Ava shows consistent improvement. Encourage her to connect book themes to personal experiences.',
+      },
+      {
+        id: 's6', classId: 'afternoon', name: 'Ethan Lim', avatarEmoji: '🚀', age: 11,
+        level: 'intermediate', booksReviewed: 7, avgScore: 69,
+        lastActive: new Date(Date.now() - 6 * 86400000).toISOString(),
+        status: 'needs_attention', streak: 1, totalWords: 73,
+        recentSessions: [
+          { bookTitle: 'Harry Potter and the Sorcerer Stone', grammarScore: 71, completedAt: new Date(Date.now() - 6 * 86400000).toISOString(), vocabCount: 9 },
+          { bookTitle: 'The Lion the Witch and the Wardrobe', grammarScore: 68, completedAt: new Date(Date.now() - 14 * 86400000).toISOString(), vocabCount: 8 },
+          { bookTitle: 'Stuart Little', grammarScore: 68, completedAt: new Date(Date.now() - 22 * 86400000).toISOString(), vocabCount: 7 },
+        ],
+        recentWords: ['brave', 'wizard', 'mysterious', 'discover', 'challenge'],
+        aiFeedback: 'Ethan needs more encouragement. Try pairing him with a reading buddy to build confidence.',
+      },
+      {
+        id: 's7', classId: 'afternoon', name: 'Zoe Lin', avatarEmoji: '🦋', age: 7,
+        level: 'beginner', booksReviewed: 14, avgScore: 79,
+        lastActive: new Date(Date.now() - 1 * 86400000).toISOString(),
+        status: 'active', streak: 9, totalWords: 105,
+        recentSessions: [
+          { bookTitle: 'Elephant and Piggie: Today I Will Fly', grammarScore: 80, completedAt: new Date(Date.now() - 86400000).toISOString(), vocabCount: 10 },
+          { bookTitle: 'Frog and Toad Are Friends', grammarScore: 79, completedAt: new Date(Date.now() - 7 * 86400000).toISOString(), vocabCount: 9 },
+          { bookTitle: 'Biscuit', grammarScore: 78, completedAt: new Date(Date.now() - 14 * 86400000).toISOString(), vocabCount: 8 },
+        ],
+        recentWords: ['friendship', 'hopeful', 'gentle', 'playful', 'wonder'],
+        aiFeedback: 'Zoe is progressing beautifully for her age. Her vocabulary retention is impressive.',
+      },
+      {
+        id: 's8', classId: 'saturday', name: 'Noah Kang', avatarEmoji: '🐉', age: 13,
+        level: 'advanced', booksReviewed: 21, avgScore: 89,
+        lastActive: new Date(Date.now() - 5 * 86400000).toISOString(),
+        status: 'active', streak: 6, totalWords: 198,
+        recentSessions: [
+          { bookTitle: 'Inkheart', grammarScore: 90, completedAt: new Date(Date.now() - 5 * 86400000).toISOString(), vocabCount: 19 },
+          { bookTitle: 'Eragon', grammarScore: 88, completedAt: new Date(Date.now() - 12 * 86400000).toISOString(), vocabCount: 21 },
+          { bookTitle: 'The Giver', grammarScore: 89, completedAt: new Date(Date.now() - 19 * 86400000).toISOString(), vocabCount: 17 },
+        ],
+        recentWords: ['dystopian', 'resilience', 'identity', 'sacrifice', 'profound'],
+        aiFeedback: 'Noah demonstrates sophisticated literary comprehension. Encourage him to write short summaries.',
+      },
+      {
+        id: 's9', classId: 'saturday', name: 'Lily Han', avatarEmoji: '🌷', age: 10,
+        level: 'intermediate', booksReviewed: 3, avgScore: 58,
+        lastActive: new Date(Date.now() - 15 * 86400000).toISOString(),
+        status: 'inactive', streak: 0, totalWords: 31,
+        recentSessions: [
+          { bookTitle: 'Judy Moody', grammarScore: 60, completedAt: new Date(Date.now() - 15 * 86400000).toISOString(), vocabCount: 6 },
+          { bookTitle: 'Ramona Quimby Age 8', grammarScore: 56, completedAt: new Date(Date.now() - 28 * 86400000).toISOString(), vocabCount: 5 },
+          { bookTitle: 'Clementine', grammarScore: 58, completedAt: new Date(Date.now() - 40 * 86400000).toISOString(), vocabCount: 5 },
+        ],
+        recentWords: ['moody', 'bossy', 'clever', 'silly', 'worried'],
+        aiFeedback: 'Lily has been inactive for 2 weeks. A friendly reminder and encouragement call is recommended.',
+      },
+    ];
+    const filtered = ALL_STUDENTS.filter((s) => s.classId === classId);
+    return { students: filtered };
+  }
+
+  return apiFetch(`/teachers/classes/${encodeURIComponent(classId)}/students`);
+}
+
+/**
+ * Get detailed profile for a single student (teacher view).
+ * GET /teachers/students/:studentId
+ *
+ * @param {string} studentId
+ */
+export async function getStudentDetail(studentId) {
+  if (USE_MOCK) {
+    return { student: null };
+  }
+
+  return apiFetch(`/teachers/students/${encodeURIComponent(studentId)}`);
+}
+
+/**
+ * Assign a book to all students in a class with an optional due date.
+ * POST /teachers/classes/:classId/assign-book
+ *
+ * @param {string} classId
+ * @param {string} bookId
+ * @param {string|null} dueDate  ISO date string, e.g. "2026-04-01"
+ */
+export async function assignBookToClass(classId, bookId, dueDate = null) {
+  if (USE_MOCK) {
+    return { success: true, classId, bookId, dueDate };
+  }
+
+  return apiFetch(`/teachers/classes/${encodeURIComponent(classId)}/assign-book`, {
+    method: 'POST',
+    body: JSON.stringify({ bookId, dueDate }),
+  });
+}
+
+/**
+ * Export a class report as CSV.
+ * GET /teachers/classes/:classId/export-csv
+ *
+ * In production the backend responds with text/csv.
+ * In mock mode a CSV string is generated locally from the embedded student data.
+ *
+ * @param {string} classId
+ * @returns {Promise<string>}  Raw CSV text
+ */
+export async function exportClassCSV(classId) {
+  if (USE_MOCK) {
+    // Build CSV from the same mock students used by getClassStudents
+    const { students } = await getClassStudents(classId);
+    const header = 'Name,Age,Level,Books Reviewed,Avg Score (%),Total Words,Streak (days),Status,Last Active';
+    const rows = students.map((s) => {
+      const lastActive = s.lastActive
+        ? new Date(s.lastActive).toLocaleDateString('en-US')
+        : 'Never';
+      return [
+        `"${s.name}"`,
+        s.age,
+        s.level,
+        s.booksReviewed,
+        s.avgScore,
+        s.totalWords,
+        s.streak,
+        s.status,
+        lastActive,
+      ].join(',');
+    });
+    return [header, ...rows].join('\n');
+  }
+
+  // Real API: expect text/csv response
+  const url = `${API_BASE}/api/teachers/classes/${encodeURIComponent(classId)}/export-csv`;
+  const token = typeof window !== 'undefined' ? getItem('token') : null;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
+
+  try {
+    const response = await fetch(url, {
+      credentials: 'include',
+      signal: controller.signal,
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const error = new Error(`Export failed: ${response.status} ${response.statusText}`);
+      error.status = response.status;
+      throw error;
+    }
+
+    return await response.text();
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error('Export timed out. Please try again.');
+    }
+    throw error;
+  }
+}
+
+/**
+ * Get aggregate statistics for all classes managed by the teacher.
+ * GET /teachers/stats
+ *
+ * Returns: { totalStudents, totalClasses, avgScore, activeRate, totalBooksRead, totalWords }
+ */
+export async function getTeacherStats() {
+  if (USE_MOCK) {
+    return {
+      totalStudents: 9,
+      totalClasses: 3,
+      avgScore: 77,
+      activeRate: 66,
+      totalBooksRead: 98,
+      totalWords: 1039,
+    };
+  }
+
+  return apiFetch('/teachers/stats');
+}
+
+// ---------------------------------------------------------------------------
 // Default export (namespace object for convenience)
 // ---------------------------------------------------------------------------
 
@@ -999,6 +1281,13 @@ const api = {
   createCoppaIntent,
   confirmCoppaVerification,
   getCoppaStatus,
+  // Teacher / Academy
+  getTeacherClasses,
+  getClassStudents,
+  getStudentDetail,
+  assignBookToClass,
+  exportClassCSV,
+  getTeacherStats,
 };
 
 export default api;
