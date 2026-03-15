@@ -718,7 +718,7 @@ function LoginPageInner() {
                 {/* Forgot PIN helper */}
                 <p className="text-center text-xs text-[#6B5744] font-semibold mb-4">
                   Forgot your PIN?{' '}
-                  <span className="text-[#D4A843] font-bold">Ask a parent</span>{' '}
+                  <span className="text-[#A8822E] font-bold">Ask a parent</span>{' '}
                   to help you.
                 </p>
 

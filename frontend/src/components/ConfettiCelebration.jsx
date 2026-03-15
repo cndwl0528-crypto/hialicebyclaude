@@ -134,7 +134,7 @@ export default function ConfettiCelebration({ active = false, duration = 3000, o
           </div>
           <div className="bg-white/90 backdrop-blur-sm rounded-3xl px-8 py-4 shadow-xl">
             <p className="text-2xl font-bold text-[#3D2E1E]">Amazing Job!</p>
-            <p className="text-[#5C8B5C]">You finished the book review! ⭐</p>
+            <p className="text-[#5C8B5C]">You finished the book review! <span aria-hidden="true">⭐</span></p>
           </div>
         </div>
       </div>

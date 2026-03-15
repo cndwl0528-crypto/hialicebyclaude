@@ -52,6 +52,7 @@ export default function AdminLayout({ children }) {
     { href: '/admin/reports', label: 'Reports', icon: '📈' },
     { href: '/admin/prompts', label: 'AI Prompts', icon: '🤖' },
     { href: '/admin/experiments', label: 'Experiments', icon: '🧪' },
+    { href: '/admin/monitoring',  label: 'Monitoring',  icon: '📡' },
   ];
 
   const isActive = (href) => {

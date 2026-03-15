@@ -248,7 +248,7 @@ export default function LibraryPage() {
       <section className="ghibli-card p-5">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#D4A843]">My Library</p>
+            <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#A8822E]">My Library</p>
             <h2 className="mt-1 text-xl font-extrabold text-[#3D2E1E]">Past sessions &amp; creations</h2>
           </div>
           <div className="grid grid-cols-2 gap-2 rounded-2xl bg-[#EFE6D7] p-1">

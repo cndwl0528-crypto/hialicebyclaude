@@ -49,7 +49,7 @@ function QuoteCard({ highlight, index }) {
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <span>{style.icon}</span>
+          <span aria-hidden="true">{style.icon}</span>
           <span className="text-xs font-medium text-gray-500">
             {STAGE_LABELS[highlight.stage] || highlight.stage}
           </span>
@@ -67,7 +67,7 @@ function QuoteCard({ highlight, index }) {
 
       {/* Book reference */}
       <div className="flex items-center gap-1 text-xs text-gray-400">
-        <span>📖</span>
+        <span aria-hidden="true">📖</span>
         <span>{highlight.bookTitle}</span>
       </div>
     </div>
@@ -103,7 +103,7 @@ export default function ChildInsightCard({
       {/* Card Header */}
       <div className="bg-gradient-to-r from-indigo-500 to-purple-500 px-6 py-4 text-white">
         <div className="flex items-center gap-3">
-          <span className="text-3xl">{studentEmoji}</span>
+          <span className="text-3xl" aria-hidden="true">{studentEmoji}</span>
           <div>
             <h3 className="font-bold text-lg">
               What {studentName || 'your child'} said today
@@ -121,12 +121,12 @@ export default function ChildInsightCard({
       {growthSummary && (
         <div className="flex gap-4 px-6 py-3 bg-gray-50 border-b border-gray-100 text-sm">
           <div className="flex items-center gap-1">
-            <span>📚</span>
+            <span aria-hidden="true">📚</span>
             <span className="font-semibold">{growthSummary.totalRecentSessions}</span>
             <span className="text-gray-500">sessions</span>
           </div>
           <div className="flex items-center gap-1">
-            <span>💡</span>
+            <span aria-hidden="true">💡</span>
             <span className="font-semibold">{growthSummary.deepThinkingMoments}</span>
             <span className="text-gray-500">deep thoughts</span>
           </div>
@@ -137,7 +137,7 @@ export default function ChildInsightCard({
       <div className="p-4 space-y-3">
         {displayHighlights.length === 0 ? (
           <div className="text-center py-6">
-            <span className="text-3xl block mb-2">📖</span>
+            <span className="text-3xl block mb-2" aria-hidden="true">📖</span>
             <p className="text-gray-500 text-sm">No review highlights yet.</p>
             <p className="text-gray-400 text-xs mt-1">
               Highlights appear after your child completes a review session.

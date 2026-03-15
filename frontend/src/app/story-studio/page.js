@@ -424,7 +424,7 @@ function StoryStats({ storyParts }) {
       </div>
       <div className="flex items-center gap-1.5 bg-[#FFF8E8] px-3 py-1.5 rounded-full">
         <span className="text-sm" aria-hidden="true">📖</span>
-        <span className="text-xs font-bold text-[#D4A843]">{storyParts.length} contributions</span>
+        <span className="text-xs font-bold text-[#A8822E]">{storyParts.length} contributions</span>
       </div>
     </div>
   );

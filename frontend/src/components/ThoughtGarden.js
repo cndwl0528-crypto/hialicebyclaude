@@ -123,7 +123,7 @@ function GardenStats({ thoughts }) {
         { emoji: '🍎', count: stats.fruits, label: 'Fruits' },
       ].map(({ emoji, count, label }) => (
         <div key={label} className="flex items-center gap-1 text-sm">
-          <span>{emoji}</span>
+          <span aria-hidden="true">{emoji}</span>
           <span className="font-semibold">{count}</span>
           <span className="text-gray-500">{label}</span>
         </div>
@@ -164,7 +164,7 @@ export default function ThoughtGarden({ thoughts = [], studentName = '', compact
     return (
       <div className="bg-green-50 rounded-xl p-3 border border-green-100">
         <div className="flex items-center gap-2 mb-2">
-          <span className="text-lg">🌻</span>
+          <span className="text-lg" aria-hidden="true">🌻</span>
           <span className="font-semibold text-green-800 text-sm">{gardenLevel}</span>
           <span className="text-xs text-gray-500">({sortedThoughts.length} thoughts)</span>
         </div>
@@ -176,6 +176,7 @@ export default function ThoughtGarden({ thoughts = [], studentName = '', compact
                 key={i}
                 className="text-lg flex-shrink-0"
                 title={`${thought.bookTitle}: ${thought.score}/100`}
+                aria-hidden="true"
               >
                 {GROWTH_STAGES[stage].emoji}
               </span>
@@ -194,7 +195,7 @@ export default function ThoughtGarden({ thoughts = [], studentName = '', compact
       {/* Header */}
       <div className="text-center mb-4">
         <h2 className="text-xl font-bold text-green-800 flex items-center justify-center gap-2">
-          <span>🌻</span>
+          <span aria-hidden="true">🌻</span>
           {studentName ? `${studentName}'s` : 'My'} Thought Garden
         </h2>
         <p className="text-sm text-green-600 mt-1">{gardenLevel}</p>
@@ -206,7 +207,7 @@ export default function ThoughtGarden({ thoughts = [], studentName = '', compact
       {/* Garden grid */}
       {sortedThoughts.length === 0 ? (
         <div className="text-center py-8">
-          <span className="text-4xl mb-3 block">🌱</span>
+          <span className="text-4xl mb-3 block" aria-hidden="true">🌱</span>
           <p className="text-gray-500">Your garden is waiting for its first thought!</p>
           <p className="text-sm text-gray-400 mt-1">Complete a review session to plant your first seed.</p>
         </div>
@@ -227,7 +228,7 @@ export default function ThoughtGarden({ thoughts = [], studentName = '', compact
       {/* Growth guide */}
       <div className="mt-4 pt-3 border-t border-green-100">
         <p className="text-xs text-center text-gray-400">
-          🌱 Seed → 🌿 Sprout → 🌳 Tree → 🍎 Fruit — Keep thinking deeper to grow your garden!
+          <span aria-hidden="true">🌱</span> Seed <span aria-hidden="true">→ 🌿</span> Sprout <span aria-hidden="true">→ 🌳</span> Tree <span aria-hidden="true">→ 🍎</span> Fruit — Keep thinking deeper to grow your garden!
         </p>
       </div>
     </div>

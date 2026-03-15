@@ -522,7 +522,7 @@ export default function ReportsPage() {
                             <td className="py-3 px-3 font-bold text-[#5C8B5C]">
                               {s.grammarScore != null ? `${s.grammarScore}%` : '--'}
                             </td>
-                            <td className="py-3 px-3 font-bold text-[#D4A843]">
+                            <td className="py-3 px-3 font-bold text-[#A8822E]">
                               {s.levelScore != null ? `${s.levelScore}%` : '--'}
                             </td>
                             <td className="py-3 px-3">

@@ -596,7 +596,7 @@ function ClubHeader({ club, members, onBack, onLeave }) {
 
       {/* Members row */}
       <div>
-        <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#D4A843] mb-2">
+        <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#A8822E] mb-2">
           Members
         </p>
         <MemberList members={members} />

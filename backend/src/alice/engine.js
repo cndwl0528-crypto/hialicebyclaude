@@ -18,6 +18,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { config } from '../lib/config.js';
+import { trackUsage } from '../services/costTracker.js';
 import {
   getSystemPrompt,
   getSessionFeedbackPrompt,
@@ -345,6 +346,21 @@ export async function getAliceResponse({
       outputTokens += callOutputTokens;
 
       const { cost: callCost } = costTracker.record(model, callInputTokens, callOutputTokens);
+
+      // Forward usage to the global cost tracker service for monitoring.
+      // Normalise the full model identifier to the pricing-key format expected
+      // by costTracker.js (e.g. 'claude-sonnet-4-20250514' → 'claude-sonnet-4').
+      if (callInputTokens > 0 || callOutputTokens > 0) {
+        const pricingKey = model.startsWith('claude-haiku') ? 'claude-haiku-4-5' : 'claude-sonnet-4';
+        const studentId  = sessionId ? sessionId.split('-')[0] : undefined;
+        trackUsage({
+          model:        pricingKey,
+          inputTokens:  callInputTokens,
+          outputTokens: callOutputTokens,
+          sessionId:    sessionId || undefined,
+          studentId,
+        });
+      }
 
       // Log structured usage after each API call for observability.
       console.log('[TaskAdapter] API call cost log:', {

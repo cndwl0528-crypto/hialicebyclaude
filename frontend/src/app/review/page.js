@@ -286,7 +286,7 @@ export default function ReviewPage() {
 
   const renderStars = (level) => {
     return Array.from({ length: 5 }).map((_, i) => (
-      <span key={i} className={i < level ? 'text-[#D4A843]' : 'text-[#D6C9A8]'}>
+      <span key={i} className={i < level ? 'text-[#A8822E]' : 'text-[#D6C9A8]'}>
         ★
       </span>
     ));
@@ -620,7 +620,7 @@ export default function ReviewPage() {
                       style={{ width: `${review.levelScore || 0}%` }}
                     />
                   </div>
-                  <span className="text-lg font-extrabold text-[#D4A843]">{review.levelScore || 0}%</span>
+                  <span className="text-lg font-extrabold text-[#A8822E]">{review.levelScore || 0}%</span>
                 </div>
               </div>
             )}
@@ -952,19 +952,19 @@ export default function ReviewPage() {
               </h4>
               <ul className="space-y-2">
                 <li className="flex gap-2 text-sm text-[#3D2E1E]">
-                  <span className="text-[#D4A843] font-bold flex-shrink-0">-</span>
+                  <span className="text-[#A8822E] font-bold flex-shrink-0">-</span>
                   <span>
                     &ldquo;What was your favorite part of <em className="not-italic font-bold">{review.bookTitle}</em>?&rdquo;
                   </span>
                 </li>
                 <li className="flex gap-2 text-sm text-[#3D2E1E]">
-                  <span className="text-[#D4A843] font-bold flex-shrink-0">-</span>
+                  <span className="text-[#A8822E] font-bold flex-shrink-0">-</span>
                   <span>
                     &ldquo;Can you tell me about the main character in your own words?&rdquo;
                   </span>
                 </li>
                 <li className="flex gap-2 text-sm text-[#3D2E1E]">
-                  <span className="text-[#D4A843] font-bold flex-shrink-0">-</span>
+                  <span className="text-[#A8822E] font-bold flex-shrink-0">-</span>
                   <span>
                     &ldquo;What would happen if <em className="not-italic font-bold">{review.bookTitle}</em> had a different ending?&rdquo;
                   </span>
@@ -984,7 +984,7 @@ export default function ReviewPage() {
                   "Find 3 new words from today's session and use them in sentences",
                 ].map((activity, idx) => (
                   <li key={idx} className="flex gap-2 text-sm text-[#3D2E1E]">
-                    <span className="text-[#D4A843] font-bold flex-shrink-0">-</span>
+                    <span className="text-[#A8822E] font-bold flex-shrink-0">-</span>
                     <span>{activity}</span>
                   </li>
                 ))}
@@ -1004,7 +1004,7 @@ export default function ReviewPage() {
                         key={vocab.id || idx}
                         className="flex items-start gap-3 p-3 bg-white rounded-xl border border-[#E8DEC8]"
                       >
-                        <span className="font-extrabold text-[#D4A843] min-w-[24px] text-sm">
+                        <span className="font-extrabold text-[#A8822E] min-w-[24px] text-sm">
                           {idx + 1}.
                         </span>
                         <div>
@@ -1091,15 +1091,15 @@ export default function ReviewPage() {
           </h3>
           <div className="space-y-3 text-sm text-[#3D2E1E]">
             <div className="flex gap-3">
-              <span className="text-[#D4A843] font-bold min-w-[24px]">1.</span>
+              <span className="text-[#A8822E] font-bold min-w-[24px]">1.</span>
               <p><strong>Talk about it at dinner:</strong> Ask your child &ldquo;What was the most interesting thing about the book?&rdquo; Use the vocabulary words naturally in conversation.</p>
             </div>
             <div className="flex gap-3">
-              <span className="text-[#D4A843] font-bold min-w-[24px]">2.</span>
+              <span className="text-[#A8822E] font-bold min-w-[24px]">2.</span>
               <p><strong>Word wall:</strong> Write 2-3 new words on sticky notes and place them where your child can see them daily (fridge, desk, bathroom mirror).</p>
             </div>
             <div className="flex gap-3">
-              <span className="text-[#D4A843] font-bold min-w-[24px]">3.</span>
+              <span className="text-[#A8822E] font-bold min-w-[24px]">3.</span>
               <p><strong>Connect to real life:</strong> When you encounter situations related to the book&apos;s themes, ask &ldquo;Remember in the book when...? This is kind of like that!&rdquo;</p>
             </div>
           </div>

@@ -506,7 +506,7 @@ function ClassStats({ students }) {
             <div className="space-y-2">
               {topBooks.map(([title, count], i) => (
                 <div key={title} className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-[#D4A843] w-4 flex-shrink-0">#{i + 1}</span>
+                  <span className="text-xs font-bold text-[#A8822E] w-4 flex-shrink-0">#{i + 1}</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium text-[#3D2E1E] truncate">{title}</p>
                   </div>

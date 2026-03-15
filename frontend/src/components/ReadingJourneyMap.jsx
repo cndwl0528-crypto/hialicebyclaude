@@ -40,7 +40,7 @@ export default function ReadingJourneyMap() {
     <section className="ghibli-card p-5" aria-label="Reading journey architecture">
       <div className="mb-4 flex items-center justify-between gap-4">
         <div>
-          <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#D4A843]">
+          <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#A8822E]">
             Core Flow
           </p>
           <h2 className="mt-1 text-xl font-extrabold text-[#3D2E1E]">

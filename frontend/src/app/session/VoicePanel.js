@@ -252,7 +252,7 @@ export default function VoicePanel() {
       )}
 
       {!supported && (
-        <p className="text-xs text-[#D4A843] text-center font-semibold">
+        <p className="text-xs text-[#A8822E] text-center font-semibold">
           Voice input not supported on this device. Please use text input.
         </p>
       )}

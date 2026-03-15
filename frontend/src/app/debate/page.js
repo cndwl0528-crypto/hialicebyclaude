@@ -280,7 +280,7 @@ function SetupStage({ bookInfo, onStart, isLoading }) {
     <div className="space-y-5">
       {/* Book context */}
       <div className="ghibli-card p-4">
-        <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#D4A843] mb-1">
+        <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#A8822E] mb-1">
           Book in Focus
         </p>
         <p className="font-extrabold text-[#3D2E1E] text-base truncate">

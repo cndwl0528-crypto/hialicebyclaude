@@ -196,7 +196,7 @@ export default function VocabMiniCard({ word, definition, example, onDismiss }) 
               className="w-full py-3 px-6 bg-[#5C8B5C] text-white rounded-2xl font-extrabold text-sm hover:bg-[#3D6B3D] active:scale-95 transition-all shadow-[0_4px_12px_rgba(92,139,92,0.3)] min-h-[48px]"
               aria-label={`Got it — dismiss the vocabulary card for ${word}`}
             >
-              Got it! &#x1F44D;
+              Got it! <span aria-hidden="true">&#x1F44D;</span>
             </button>
           </div>
         </div>

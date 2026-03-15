@@ -679,7 +679,7 @@ function LevelUpCelebration({ levelData, onDismiss }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="text-6xl mb-2" aria-hidden="true">{levelData.icon}</div>
-        <p className="text-xs font-extrabold tracking-widest uppercase text-[#D4A843] mb-1">Level Up!</p>
+        <p className="text-xs font-extrabold tracking-widest uppercase text-[#A8822E] mb-1">Level Up!</p>
         <h3 className="text-2xl font-extrabold text-[#3D2E1E] mb-1">Level {levelData.level}</h3>
         <p className="text-lg font-bold text-[#5C8B5C] mb-4">{levelData.name}</p>
         <p className="text-sm text-[#6B5744] mb-6">You reached a new level! Keep reading to grow even more.</p>

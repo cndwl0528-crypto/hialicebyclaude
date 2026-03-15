@@ -582,7 +582,7 @@ export default function VocabularyPage() {
           <span className="text-sm font-bold text-[#6B5744]">
             Word {currentWordIndex + 1} of {filteredVocabulary.length}
           </span>
-          <span className="text-sm font-extrabold text-[#D4A843]">
+          <span className="text-sm font-extrabold text-[#A8822E]">
             {streak > 0 && `Streak: ${streak}`}{streak >= 3 ? <span aria-hidden="true"> 🔥</span> : streak > 0 ? <span aria-hidden="true"> ⭐</span> : ''}
           </span>
         </div>

@@ -53,6 +53,7 @@ export default function AchievementUnlock({ achievements = [], onClose }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [visible, setVisible] = useState(false);
   const buttonRef = useRef(null);
+  const modalRef = useRef(null);
 
   // Open the modal whenever a non-empty list is received
   useEffect(() => {
@@ -62,14 +63,42 @@ export default function AchievementUnlock({ achievements = [], onClose }) {
     }
   }, [achievements]);
 
-  // Focus the action button when modal opens and handle Escape
+  // Focus trap + Escape handler when modal is open
   useEffect(() => {
-    if (visible) {
-      buttonRef.current?.focus();
-      const handleEscape = (e) => { if (e.key === 'Escape') { setVisible(false); onClose?.(); } };
-      document.addEventListener('keydown', handleEscape);
-      return () => document.removeEventListener('keydown', handleEscape);
+    if (!visible) return;
+    const modal = modalRef.current;
+    if (!modal) return;
+
+    // Focus the primary action button on open
+    buttonRef.current?.focus();
+
+    const focusableSelectors =
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') {
+        setVisible(false);
+        onClose?.();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+
+      const focusable = Array.from(modal.querySelectorAll(focusableSelectors));
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     }
+
+    modal.addEventListener('keydown', handleKeyDown);
+    return () => modal.removeEventListener('keydown', handleKeyDown);
   }, [visible, onClose]);
 
   const handleAdvance = () => {
@@ -126,16 +155,17 @@ export default function AchievementUnlock({ achievements = [], onClose }) {
       `}</style>
 
       <div
+        ref={modalRef}
         className="achievement-card bg-white rounded-3xl p-8 max-w-xs w-full text-center shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Icon */}
+        {/* Icon — role="img" with aria-label conveys the achievement type to screen readers */}
         <div
           className="text-6xl mb-3 animate-bounce inline-block"
           role="img"
           aria-label={name}
         >
-          {icon}
+          <span aria-hidden="true">{icon}</span>
         </div>
 
         {/* Shimmer label */}
@@ -180,7 +210,7 @@ export default function AchievementUnlock({ achievements = [], onClose }) {
           className="mt-2 w-full bg-[#5C8B5C] text-white rounded-2xl py-3 font-bold text-sm hover:bg-[#3D6B4F] active:scale-95 transition-all min-h-[48px]"
           aria-label={isLast ? 'Close achievements' : 'View next achievement'}
         >
-          {isLast ? 'Awesome! ⭐' : 'Next 🎉'}
+          {isLast ? <>Awesome! <span aria-hidden="true">⭐</span></> : <>Next <span aria-hidden="true">🎉</span></>}
         </button>
       </div>
     </div>

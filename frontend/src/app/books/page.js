@@ -112,7 +112,7 @@ function PreReadingScreen({ book, onReady }) {
       >
         {step === 1 ? (
           <>
-            <p className="mb-1 text-xs font-extrabold uppercase tracking-[0.18em] text-[#D4A843]">
+            <p className="mb-1 text-xs font-extrabold uppercase tracking-[0.18em] text-[#A8822E]">
               Step 1
             </p>
             <h3 className="mb-4 text-lg font-extrabold leading-snug text-[#3D2E1E]">
@@ -144,7 +144,7 @@ function PreReadingScreen({ book, onReady }) {
           </>
         ) : (
           <>
-            <p className="mb-1 text-xs font-extrabold uppercase tracking-[0.18em] text-[#D4A843]">
+            <p className="mb-1 text-xs font-extrabold uppercase tracking-[0.18em] text-[#A8822E]">
               Step 2
             </p>
             <h3 className="mb-4 text-lg font-extrabold leading-snug text-[#3D2E1E]">
@@ -485,7 +485,7 @@ export default function BooksPage() {
                         {exactVoiceMatch.coverEmoji || exactVoiceMatch.cover}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#D4A843]">Best Match</p>
+                        <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#A8822E]">Best Match</p>
                         <p className="mt-1 text-lg font-extrabold text-[#3D2E1E]">{exactVoiceMatch.title}</p>
                         <p className="text-sm font-semibold text-[#6B5744]">{exactVoiceMatch.author}</p>
                         <p className="mt-2 text-sm font-semibold text-[#6B5744]">{exactVoiceMatch.curiosityHook}</p>
@@ -606,7 +606,7 @@ export default function BooksPage() {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#D4A843]">
+                    <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#A8822E]">
                       Pick {index + 1}
                     </p>
                     <p className="mt-1 text-base font-extrabold text-[#3D2E1E]">{book.title}</p>
@@ -673,7 +673,7 @@ export default function BooksPage() {
                     {session.stage || 'Paused'} — tap to continue!
                   </p>
                 </div>
-                <div className="text-[#D4A843] text-xl flex-shrink-0" aria-hidden="true">
+                <div className="text-[#A8822E] text-xl flex-shrink-0" aria-hidden="true">
                   {resumingSessionId === session.id ? <LoadingSpinner /> : '→'}
                 </div>
               </button>
